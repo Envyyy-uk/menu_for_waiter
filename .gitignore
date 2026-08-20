@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.local
+*.db
+*.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+node_modules/
+.idea/
+.vscode/
+
+# Локальні налаштування інструментів — у репозиторії їм робити нічого
+.claude/
