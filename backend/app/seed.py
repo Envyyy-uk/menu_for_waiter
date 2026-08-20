@@ -67,6 +67,21 @@ def _menu(db: Session, venue: Venue, payload: dict) -> int:
     return len(seen)
 
 
+# Сколько столов в ряду на стартовом плане. Ровные ряды — это заготовка,
+# которую управляющий растащит под свой зал; без неё план открывается пустым
+# и непонятно, что с ним делать.
+PLAN_COLUMNS = 4
+
+
+def plan_spot(n: int) -> tuple[float, float]:
+    """Место n-го стола на стартовом плане, в процентах от зала."""
+    row, column = divmod(n, PLAN_COLUMNS)
+    return (
+        14 + column * (72 / max(1, PLAN_COLUMNS - 1)),
+        14 + row * 20,
+    )
+
+
 def _tables(db: Session, venue: Venue, count: int) -> int:
     have = {t.label for t in db.scalars(select(Table).where(Table.venue_id == venue.id)).all()}
     added = 0
@@ -74,7 +89,8 @@ def _tables(db: Session, venue: Venue, count: int) -> int:
         label = str(n)
         if label in have:
             continue
-        db.add(Table(venue_id=venue.id, label=label, zone="Зал", position=n))
+        x, y = plan_spot(n - 1)
+        db.add(Table(venue_id=venue.id, label=label, zone="Зал", position=n, x=x, y=y))
         added += 1
     return added
 

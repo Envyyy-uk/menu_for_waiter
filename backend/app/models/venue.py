@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -56,6 +56,13 @@ class Table(UUIDPk, Timestamped, Base):
     zone: Mapped[str] = mapped_column(String(40), default="Зал", server_default="Зал")
     seats: Mapped[int] = mapped_column(Integer, default=4, server_default="4")
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    # Место на плане зала, в долях от его ширины и высоты (0..100).
+    #
+    # Проценты, а не пиксели: план рисуют на ноутбуке, а смотрят на телефоне,
+    # и стол у окна должен остаться у окна на любом экране.
+    x: Mapped[float | None] = mapped_column(Float, default=None)
+    y: Mapped[float | None] = mapped_column(Float, default=None)
 
     # Непрозрачная строка под QR: пригодится, если гостю снова дадут меню.
     token: Mapped[str] = mapped_column(String(64), unique=True, default=new_table_token)

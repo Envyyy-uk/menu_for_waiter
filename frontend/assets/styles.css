@@ -871,3 +871,96 @@ select.field { appearance: none; }
 .sync .faint { font-size: 12.5px; color: var(--ink-faint); }
 .sync.bad { border-left-color: var(--danger); background: var(--danger-bg); }
 .sync.off { border-left-color: var(--ink-faint); }
+
+/* ==========================================================================
+   План зала
+
+   Один и тот же план в двух местах: управляющий его расставляет, официант по
+   нему работает. Координаты в процентах, поэтому зал, нарисованный на
+   ноутбуке, узнаётся на телефоне.
+   ========================================================================== */
+
+.plan {
+  position: relative;
+  width: 100%;
+  /* На широком экране план не растягивается во весь монитор: зал от этого
+     понятнее не становится, а до дальнего стола приходится тянуться мышью. */
+  max-width: 860px;
+  margin-inline: auto;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(var(--rule-soft) 1px, transparent 1px) 0 0 / 100% 10%,
+    linear-gradient(90deg, var(--rule-soft) 1px, transparent 1px) 0 0 / 10% 100%,
+    var(--paper-2);
+  overflow: hidden;
+  touch-action: none;          /* стол тащат пальцем, а не прокручивают зал */
+}
+
+.spot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 74px;
+  height: 74px;
+  margin: -37px 0 0 -37px;     /* координата — центр стола, а не угол */
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.15;
+}
+.spot .n { font-family: var(--serif); font-size: 22px; font-weight: 700; }
+.spot .seats { font-size: 10px; letter-spacing: .08em; color: var(--ink-faint); }
+.spot .sum {
+  font-family: var(--serif);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--gold);
+}
+.spot .who {
+  max-width: 68px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+/* Занятый стол — золотая обводка, как отчёркнутая позиция в меню. */
+.spot.busy  { border-color: var(--gold); border-width: 2px; }
+.spot.other { border-style: dashed; }
+.spot .flags { display: flex; gap: 3px; }
+
+/* Прямоугольный стол на четверых и больше — так план читается как зал,
+   а не как россыпь кружков. */
+.spot.wide { width: 96px; margin-left: -48px; border-radius: 40px; }
+
+.spot.dragging { z-index: 5; box-shadow: 0 8px 22px rgba(29, 26, 22, .3); }
+.plan.editing .spot { cursor: grab; }
+.plan.editing .spot:active { cursor: grabbing; }
+
+.plan-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.plan-bar .grow { flex: 1; }
+.plan-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-faint); }
+
+/* Зоны: у террасы свой план, и это правильно — она и в жизни отдельно. */
+.zones { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; }
+.zones::-webkit-scrollbar { display: none; }
+
+/* На телефоне план тот же, только столы мельче: иначе четыре в ряд
+   наезжают друг на друга и по ним нельзя попасть. */
+@media (max-width: 520px) {
+  .spot { width: 58px; height: 58px; margin: -29px 0 0 -29px; }
+  .spot.wide { width: 76px; margin-left: -38px; border-radius: 32px; }
+  .spot .n { font-size: 17px; }
+  .spot .sum { font-size: 11px; }
+  .spot .seats, .spot .who { font-size: 9px; }
+  .spot .who { max-width: 54px; }
+}

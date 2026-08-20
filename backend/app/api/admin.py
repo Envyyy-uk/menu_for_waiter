@@ -197,15 +197,20 @@ def reset_pin(
 
 
 # ----------------------------------------------------------------- столы ---
-def table_payload(table: Table, open_checks: int = 0) -> dict:
+def table_payload(table: Table, open_checks: int = 0, ever_used: bool = False) -> dict:
     return {
         "id": str(table.id),
         "label": table.label,
         "zone": table.zone,
         "seats": table.seats,
         "position": table.position,
+        "x": table.x,
+        "y": table.y,
         "active": table.active,
         "open_checks": open_checks,
+        # Стол, по которому были чеки, удалить нельзя — на него ссылается
+        # история. Кнопку прячем заранее, чтобы не предлагать невозможное.
+        "ever_used": ever_used,
     }
 
 
@@ -225,7 +230,13 @@ def tables(
             .group_by(Check.table_id)
         ).all()
     )
-    return [table_payload(t, counts.get(t.id, 0)) for t in rows]
+    used = {
+        row[0]
+        for row in db.execute(
+            select(Check.table_id).where(Check.venue_id == venue.id).distinct()
+        ).all()
+    }
+    return [table_payload(t, counts.get(t.id, 0), t.id in used) for t in rows]
 
 
 class TableIn(BaseModel):
@@ -233,6 +244,10 @@ class TableIn(BaseModel):
     zone: str = "Зал"
     seats: int = Field(default=4, ge=1, le=99)
     position: int = 0
+    # Место на плане в процентах от зала: план рисуют на ноутбуке, а смотрят
+    # на телефоне.
+    x: float | None = Field(default=None, ge=0, le=100)
+    y: float | None = Field(default=None, ge=0, le=100)
 
 
 @router.post("/tables", status_code=201)
@@ -253,6 +268,8 @@ def create_table(
         zone=body.zone.strip() or "Зал",
         seats=body.seats,
         position=body.position,
+        x=body.x,
+        y=body.y,
         token=new_table_token(),
     )
     db.add(table)
@@ -266,6 +283,8 @@ class TablePatch(BaseModel):
     seats: int | None = Field(default=None, ge=1, le=99)
     position: int | None = None
     active: bool | None = None
+    x: float | None = Field(default=None, ge=0, le=100)
+    y: float | None = Field(default=None, ge=0, le=100)
 
 
 @router.patch("/tables/{table_id}")
@@ -290,7 +309,16 @@ def edit_table(
             raise HTTPException(status_code=409, detail="на столе открыт чек")
 
     if body.label is not None:
-        table.label = body.label.strip()
+        label = body.label.strip()
+        if label != table.label:
+            twin = db.scalars(
+                select(Table).where(
+                    Table.venue_id == venue.id, Table.label == label, Table.id != table.id
+                )
+            ).first()
+            if twin is not None:
+                raise HTTPException(status_code=409, detail="стол с таким номером уже есть")
+        table.label = label
     if body.zone is not None:
         table.zone = body.zone.strip() or "Зал"
     if body.seats is not None:
@@ -299,8 +327,87 @@ def edit_table(
         table.position = body.position
     if body.active is not None:
         table.active = body.active
+    if body.x is not None:
+        table.x = body.x
+    if body.y is not None:
+        table.y = body.y
     db.commit()
+    _plan_changed()
     return table_payload(table)
+
+
+class Spot(BaseModel):
+    id: uuid.UUID
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+    zone: str | None = None
+
+
+class PlanIn(BaseModel):
+    tables: list[Spot]
+
+
+@router.post("/tables/plan")
+def save_plan(
+    body: PlanIn,
+    actor: User = Depends(require("tables.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> list[dict]:
+    """Сохранить расстановку целиком, одним запросом.
+
+    Именно целиком: пока стол тащат пальцем, он меняет место сто раз, и сто
+    запросов по дороге — это сто шансов оставить план наполовину сохранённым.
+    """
+    known = {
+        t.id: t for t in db.scalars(select(Table).where(Table.venue_id == venue.id)).all()
+    }
+    for spot in body.tables:
+        table = known.get(spot.id)
+        if table is None:
+            continue
+        table.x = spot.x
+        table.y = spot.y
+        if spot.zone:
+            table.zone = spot.zone.strip() or table.zone
+    db.commit()
+    _plan_changed()
+    return [table_payload(t) for t in known.values()]
+
+
+@router.delete("/tables/{table_id}")
+def remove_table(
+    table_id: uuid.UUID,
+    actor: User = Depends(require("tables.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Убрать стол насовсем — только если по нему никогда не было чеков.
+
+    Иначе история потеряет стол, на который ссылается: закрытый чек должен
+    знать, где сидели. Такой стол выключают, а не удаляют.
+    """
+    table = db.get(Table, table_id)
+    if table is None or table.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="стол не найден")
+    used = db.scalars(select(Check).where(Check.table_id == table.id)).first()
+    if used is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="по столу были чеки — его можно выключить, но не удалить",
+        )
+    db.delete(table)
+    db.commit()
+    _plan_changed()
+    return {"status": "ok"}
+
+
+def _plan_changed() -> None:
+    """Официанты видят новую расстановку сразу — план меняют перед сменой,
+    и бегать перезапускать телефоны в этот момент некому."""
+    from app.services import realtime
+
+    realtime.publish(realtime.CHANNEL_ALL, {"type": "tables.changed"})
 
 
 # ------------------------------------------------------------------ меню ---

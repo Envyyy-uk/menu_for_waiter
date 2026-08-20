@@ -7,7 +7,7 @@
    а он врёт.
    ========================================================================== */
 
-const VERSION = 'zal-2';
+const VERSION = 'zal-3';
 const SHELL = [
   '/',
   '/assets/styles.css',
@@ -17,6 +17,7 @@ const SHELL = [
   '/assets/push.js',
   '/assets/live.js',
   '/assets/sound.js',
+  '/assets/plan.js',
   '/assets/sheets.js',
   '/assets/waiter.js',
   '/assets/pwa.js',

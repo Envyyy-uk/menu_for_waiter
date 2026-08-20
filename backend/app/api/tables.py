@@ -49,6 +49,8 @@ def tables(
                 "label": table.label,
                 "zone": table.zone,
                 "seats": table.seats,
+                "x": table.x,
+                "y": table.y,
                 "checks": [
                     {
                         "id": str(c.id),

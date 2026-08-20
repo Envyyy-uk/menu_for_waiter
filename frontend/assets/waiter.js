@@ -34,6 +34,7 @@ const App = {
         .on('ticket.ready', d => this.onReady(d))
         .on('menu.state', () => this.reloadMenu())
         .on('menu.changed', () => this.reloadMenu())
+        .on('tables.changed', () => this.refresh())
         .on('resync', () => this.refresh(true));
     Live.onLink = up => { if (up) this.refresh(); };
     Live.start();
@@ -138,19 +139,62 @@ const App = {
   },
 
   /* ----------------------------------------------------------- столы ---- */
+  /* Зал показывается планом, а не списком: стол ищут глазами по залу, а не
+     по номеру в столбик. Если расстановки ещё нет — сетка, чтобы работать
+     можно было с первой минуты. */
   tablesView() {
     const wrap = el('div', 'screen');
     wrap.appendChild(this.signalRow());
+
     const zones = {};
-    this.tables.forEach(t => (zones[t.zone] = zones[t.zone] || []).push(t));
+    this.tables.forEach(t => (zones[t.zone || 'Зал'] = zones[t.zone || 'Зал'] || []).push(t));
 
     Object.entries(zones).forEach(([zone, tables]) => {
       wrap.appendChild(el('div', 'zone-title', esc(zone)));
-      const grid = el('div', 'tables');
-      tables.forEach(t => grid.appendChild(this.tile(t)));
-      wrap.appendChild(grid);
+      const placed = tables.some(t => t.x !== null && t.x !== undefined);
+      if (placed) {
+        const field = el('div', 'plan');
+        tables.forEach((t, n) => field.appendChild(this.spot(t, n)));
+        wrap.appendChild(field);
+      } else {
+        const grid = el('div', 'tables');
+        tables.forEach(t => grid.appendChild(this.tile(t)));
+        wrap.appendChild(grid);
+      }
     });
     return wrap;
+  },
+
+  spot(table, index) {
+    const checks = table.checks;
+    const sum = checks.reduce((n, c) => n + c.total_pence, 0);
+    const mine = checks.some(c => c.mine);
+    const busy = checks.length > 0;
+
+    const node = el('button', 'spot'
+      + (table.seats >= 4 ? ' wide' : '')
+      + (busy ? (mine ? ' busy' : ' busy other') : ''));
+    node.type = 'button';
+
+    const flags = [...new Set(checks.flatMap(c => {
+      const marks = Object.values(c.stations || {});
+      if (c.has_draft) marks.push('draft');
+      return marks;
+    }))];
+
+    node.innerHTML = `<span class="n">${esc(table.label)}</span>`
+      + (busy
+        ? `<span class="sum">${money(sum)}</span>`
+          + `<span class="who">${esc(checks[0].waiter || '')}</span>`
+        : `<span class="seats">${table.seats} ${plural(table.seats, 'место', 'места', 'мест')}</span>`)
+      + (flags.length ? `<span class="flags">${flags.map(f => `<i class="flag ${esc(f)}"></i>`).join('')}</span>` : '');
+
+    // Без этого все столы лежат в левом верхнем углу друг на друге: сетка
+    // зала есть, расстановки нет.
+    Plan.place(node, Plan.spot(table, index));
+
+    node.addEventListener('click', () => this.tapTable(table));
+    return node;
   },
 
   /* Разрешение на уведомления спрашивается по кнопке, а не при запуске:

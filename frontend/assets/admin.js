@@ -9,6 +9,7 @@
 const Admin = {
   me: null,
   tab: 'report',
+  zone: 'Зал',
   data: {},
 
   TABS: [
@@ -211,56 +212,192 @@ const Admin = {
   },
 
   /* ------------------------------------------------------------ столы --- */
+  /* Зал расставляется мышью, а не таблицей координат. Официант потом видит
+     ровно эту картинку, поэтому и рисовать её должен тот, кто зал знает. */
   view_tables() {
     const wrap = el('div', 'panel');
-    wrap.appendChild(el('h2', '', 'Столы'));
+    wrap.appendChild(el('h2', '', 'Расстановка столов'));
     wrap.appendChild(el('p', 'hint',
-      'Стол с открытым чеком выключить нельзя: чек повиснет в никуда, и денег '
-      + 'за него никто не возьмёт.'));
+      'Перетащите столы так, как они стоят в зале. Нажмите на стол, чтобы '
+      + 'поменять номер, число мест или убрать его. Официант видит эту же '
+      + 'картинку — и находит стол глазами, а не по списку.'));
 
-    const form = el('div', 'form');
-    const fields = el('div', 'line-fields');
-    const label = el('input', 'field');
-    label.placeholder = 'Номер';
-    const zone = el('input', 'field');
-    zone.placeholder = 'Зона (Зал, Терраса…)';
-    zone.value = 'Зал';
-    const seats = el('input', 'field');
-    seats.type = 'number';
-    seats.value = '4';
-    seats.min = '1';
-    fields.append(label, zone, seats);
-    form.appendChild(fields);
+    const zones = Plan.zones(this.data.tables);
+    if (!zones.includes(this.zone)) this.zone = zones[0];
 
+    if (zones.length > 1) {
+      const row = el('div', 'zones');
+      zones.forEach(zone => {
+        const chip = el('button', 'chip' + (zone === this.zone ? ' on' : ''), esc(zone));
+        chip.addEventListener('click', () => { this.zone = zone; this.load(); });
+        row.appendChild(chip);
+      });
+      wrap.appendChild(row);
+    }
+
+    const field = el('div', 'plan editing');
+    const mine = Plan.inZone(this.data.tables, this.zone);
+    mine.forEach((table, n) => field.appendChild(this.spot(field, table, n)));
+    if (!mine.length) {
+      field.appendChild(el('p', 'plan-hint',
+        '<span style="position:absolute;left:0;right:0;top:44%;text-align:center">'
+        + 'В этой зоне пока нет столов</span>'));
+    }
+    wrap.appendChild(field);
+
+    const bar = el('div', 'plan-bar');
     const add = el('button', 'btn primary', 'Добавить стол');
-    add.addEventListener('click', async () => {
-      if (!label.value.trim()) return toast('Впишите номер', 'bad');
-      try {
-        await API.post('/api/admin/tables', {
-          label: label.value.trim(),
-          zone: zone.value.trim() || 'Зал',
-          seats: Number(seats.value) || 4,
-          position: Number(label.value) || 0
-        });
-        label.value = '';
-        this.load();
-      } catch (e) { toast(e.message, 'bad'); }
-    });
-    form.appendChild(add);
-    wrap.appendChild(form);
+    add.addEventListener('click', () => this.addTable(mine));
+    bar.appendChild(add);
 
-    wrap.appendChild(this.table(
-      ['Стол', 'Зона', 'Мест', 'Открытых чеков', ''],
-      this.data.tables.map(t => [
-        esc(t.label),
-        esc(t.zone),
-        { num: t.seats },
-        { num: t.open_checks || '' },
-        { actions: this.tableActions(t) }
-      ]),
-      this.data.tables.map(t => (t.active ? '' : 'off'))
-    ));
+    const addZone = el('button', 'btn', 'Новая зона');
+    addZone.addEventListener('click', () => this.addZone());
+    bar.appendChild(addZone);
+
+    bar.appendChild(el('span', 'grow'));
+    bar.appendChild(el('span', 'muted',
+      `${mine.length} ${plural(mine.length, 'стол', 'стола', 'столов')}`
+      + ` · ${mine.reduce((n, t) => n + t.seats, 0)} мест`));
+    wrap.appendChild(bar);
+
+    const off = this.data.tables.filter(t => !t.active);
+    if (off.length) {
+      wrap.appendChild(el('h2', '', 'Выключенные'));
+      wrap.appendChild(el('p', 'hint',
+        'Не показываются официанту, но остаются в истории.'));
+      wrap.appendChild(this.table(
+        ['Стол', 'Зона', 'Мест', ''],
+        off.map(t => [esc(t.label), esc(t.zone), { num: t.seats },
+                      { actions: this.tableActions(t) }]),
+        off.map(() => 'off')
+      ));
+    }
     return wrap;
+  },
+
+  spot(field, table, index) {
+    const node = el('button', 'spot' + (table.seats >= 4 ? ' wide' : ''));
+    node.type = 'button';
+    node.dataset.tap = '1';
+    node.innerHTML = `<span class="n">${esc(table.label)}</span>
+      <span class="seats">${table.seats} ${plural(table.seats, 'место', 'места', 'мест')}</span>`;
+    Plan.place(node, Plan.spot(table, index));
+
+    Plan.drag(field, node, async spot => {
+      try {
+        await API.post('/api/admin/tables/plan', {
+          tables: [{ id: table.id, x: spot.x, y: spot.y, zone: this.zone }]
+        });
+        table.x = spot.x;
+        table.y = spot.y;
+      } catch (e) { toast(e.message, 'bad'); this.load(); }
+    });
+    node.addEventListener('plan-tap', () => this.editTable(table));
+    return node;
+  },
+
+  editTable(table) {
+    Sheet.show('Стол ' + esc(table.label), esc(table.zone), body => {
+      const fields = el('div', 'line-fields');
+      const label = el('input', 'field');
+      label.value = table.label;
+      label.placeholder = 'Номер';
+      const seats = el('input', 'field');
+      seats.type = 'number';
+      seats.min = '1';
+      seats.value = table.seats;
+      fields.append(label, seats);
+      body.appendChild(fields);
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Сохранить');
+      save.addEventListener('click', async () => {
+        Sheet.hide();
+        try {
+          await API.patch(`/api/admin/tables/${table.id}`, {
+            label: label.value.trim() || table.label,
+            seats: Number(seats.value) || table.seats
+          });
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(save);
+      body.appendChild(el('div', '', '<div style="height:8px"></div>'));
+
+      // Стол, по которому были чеки, удалить нельзя: закрытый чек должен
+      // знать, где сидели. Такой выключают.
+      const kill = el('button', 'btn wide big danger',
+        table.ever_used ? 'Выключить стол' : 'Убрать стол');
+      kill.addEventListener('click', async () => {
+        Sheet.hide();
+        try {
+          if (table.ever_used) {
+            await API.patch(`/api/admin/tables/${table.id}`, { active: false });
+          } else {
+            await API.del(`/api/admin/tables/${table.id}`);
+          }
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(kill);
+    });
+  },
+
+  addTable(existing) {
+    // Номер предлагаем следующий по счёту: чаще всего он и нужен, а спорить
+    // с подсказкой дешевле, чем вспоминать, какой был последним.
+    const numbers = this.data.tables.map(t => parseInt(t.label, 10)).filter(n => !isNaN(n));
+    const next = String((numbers.length ? Math.max(...numbers) : 0) + 1);
+
+    Sheet.show('Новый стол', esc(this.zone), body => {
+      const fields = el('div', 'line-fields');
+      const label = el('input', 'field');
+      label.value = next;
+      label.placeholder = 'Номер';
+      const seats = el('input', 'field');
+      seats.type = 'number';
+      seats.min = '1';
+      seats.value = '4';
+      fields.append(label, seats);
+      body.appendChild(fields);
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+      const ok = el('button', 'btn wide big primary', 'Поставить в зал');
+      ok.addEventListener('click', async () => {
+        Sheet.hide();
+        const spot = Plan.spot({}, existing.length);
+        try {
+          await API.post('/api/admin/tables', {
+            label: label.value.trim() || next,
+            zone: this.zone,
+            seats: Number(seats.value) || 4,
+            position: existing.length + 1,
+            x: spot.x,
+            y: spot.y
+          });
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(ok);
+    });
+  },
+
+  addZone() {
+    Sheet.show('Новая зона', 'Терраса, второй зал, летник', body => {
+      const name = el('input', 'field');
+      name.placeholder = 'Название зоны';
+      body.appendChild(name);
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+      const ok = el('button', 'btn wide big primary', 'Создать и добавить стол');
+      ok.addEventListener('click', () => {
+        const zone = name.value.trim();
+        if (!zone) return toast('Впишите название', 'bad');
+        Sheet.hide();
+        this.zone = zone;
+        this.addTable([]);
+      });
+      body.appendChild(ok);
+    });
   },
 
   tableActions(table) {
