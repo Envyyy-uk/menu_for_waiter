@@ -964,3 +964,18 @@ select.field { appearance: none; }
   .spot .seats, .spot .who { font-size: 9px; }
   .spot .who { max-width: 54px; }
 }
+
+/* Шапка чека: сведения слева, «ещё чек» справа — компания за столом делится,
+   и второй чек нужен прямо отсюда. */
+.check-head { display: flex; align-items: flex-start; gap: 10px; margin: 4px 2px 12px; }
+.check-head .muted { flex: 1; font-size: 13px; }
+.check-head .split {
+  flex: none;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--rule);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--gold);
+}

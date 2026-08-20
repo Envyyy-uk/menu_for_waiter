@@ -306,12 +306,21 @@ const App = {
     const wrap = el('div', 'screen');
     if (!c) return wrap;
 
-    const head = el('div', 'muted');
-    head.style.margin = '4px 4px 12px';
-    head.innerHTML = `${c.guests} ${plural(c.guests, 'гость', 'гостя', 'гостей')}`
+    const head = el('div', 'check-head');
+    const meta = el('div', 'muted');
+    meta.innerHTML = `${c.guests} ${plural(c.guests, 'гость', 'гостя', 'гостей')}`
       + ` · открыт ${esc(since(c.opened_at))} назад`
       + (c.waiter ? ` · ${esc(c.waiter)}` : '')
       + (c.comment ? `<br><span style="color:var(--warn)">${esc(c.comment)}</span>` : '');
+    head.appendChild(meta);
+
+    // Компания за столом делится, и второй чек нужен прямо отсюда. Через
+    // сетку столов его не открыть: занятый стол сразу показывает свой чек,
+    // и это правильно — так быстрее в девяти случаях из десяти.
+    const split = el('button', 'btn ghost split', '+ ещё чек');
+    split.addEventListener('click', () =>
+      this.askGuests({ id: c.table_id, label: c.table }));
+    head.appendChild(split);
     wrap.appendChild(head);
 
     if (!c.items.length) {

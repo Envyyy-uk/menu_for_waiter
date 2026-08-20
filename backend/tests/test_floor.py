@@ -184,3 +184,48 @@ def test_waiter_sees_what_is_waiting_and_takes_it(client, hall):
     # Отданное уходит с планшета: это уже не работа.
     login(client, "2222")
     assert client.get("/api/station/queue").json()["tickets"] == []
+
+
+def test_each_table_opens_its_own_check(client, db, venue, hall):
+    """Два занятых стола — и каждый открывает свой чек.
+
+    Ошибиться здесь означает принести заказ не туда и закрыть чужой чек.
+    """
+    login(client, "1111")
+    first = open_check(client, hall)
+    add(client, first["id"], hall["mojito"])
+
+    second_table = table_id(db, venue, "2")
+    second = client.post(
+        "/api/checks", json={"table_id": second_table, "guests": 4}
+    ).json()
+    add(client, second["id"], hall["pizza"])
+
+    assert first["id"] != second["id"]
+    assert first["number"] != second["number"]
+
+    tables = {t["id"]: t for t in client.get("/api/tables").json()}
+    assert [c["id"] for c in tables[hall["table"]]["checks"]] == [first["id"]]
+    assert [c["id"] for c in tables[second_table]["checks"]] == [second["id"]]
+
+    # И суммы не перепутаны: у каждого стола своя.
+    assert tables[hall["table"]]["checks"][0]["total_pence"] == 1600
+    assert tables[second_table]["checks"][0]["total_pence"] == 1300
+
+    one = client.get(f"/api/checks/{first['id']}").json()
+    two = client.get(f"/api/checks/{second['id']}").json()
+    assert [i["name"] for i in one["items"]] == ["Mojito"]
+    assert [i["name"] for i in two["items"]] == ["Margherita Pizza"]
+
+
+def test_one_table_can_hold_two_checks(client, hall):
+    """Компания разделилась — и угадывать за официанта, какой чек он
+    открывает, нельзя."""
+    login(client, "1111")
+    first = open_check(client, hall)
+    second = open_check(client, hall, guests=3)
+    assert first["id"] != second["id"]
+
+    tables = {t["id"]: t for t in client.get("/api/tables").json()}
+    numbers = sorted(c["number"] for c in tables[hall["table"]]["checks"])
+    assert numbers == sorted([first["number"], second["number"]])

@@ -105,6 +105,30 @@ def main() -> None:
               page.locator(".totals").inner_text())
         check("черновик помечен", page.locator(".line.draft").count() == 2)
 
+        # Компания за столом делится — второй чек нужен прямо отсюда.
+        page.get_by_role("button", name="+ ещё чек").click()
+        page.wait_for_timeout(500)
+        check("второй чек на столе спрашивают", page.locator(".sheet").is_visible())
+        page.get_by_role("button", name="Открыть стол").click()
+        page.wait_for_timeout(900)
+        # Новый чек открывается сразу на меню — набирать начинают тут же.
+        page.get_by_role("button", name="К чеку").click()
+        page.wait_for_timeout(600)
+        check("второй чек открылся пустым", page.locator(".line").count() == 0,
+              str(page.locator(".line").count()))
+        page.get_by_role("button", name="←").click()
+        page.wait_for_timeout(700)
+        busy = page.locator(f":is(.spot, .tile):has(:is(.n, .num):text-is('{label}'))")
+        busy.click()
+        page.wait_for_timeout(600)
+        check("стол с двумя чеками спрашивает, какой открыть",
+              page.locator(".sheet .btn").count() >= 3,
+              str(page.locator(".sheet .btn").count()))
+        page.locator(".sheet .btn").first.click()
+        page.wait_for_timeout(800)
+        check("вернулись в первый чек", page.locator(".line").count() == 2,
+              str(page.locator(".line").count()))
+
         page.get_by_role("button", name="Отправить").click()
         page.wait_for_timeout(900)
         check("после отправки черновиков нет", page.locator(".line.draft").count() == 0)
@@ -122,9 +146,19 @@ def main() -> None:
         page.wait_for_timeout(1200)
 
         check("вернулись к столам", page.locator(HALL).count() > 0)
+        # На столе оставался второй чек — значит, закрылся ровно один, а стол
+        # остаётся занятым. Пустая сумма показывает, что закрылся именно
+        # первый, с позициями.
         tile = page.locator(f":is(.spot, .tile):has(:is(.n, .num):text-is('{label}'))")
-        check("стол снова свободен", "busy" not in (tile.get_attribute("class") or ""),
-              tile.get_attribute("class") or "")
+        check("закрылся ровно один чек, стол остался с пустым вторым",
+              "busy" in (tile.get_attribute("class") or "")
+              and "£0.00" in tile.inner_text(),
+              tile.inner_text().replace("\n", " "))
+
+        tile.click()
+        page.wait_for_timeout(700)
+        check("оставшийся чек открывается без вопроса", page.locator(".sheet").count() == 0)
+        page.get_by_role("button", name="Оплата").count()  # его нечем закрывать: он пуст
 
         check("ошибок в консоли нет", not errors, "; ".join(errors[:3]))
         browser.close()

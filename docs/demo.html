@@ -445,6 +445,16 @@ h1 {
 
 /* -------------------------------------------------------------- чек ---- */
 .meta { margin: 0 0 10px; font-size: 12.5px; color: var(--app-soft); }
+.check-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.check-head .meta { flex: 1; margin: 0; }
+.check-head .split {
+  flex: none;
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--app-gold);
+}
 .line { display: flex; gap: 9px; padding: 10px 2px; border-bottom: 1px solid var(--app-hair); }
 .line .q {
   min-width: 26px;
@@ -684,7 +694,6 @@ h1 {
   * { animation: none !important; transition: none !important; }
 }
 </style>
-
 <div class="wrap">
 
   <header class="masthead">
@@ -694,7 +703,7 @@ h1 {
       Слева телефон официанта, справа планшет бара. Это не картинки —
       нажимайте: заказ, отправленный на телефоне, <b>появляется на планшете
       сразу</b>, а «Готово» на планшете возвращается официанту сигналом.
-      Оформление взято из печатного меню заведения: бумага, золото, антиква.
+      Столов можно занять несколько, у каждого свой чек.
     </p>
   </header>
 
@@ -711,6 +720,7 @@ h1 {
           <b>Телефон</b> официанта
           <span class="switch">
             <button type="button" id="theme-phone">Ночь</button>
+            <button type="button" id="reset">Заново</button>
           </span>
         </div>
         <div class="screen" id="phone"></div>
@@ -734,10 +744,10 @@ h1 {
     <div class="note">
       <h3>Что здесь настоящее</h3>
       <p>Цены, названия и варианты — из того же каталога, что печатается в
-        гостевом меню. Кальян со сменой листа, два микса к водке одной строкой,
+        гостевом меню. Кальян со сменой листа, миксы с названием напитка,
         разделение бара и кухни — всё как в рабочей версии.</p>
-      <p>В зале это работает на сервере заведения: чек живёт в базе, планшет и
-        телефон видят одно и то же состояние, а не свои копии.</p>
+      <p>Столы независимы: займите второй, пока первый ещё в работе, — у
+        каждого свой чек, свои позиции и своя сумма.</p>
     </div>
     <div class="note">
       <h3>Чего в демо нет</h3>
@@ -745,14 +755,16 @@ h1 {
         сигнал идёт по медиаканалу — его слышно при выключенном звонке — и
         повторяется каждые четыре секунды, пока официант не нажал «Забрал».</p>
       <p>Нет входа по личному PIN каждого сотрудника, push при свёрнутом
-        приложении, отчёта по смене и журнала. Всё это есть в рабочей версии.</p>
+        приложении, отчёта по смене, склада и журнала. Всё это есть в рабочей
+        версии.</p>
     </div>
     <div class="note">
-      <h3>Попробуйте сломать</h3>
-      <p>Отправьте заказ и нажмите «Готово» только на баре — кухня останется в
-        работе, и стол это покажет. Переключитесь на <b>Админку</b> и перетащите
-        стол: телефон официанта тут же покажет зал по-новому.</p>
-      <p>Нажмите «Ночь» на телефоне — то же оформление при другом свете.</p>
+      <h3>Что стоит попробовать</h3>
+      <p>Займите два стола подряд и убедитесь, что чеки не перепутались.
+        Отправьте заказ и нажмите «Готово» только на баре — кухня останется в
+        работе, и стол это покажет.</p>
+      <p>Переключитесь на <b>Админку</b> и перетащите стол: телефон официанта
+        тут же покажет зал по-новому. Кнопка <b>Заново</b> сбрасывает смену.</p>
     </div>
   </section>
 
@@ -760,8 +772,15 @@ h1 {
 
 <script>
 /* ==========================================================================
-   Демо. Состояние одно на оба экрана — как и в рабочей версии, где источник
-   правды один: сервер. Здесь его роль играет объект `S`.
+   Демо.
+
+   Состояние одно на оба экрана — как и в рабочей версии, где источник правды
+   один: сервер. Здесь его роль играет объект `S`.
+
+   Главное, что здесь моделируется честно: **чеков много**. Стол — не
+   переключатель одного заказа, а место, где может стоять свой чек, пока за
+   соседним столом идёт другой. Ошибиться в этом означает принести заказ не
+   туда и закрыть чужой чек.
    ========================================================================== */
 
 const MENU = [
@@ -780,8 +799,7 @@ const MENU = [
       { k: 'kind', l: 'Вид', req: true, ch: [
         { k: 'absolut', n: 'Absolut' }, { k: 'stoli', n: 'Stoli' } ] },
       // Микс называет конкретный напиток: «микс» без названия — такая же
-      // загадка для бармена, как «мохито» без вкуса. Список тот же, что в
-      // софт-дринках каталога; горячее в стакан с виски не льют.
+      // загадка для бармена, как «мохито» без вкуса.
       { k: 'mixer', l: 'Микс', req: false, many: true, max: 4, prefix: 'Микс', ch: [
         { k: 'cola', n: 'Cola', add: 300 }, { k: 'sprite', n: 'Sprite', add: 300 },
         { k: 'fanta', n: 'Fanta', add: 300 },
@@ -804,6 +822,11 @@ const MENU = [
         { k: 'apple', n: 'Яблоко' }, { k: 'lemon', n: 'Лимон' },
         { k: 'grape', n: 'Грейпфрут' } ] }
     ] },
+  { k: 'soft',      n: 'Soft Drinks / Juices', p: 500, c: 'Безалкогольное', st: 'bar',
+    d: 'Газированные напитки и соки', find: 'кола сок сприт фанта',
+    o: [ { k: 'kind', l: 'Вид', req: true, ch: [
+      { k: 'cola', n: 'Cola' }, { k: 'sprite', n: 'Sprite' },
+      { k: 'orange', n: 'Апельсиновый сок' } ] } ] },
   { k: 'tea',       n: 'Tea Pot',           p: 1000, c: 'Горячее',  st: 'bar',
     d: 'Чайник чая', find: 'чай',
     o: [ { k: 'kind', l: 'Вид', req: true, ch: [
@@ -815,7 +838,7 @@ const MENU = [
     d: 'Томатный соус, моцарелла и пепперони', find: 'пепперони пицца' },
   { k: 'pelmeni',   n: 'Pelmeni',           p: 1500, c: 'Кухня',    st: 'kitchen',
     d: 'Говядина и свинина, подаются со сметаной', find: 'пельмени' },
-  { k: 'fruit',     n: 'Fruit Plate',       p: 2000, c: 'Кухня',    st: 'kitchen',
+  { k: 'fruitplate', n: 'Fruit Plate',      p: 2000, c: 'Кухня',    st: 'kitchen',
     d: 'Свежие сезонные фрукты', find: 'фрукты тарелка' },
   { k: 'cheese',    n: 'Classic Cheesecake', p: 900, c: 'Кухня',    st: 'kitchen',
     d: 'Классический сливочный чизкейк', find: 'чизкейк' }
@@ -823,26 +846,31 @@ const MENU = [
 
 const STATION = { bar: 'Бар', kitchen: 'Кухня' };
 
-const S = {
-  screen: 'pin',
-  pin: '',
-  right: 'station',
-  night: false,
-  seq: 41,
-  order: 0,
-  tables: [
-    { id: 1, x: 14, y: 16 }, { id: 2, x: 38, y: 16 }, { id: 3, x: 62, y: 16 }, { id: 4, x: 86, y: 16 },
-    { id: 5, x: 14, y: 44 }, { id: 6, x: 38, y: 44 }, { id: 7, x: 62, y: 44 }, { id: 8, x: 86, y: 44 },
-    { id: 9, x: 14, y: 74 }, { id: 10, x: 38, y: 74 }, { id: 11, x: 62, y: 74 }, { id: 12, x: 86, y: 74 }
-  ],
-  check: null,        // { n, table, guests, items: [] }
-  tickets: [],        // { id, station, status, order, table, check, items, at }
-  waiting: [],        // марки, готовые к выдаче
-  filter: { text: '', cat: null },
-  sheet: null,
-  toast: null,
-  step: 1
-};
+const PLAN = [
+  { id: 1, x: 14, y: 16 }, { id: 2, x: 38, y: 16 }, { id: 3, x: 62, y: 16 }, { id: 4, x: 86, y: 16 },
+  { id: 5, x: 14, y: 44 }, { id: 6, x: 38, y: 44 }, { id: 7, x: 62, y: 44 }, { id: 8, x: 86, y: 44 },
+  { id: 9, x: 14, y: 74 }, { id: 10, x: 38, y: 74 }, { id: 11, x: 62, y: 74 }, { id: 12, x: 86, y: 74 }
+];
+
+let S;
+function fresh(keepPlan) {
+  const plan = keepPlan && S ? S.tables : PLAN.map(t => ({ ...t }));
+  S = {
+    screen: 'pin',
+    pin: '',
+    right: S ? S.right : 'station',
+    night: S ? S.night : false,
+    seq: 41,
+    tables: plan,
+    checks: [],          // {id, n, table, guests, items: [], order}
+    openId: null,        // какой чек сейчас открыт
+    tickets: [],         // {id, checkId, station, status, order, table, check, items, at}
+    filter: { text: '', cat: null },
+    sheet: null,
+    toast: null
+  };
+}
+fresh();
 
 const money = p => '£' + (p / 100).toFixed(2);
 const esc = s => String(s == null ? '' : s)
@@ -853,6 +881,14 @@ const plural = (n, a, b, c) => {
   if (y > 1 && y < 5) return b;
   return y === 1 ? a : c;
 };
+
+/* ------------------------------------------------------------- выборки -- */
+const openCheck = () => S.checks.find(c => c.id === S.openId) || null;
+const checksAt = id => S.checks.filter(c => c.table === id);
+const totalOf = c => c.items.reduce((n, i) => n + i.price * i.qty, 0);
+const ticketsOf = c => S.tickets.filter(t => t.checkId === c.id);
+const waiting = () => S.tickets.filter(t => t.status === 'ready');
+const live = () => S.tickets.filter(t => t.status !== 'served');
 
 /* --------------------------------------------------------------- звук --- */
 /* Три восходящих тона — тот же рисунок, что в приложении. Контекст
@@ -877,6 +913,8 @@ function beep() {
 }
 
 /* -------------------------------------------------------------- шаги ---- */
+/* Шаг не хранится, а выводится из состояния: иначе он врёт, стоит нажать
+   что-нибудь не по порядку — а именно так демо и трогают. */
 const STEPS = [
   ['Вход по PIN', 'Наберите 1111'],
   ['Открыть стол', 'Нажмите свободный стол на плане'],
@@ -887,15 +925,27 @@ const STEPS = [
   ['Закрыть чек', 'Карта или наличные']
 ];
 
+function step() {
+  if (S.screen === 'pin') return 1;
+  if (waiting().length) return 6;
+  const c = openCheck();
+  if (!c) return S.checks.length ? 7 : 2;
+  if (!c.items.length) return 3;
+  if (c.items.some(i => i.status === 'draft')) return 4;
+  if (ticketsOf(c).some(t => t.status !== 'served')) return 5;
+  return 7;
+}
+
 function paintSteps() {
   const box = document.getElementById('steps');
+  const now = step();
   box.querySelectorAll('.step').forEach(n => n.remove());
   STEPS.forEach(([name, hint], i) => {
     const n = i + 1;
     const node = document.createElement('div');
-    node.className = 'step' + (n === S.step ? ' on' : n < S.step ? ' done' : '');
+    node.className = 'step' + (n === now ? ' on' : n < now ? ' done' : '');
     node.innerHTML = `<span class="no">${n}</span>
-      <span>${esc(name)}${n === S.step ? `<small>${esc(hint)}</small>` : ''}</span>`;
+      <span>${esc(name)}${n === now ? `<small>${esc(hint)}</small>` : ''}</span>`;
     box.appendChild(node);
   });
 }
@@ -921,17 +971,15 @@ function phoneHTML() {
 
   if (S.screen === 'tables') {
     const spots = S.tables.map(t => {
-      const busy = S.check && S.check.table === t.id;
-      const sum = busy ? total(S.check) : 0;
-      const flags = busy ? marksFor(t.id) : [];
-      return `<button type="button" class="spot${busy ? ' busy' : ''}" data-table="${t.id}"
+      const mine = checksAt(t.id);
+      const sum = mine.reduce((n, c) => n + totalOf(c), 0);
+      return `<button type="button" class="spot${mine.length ? ' busy' : ''}" data-table="${t.id}"
         style="left:${t.x}%;top:${t.y}%">
         <span class="n">${t.id}</span>
-        ${busy
+        ${mine.length
           ? `<span class="sum">${money(sum)}</span>`
           : '<span class="s">4 места</span>'}
-        ${flags.length ? `<span class="flags">${flags.map(f =>
-          `<i class="flag-${f}"></i>`).join('')}</span>` : ''}
+        ${flagsFor(t.id)}
       </button>`;
     }).join('');
 
@@ -939,6 +987,9 @@ function phoneHTML() {
       ${readyHTML()}
       <div class="zone">Зал</div>
       <div class="plan">${spots}</div>
+      ${S.checks.length ? `<p class="meta" style="margin-top:12px">Открыто
+        ${S.checks.length} ${plural(S.checks.length, 'чек', 'чека', 'чеков')}
+        на ${money(S.checks.reduce((n, c) => n + totalOf(c), 0))}</p>` : ''}
     </div>`;
   }
 
@@ -949,13 +1000,14 @@ function phoneHTML() {
       (!S.filter.cat || i.c === S.filter.cat) &&
       (!text || i.n.toLowerCase().includes(text) || (i.find || '').includes(text) ||
        i.d.toLowerCase().includes(text)));
+    const c = openCheck();
 
-    return bar('Меню', true) + `<div class="view">
+    return bar(`Меню · стол ${c ? c.table : ''}`, true) + `<div class="view">
       <input class="find" id="find" placeholder="Найти позицию" value="${esc(S.filter.text)}">
       <div class="chips">
         <button type="button" class="chip${S.filter.cat ? '' : ' on'}" data-cat="">Всё</button>
-        ${cats.map(c => `<button type="button" class="chip${S.filter.cat === c ? ' on' : ''}"
-          data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+        ${cats.map(c2 => `<button type="button" class="chip${S.filter.cat === c2 ? ' on' : ''}"
+          data-cat="${esc(c2)}">${esc(c2)}</button>`).join('')}
       </div>
       ${list.length ? list.map(i => `<button type="button" class="dish" data-add="${i.k}">
         <span class="b"><span class="nm">${esc(i.n)}</span>
@@ -964,20 +1016,25 @@ function phoneHTML() {
         : '<p class="meta">Ничего не нашлось</p>'}
       <div style="height:56px"></div>
     </div>
-    <div class="dock"><button type="button" class="btn gold wide" data-go="check">К чеку</button></div>`;
+    <div class="dock"><button type="button" class="btn gold wide" data-go="check">
+      К чеку${c && c.items.length ? ' · ' + money(totalOf(c)) : ''}</button></div>`;
   }
 
   // чек
-  const c = S.check;
+  const c = openCheck();
+  if (!c) { S.screen = 'tables'; return phoneHTML(); }
   const draft = c.items.some(i => i.status === 'draft');
   return bar(`Стол ${c.table} · чек ${c.n}`, true) + `<div class="view">
     ${readyHTML()}
-    <p class="meta">${c.guests} ${plural(c.guests, 'гость', 'гостя', 'гостей')} · открыт только что · Аня</p>
+    <div class="check-head">
+      <span class="meta">${c.guests} ${plural(c.guests, 'гость', 'гостя', 'гостей')} · открыт только что · Аня</span>
+      <button type="button" class="btn split" data-split="1">+ ещё чек</button>
+    </div>
     ${c.items.length ? c.items.map(lineHTML).join('')
       : '<p class="meta">Пусто. Нажмите «Меню» и наберите заказ.</p>'}
     <div class="sums">
-      <div class="row"><span style="color:var(--app-soft)">Позиции</span><span>${money(total(c))}</span></div>
-      <div class="row big"><span>Итого</span><span>${money(total(c))}</span></div>
+      <div class="row"><span style="color:var(--app-soft)">Позиции</span><span>${money(totalOf(c))}</span></div>
+      <div class="row big"><span>Итого</span><span>${money(totalOf(c))}</span></div>
     </div>
     <div style="height:60px"></div>
   </div>
@@ -1000,6 +1057,19 @@ function bar(title, back) {
   </div>`;
 }
 
+function flagsFor(tableId) {
+  const out = [];
+  checksAt(tableId).forEach(c => {
+    if (c.items.some(i => i.status === 'draft')) out.push('draft');
+    ticketsOf(c).forEach(t => {
+      if (t.status !== 'served' && !out.includes(t.status)) out.push(t.status);
+    });
+  });
+  const seen = [...new Set(out)];
+  return seen.length ? `<span class="flags">${seen.map(f =>
+    `<i class="flag-${f}"></i>`).join('')}</span>` : '';
+}
+
 function lineHTML(i) {
   const ticket = S.tickets.find(t => t.id === i.ticket);
   const state = i.status === 'draft'
@@ -1016,10 +1086,11 @@ function lineHTML(i) {
 }
 
 function readyHTML() {
-  if (!S.waiting.length) return '';
-  return S.waiting.map(t => `<div class="ready-row${t.fresh ? ' new' : ''}">
+  const list = waiting();
+  if (!list.length) return '';
+  return list.map(t => `<div class="ready-row${t.fresh ? ' new' : ''}">
     <div class="b"><div class="t">Готово · ${esc(STATION[t.station])}</div>
-      <div class="w">Стол ${t.table} · ${t.items.length} поз.</div></div>
+      <div class="w">Стол ${t.table} · чек ${t.check} · ${t.items.length} поз.</div></div>
     <button type="button" class="btn ok" data-take="${t.id}">Забрал</button>
   </div>`).join('');
 }
@@ -1028,14 +1099,14 @@ function readyHTML() {
 function tabletHTML() {
   if (S.right === 'admin') return adminHTML();
 
-  const live = S.tickets.filter(t => t.status !== 'served');
-  const news = live.filter(t => t.status === 'new').length;
+  const list = live();
+  const news = list.filter(t => t.status === 'new').length;
   return `<div class="bar">
       <span class="dot"></span><h3>Бар и кухня</h3>
-      <span class="who">${news ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : live.length + ' в работе'}</span>
+      <span class="who">${news ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : list.length + ' в работе'}</span>
     </div>
     <div class="view"><div class="board-grid">
-      ${live.length ? live.map(markHTML).join('')
+      ${list.length ? list.map(markHTML).join('')
         : '<p class="empty">Пусто. Новые заказы появятся сами.</p>'}
     </div></div>`;
 }
@@ -1084,34 +1155,34 @@ function adminHTML() {
 }
 
 /* -------------------------------------------------------------- логика -- */
-function total(c) {
-  return c.items.reduce((n, i) => n + i.price * i.qty, 0);
+function tapTable(id) {
+  const mine = checksAt(id);
+  if (!mine.length) { S.sheet = { kind: 'guests', table: id, guests: 2 }; return; }
+  if (mine.length === 1) { S.openId = mine[0].id; S.screen = 'check'; return; }
+  // Компания разделилась — угадывать за официанта, какой чек он открывает,
+  // нельзя.
+  S.sheet = { kind: 'pick', table: id };
 }
 
-function marksFor(table) {
-  const out = [];
-  if (S.check && S.check.table === table && S.check.items.some(i => i.status === 'draft')) {
-    out.push('draft');
-  }
-  S.tickets.filter(t => t.table === table && t.status !== 'served')
-    .forEach(t => { if (!out.includes(t.status)) out.push(t.status); });
-  return out;
-}
-
-function openTable(id) {
-  if (S.check) { S.screen = 'check'; return; }
-  S.sheet = { kind: 'guests', table: id, guests: 2 };
+function startCheck(table, guests) {
+  S.seq += 1;
+  const check = { id: 'c' + S.seq, n: S.seq, table, guests, items: [], order: 0 };
+  S.checks.push(check);
+  S.openId = check.id;
+  S.screen = 'menu';
+  S.filter = { text: '', cat: null };
 }
 
 function addItem(key, opts, qty) {
+  const check = openCheck();
+  if (!check) return;
   const item = MENU.find(i => i.k === key);
   const { price, names } = priceOf(item, opts || {});
-  S.check.items.push({
+  check.items.push({
     key, name: item.n, station: item.st, price, qty: qty || 1,
     opts: names, status: 'draft', ticket: null
   });
-  S.toast = `${item.n} · ${qty || 1}×`;
-  setTimeout(() => { S.toast = null; render(); }, 1800);
+  flash(`${item.n} · ${qty || 1}×`);
 }
 
 /* Цена считается по тем же правилам, что на сервере: выбор с ценой заменяет
@@ -1131,8 +1202,7 @@ function priceOf(item, chosen) {
         const c = g.ch.find(x => x.k === k);
         if (!c) return;
         add += (c.add || 0) * count;
-        // «Микс: Cola» на марке — это разбавить, а «Cola» — отдельный
-        // стакан. Разница в подаче.
+        // «Микс: Cola» на марке — это разбавить, а «Cola» — отдельный стакан.
         const label = g.prefix ? `${g.prefix}: ${c.n}` : c.n;
         names.push(count > 1 ? `${label} ×${count}` : label);
       });
@@ -1155,23 +1225,24 @@ function missing(item, chosen) {
 }
 
 function send() {
-  const drafts = S.check.items.filter(i => i.status === 'draft');
+  const check = openCheck();
+  if (!check) return;
+  const drafts = check.items.filter(i => i.status === 'draft');
   if (!drafts.length) return;
-  S.order += 1;
+  check.order += 1;
   [...new Set(drafts.map(i => i.station))].forEach(station => {
-    const id = 't' + Date.now() + station;
+    const id = 't' + (++send.seq);
     const mine = drafts.filter(i => i.station === station);
     mine.forEach(i => { i.status = 'sent'; i.ticket = id; });
     S.tickets.push({
-      id, station, status: 'new', order: S.order,
-      table: S.check.table, check: S.check.n, at: Date.now(),
+      id, checkId: check.id, station, status: 'new', order: check.order,
+      table: check.table, check: check.n, at: Date.now(),
       items: mine.map(i => ({ name: i.name, qty: i.qty, opts: i.opts }))
     });
   });
-  S.step = 5;
-  S.toast = 'Отправлено на станции';
-  setTimeout(() => { S.toast = null; render(); }, 1800);
+  flash('Отправлено на станции');
 }
+send.seq = 0;
 
 function moveMark(id, to) {
   const t = S.tickets.find(x => x.id === id);
@@ -1179,8 +1250,6 @@ function moveMark(id, to) {
   t.status = to;
   if (to === 'ready') {
     t.fresh = true;
-    S.waiting.push(t);
-    S.step = 6;
     beep();
     setTimeout(() => { t.fresh = false; render(); }, 3400);
   }
@@ -1189,23 +1258,26 @@ function moveMark(id, to) {
 function take(id) {
   const t = S.tickets.find(x => x.id === id);
   if (t) t.status = 'served';
-  S.waiting = S.waiting.filter(x => x.id !== id);
-  const left = S.tickets.some(x => x.status !== 'served');
-  if (!left) S.step = 7;
 }
 
-function close(method, tendered) {
+function closeCheck(method, change) {
+  const check = openCheck();
+  if (!check) return;
+  S.tickets = S.tickets.filter(t => t.checkId !== check.id);
+  S.checks = S.checks.filter(c => c.id !== check.id);
+  S.openId = null;
   S.sheet = null;
-  S.check = null;
-  S.tickets = [];
-  S.waiting = [];
-  S.order = 0;
   S.screen = 'tables';
-  S.step = 2;
-  S.toast = method === 'cash' && tendered
-    ? `Чек закрыт наличными · сдача ${money(tendered)}`
-    : 'Чек закрыт';
-  setTimeout(() => { S.toast = null; render(); }, 2400);
+  flash(method === 'cash' && change > 0
+    ? `Чек закрыт наличными · сдача ${money(change)}`
+    : 'Чек закрыт', 2400);
+}
+
+let flashTimer = null;
+function flash(text, ms) {
+  S.toast = text;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => { S.toast = null; render(); }, ms || 1800);
 }
 
 /* -------------------------------------------------------------- шторки -- */
@@ -1221,6 +1293,14 @@ function sheetHTML() {
         <button type="button" data-guests="1">+</button>
       </div>
       <button type="button" class="btn gold wide" data-open="1">Открыть стол</button>`);
+  }
+
+  if (s.kind === 'pick') {
+    const mine = checksAt(s.table);
+    return wrapSheet(`Стол ${s.table}`, 'Открытые чеки',
+      mine.map(c => `<button type="button" class="btn wide big" data-check="${c.id}"
+        style="margin-bottom:8px">Чек ${c.n} · ${money(totalOf(c))}</button>`).join('')
+      + '<button type="button" class="btn gold wide big" data-new="1">Новый чек</button>');
   }
 
   if (s.kind === 'options') {
@@ -1251,9 +1331,10 @@ function sheetHTML() {
       </button>`);
   }
 
-  if (s.kind === 'pay') {
-    const sum = total(S.check);
-    return wrapSheet('Оплата', `Стол ${S.check.table} · чек ${S.check.n}`, `
+  const check = openCheck();
+  if (s.kind === 'pay' && check) {
+    const sum = totalOf(check);
+    return wrapSheet('Оплата', `Стол ${check.table} · чек ${check.n}`, `
       <div class="sums" style="margin-top:0;border-top:0;padding-top:0">
         <div class="row big"><span>К оплате</span><span>${money(sum)}</span></div>
       </div>
@@ -1263,17 +1344,18 @@ function sheetHTML() {
       <button type="button" class="btn wide" data-cash="1">Наличные · ${money(sum)}</button>`);
   }
 
-  if (s.kind === 'cash') {
-    const sum = total(S.check);
+  if (s.kind === 'cash' && check) {
+    const sum = totalOf(check);
     const given = s.given;
+    const rounds = [sum, Math.ceil(sum / 1000) * 1000, Math.ceil(sum / 2000) * 2000,
+                    Math.ceil(sum / 5000) * 5000].filter((v, i, a) => a.indexOf(v) === i);
     return wrapSheet('Наличные', `К оплате ${money(sum)}`, `
-      <div class="opts">${[sum, Math.ceil(sum / 1000) * 1000, Math.ceil(sum / 2000) * 2000,
-        Math.ceil(sum / 5000) * 5000].filter((v, i, a) => a.indexOf(v) === i).map(v =>
+      <div class="opts">${rounds.map(v =>
         `<button type="button" class="opt${given === v ? ' on' : ''}" data-given="${v}">${money(v)}</button>`).join('')}</div>
       <p class="sub" style="margin:12px 0">${given >= sum
         ? `Сдача: <b style="color:var(--app-ok)">${money(given - sum)}</b>`
         : 'Сколько дали — сдачу посчитает касса'}</p>
-      <button type="button" class="btn ok wide" data-close="cash" data-tendered="${given}">
+      <button type="button" class="btn ok wide" data-close="cash" data-change="${Math.max(0, given - sum)}">
         Принял ${money(sum)}</button>`);
   }
   return '';
@@ -1288,6 +1370,7 @@ function wrapSheet(title, sub, body) {
 /* -------------------------------------------------------------- вывод --- */
 function render() {
   const typing = document.activeElement && document.activeElement.id === 'find';
+
   const phone = document.getElementById('phone');
   phone.className = 'screen' + (S.night ? ' night' : '');
   phone.innerHTML = phoneHTML() + sheetHTML()
@@ -1319,33 +1402,32 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-key],[data-table],[data-add],[data-go],[data-back],'
     + '[data-cat],[data-send],[data-mark],[data-take],[data-pay],[data-guests],[data-open],'
     + '[data-pick],[data-choice],[data-qty],[data-confirm],[data-close],[data-cash],'
-    + '[data-given],[data-veil],[data-right]');
+    + '[data-given],[data-veil],[data-right],[data-check],[data-new],[data-split]');
   if (!t) return;
   const d = t.dataset;
 
-  if (d.right) { S.right = d.right; document.querySelectorAll('#right-switch button')
-    .forEach(b => b.classList.toggle('on', b.dataset.right === d.right)); }
+  if (d.right) {
+    S.right = d.right;
+    document.querySelectorAll('#right-switch button')
+      .forEach(b => b.classList.toggle('on', b.dataset.right === d.right));
+  }
 
   if (d.key) {
     if (d.key === 'c') S.pin = '';
     else if (d.key === 'b') S.pin = S.pin.slice(0, -1);
     else if (S.pin.length < 4) S.pin += d.key;
-    if (S.pin.length === 4) {
-      S.pin = '';
-      S.screen = 'tables';
-      S.step = 2;
-    }
+    if (S.pin.length === 4) { S.pin = ''; S.screen = 'tables'; }
   }
 
-  if (d.table) openTable(Number(d.table));
-  if (d.guests) S.sheet.guests = Math.max(1, Math.min(20, S.sheet.guests + Number(d.guests)));
-  if (d.open) {
-    S.seq += 1;
-    S.check = { n: S.seq, table: S.sheet.table, guests: S.sheet.guests, items: [] };
-    S.sheet = null;
-    S.screen = 'menu';
-    S.step = 3;
+  if (d.table) tapTable(Number(d.table));
+  if (d.check) { S.openId = d.check; S.sheet = null; S.screen = 'check'; }
+  if (d.new) { const table = S.sheet.table; S.sheet = { kind: 'guests', table, guests: 2 }; }
+  if (d.split) {
+    const c = openCheck();
+    if (c) S.sheet = { kind: 'guests', table: c.table, guests: 2 };
   }
+  if (d.guests) S.sheet.guests = Math.max(1, Math.min(20, S.sheet.guests + Number(d.guests)));
+  if (d.open) { const s = S.sheet; S.sheet = null; startCheck(s.table, s.guests); }
 
   if (d.go) S.screen = d.go;
   if (d.back) S.screen = S.screen === 'menu' ? 'check' : 'tables';
@@ -1354,7 +1436,7 @@ document.addEventListener('click', e => {
   if (d.add) {
     const item = MENU.find(i => i.k === d.add);
     if (item.o) S.sheet = { kind: 'options', key: item.k, chosen: {}, qty: 1 };
-    else { addItem(item.k, {}, 1); S.step = 4; }
+    else addItem(item.k, {}, 1);
   }
 
   if (d.pick) {
@@ -1362,8 +1444,7 @@ document.addEventListener('click', e => {
     const g = item.o.find(x => x.k === d.pick);
     if (g.many) {
       // Нажатие добавляет ещё один такой же, после предела — сбрасывает.
-      // Разные напитки при этом не мешают друг другу: кола к одному стакану,
-      // сок к другому.
+      // Разные напитки при этом не мешают друг другу.
       const list = S.sheet.chosen[g.k] || [];
       const have = list.filter(x => x === d.choice).length;
       const rest = list.filter(x => x !== d.choice);
@@ -1377,9 +1458,9 @@ document.addEventListener('click', e => {
   }
   if (d.qty) S.sheet.qty = Math.max(1, Math.min(20, S.sheet.qty + Number(d.qty)));
   if (d.confirm) {
-    addItem(S.sheet.key, S.sheet.chosen, S.sheet.qty);
+    const s = S.sheet;
     S.sheet = null;
-    S.step = 4;
+    addItem(s.key, s.chosen, s.qty);
   }
 
   if (d.send) send();
@@ -1389,7 +1470,7 @@ document.addEventListener('click', e => {
   if (d.pay) S.sheet = { kind: 'pay' };
   if (d.cash) S.sheet = { kind: 'cash', given: 0 };
   if (d.given) S.sheet.given = Number(d.given);
-  if (d.close) close(d.close, Number(d.tendered || 0) - total(S.check));
+  if (d.close) closeCheck(d.close, Number(d.change || 0));
   if (d.veil) S.sheet = null;
 
   render();
@@ -1401,6 +1482,11 @@ document.addEventListener('input', e => {
 
 document.getElementById('theme-phone').addEventListener('click', () => {
   S.night = !S.night;
+  render();
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  fresh(true);           // расстановка остаётся: её только что двигали руками
   render();
 });
 
@@ -1438,7 +1524,7 @@ document.addEventListener('pointerdown', e => {
 
 /* Часы на марках идут сами: «2:14» должно означать две минуты, а не то,
    сколько было в момент прихода заказа. */
-setInterval(() => { if (S.tickets.some(t => t.status !== 'served')) render(); }, 1000);
+setInterval(() => { if (live().length) render(); }, 1000);
 
 render();
 </script>
