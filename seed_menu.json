@@ -1,1 +1,1854 @@
-{"_note": "Заполняется в спринте 1 из каталога Menu-qr.", "items": []}
+{
+ "_note": "Собрано из каталога Menu-qr скриптом tools/build_seed.py. Названия позиций и брендов не переводятся: официант ищет их так, как напечатано в меню. Аллергенов нет намеренно — заведение их не предоставляло.",
+ "venue": {
+  "key": "podval",
+  "name": "Menu",
+  "timezone": "Europe/London",
+  "currency": "GBP"
+ },
+ "categories": {
+  "platters": "Тарелки",
+  "pizza": "Пицца",
+  "traditional": "Традиционные блюда",
+  "desserts": "Десерты",
+  "spirits": "Крепкое",
+  "cocktails": "Коктейли",
+  "beer-soft": "Пиво и безалкогольное",
+  "wine": "Вино и игристое",
+  "hot": "Горячие напитки",
+  "hookah": "Кальяны"
+ },
+ "items": [
+  {
+   "key": "fruit-plate",
+   "name": "Fruit Plate",
+   "description": "Свежие сезонные фрукты",
+   "category": "platters",
+   "station": "kitchen",
+   "price_pence": 2000,
+   "position": 0,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "фрукти",
+    "фруктова тарілка",
+    "фруктовая тарелка",
+    "фрукты"
+   ],
+   "warning": null
+  },
+  {
+   "key": "meat-cheese-plate",
+   "name": "Meat & Cheese Plate",
+   "description": "Мясные деликатесы, сыры и сезонные дополнения",
+   "category": "platters",
+   "station": "kitchen",
+   "price_pence": 2500,
+   "position": 1,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "мʼясна тарілка",
+    "мясная тарелка",
+    "сирна тарілка",
+    "сырная тарелка"
+   ],
+   "warning": null
+  },
+  {
+   "key": "pizza-pepperoni",
+   "name": "Pepperoni Pizza",
+   "description": "Томатный соус, моцарелла и пепперони",
+   "category": "pizza",
+   "station": "kitchen",
+   "price_pence": 1600,
+   "position": 2,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "пепероні",
+    "пепперони",
+    "пицца",
+    "піца"
+   ],
+   "warning": null
+  },
+  {
+   "key": "pizza-ham-cherry",
+   "name": "Ham & Cherry Tomato Pizza",
+   "description": "Томатный соус, моцарелла, ветчина и помидоры черри",
+   "category": "pizza",
+   "station": "kitchen",
+   "price_pence": 1800,
+   "position": 3,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "ветчина",
+    "пицца",
+    "піца",
+    "черри",
+    "чері",
+    "шинка"
+   ],
+   "warning": null
+  },
+  {
+   "key": "pizza-margherita",
+   "name": "Margherita Pizza",
+   "description": "Томатный соус и моцарелла",
+   "category": "pizza",
+   "station": "kitchen",
+   "price_pence": 1300,
+   "position": 4,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "маргарита",
+    "пицца",
+    "піца"
+   ],
+   "warning": null
+  },
+  {
+   "key": "pelmeni",
+   "name": "Pelmeni",
+   "description": "Говядина и свинина, подаются со сметаной",
+   "category": "traditional",
+   "station": "kitchen",
+   "price_pence": 1500,
+   "position": 5,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "пельмени",
+    "пельмені"
+   ],
+   "warning": null
+  },
+  {
+   "key": "vareniki-mushrooms",
+   "name": "Vareniki with Potato & Mushrooms",
+   "description": "Картофель и грибы, подаются со сметаной",
+   "category": "traditional",
+   "station": "kitchen",
+   "price_pence": 1400,
+   "position": 6,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "вареники",
+    "вареники з грибами",
+    "вареники с грибами"
+   ],
+   "warning": null
+  },
+  {
+   "key": "vareniki-onion",
+   "name": "Vareniki with Potato & Onion",
+   "description": "Картофель и лук, подаются со сметаной",
+   "category": "traditional",
+   "station": "kitchen",
+   "price_pence": 1400,
+   "position": 7,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "вареники",
+    "вареники з цибулею",
+    "вареники с луком"
+   ],
+   "warning": null
+  },
+  {
+   "key": "nalysnyky-meat",
+   "name": "Nalysnyky (Crepes) with Meat",
+   "description": "Говядина и индейка, подаются со сметаной",
+   "category": "traditional",
+   "station": "kitchen",
+   "price_pence": 1500,
+   "position": 8,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "блинчики",
+    "блины",
+    "млинці",
+    "налисники",
+    "налистники"
+   ],
+   "warning": null
+  },
+  {
+   "key": "nalysnyky-cherry",
+   "name": "Nalysnyky (Crepes) with Cherry & Sweet Cottage Cheese",
+   "description": "Вишня и сладкий творог, подаются со сметаной",
+   "category": "desserts",
+   "station": "kitchen",
+   "price_pence": 1400,
+   "position": 9,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "блинчики",
+    "блины",
+    "млинці",
+    "налисники",
+    "сирники"
+   ],
+   "warning": null
+  },
+  {
+   "key": "cheesecake",
+   "name": "Classic Creamy Cheesecake",
+   "description": "Классический сливочный чизкейк",
+   "category": "desserts",
+   "station": "kitchen",
+   "price_pence": 900,
+   "position": 10,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "чизкейк",
+    "чізкейк"
+   ],
+   "warning": null
+  },
+  {
+   "key": "ice-cream",
+   "name": "Ice Cream",
+   "description": "Шоколадное, клубничное или ванильное",
+   "category": "desserts",
+   "station": "kitchen",
+   "price_pence": 800,
+   "position": 11,
+   "state": "on",
+   "options": [
+    {
+     "key": "flavour",
+     "label": "Вкус",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "chocolate",
+       "name": "Шоколадное"
+      },
+      {
+       "key": "strawberry",
+       "name": "Клубника"
+      },
+      {
+       "key": "vanilla",
+       "name": "Ванильное"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "мороженое",
+    "морозиво"
+   ],
+   "warning": null
+  },
+  {
+   "key": "vodka-house",
+   "name": "Absolut, Stoli",
+   "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 12,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      }
+     ]
+    },
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "absolut",
+       "name": "Absolut"
+      },
+      {
+       "key": "stoli",
+       "name": "Stoli"
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "vodka-premium",
+   "name": "Grey Goose, Beluga",
+   "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 26000,
+   "position": 13,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "grey-goose",
+       "name": "Grey Goose"
+      },
+      {
+       "key": "beluga",
+       "name": "Beluga"
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "whiskey",
+   "name": "Jack Daniels, Black Label, Jameson",
+   "description": "Виски · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 14,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "jack-daniels",
+       "name": "Jack Daniels"
+      },
+      {
+       "key": "black-label",
+       "name": "Black Label"
+      },
+      {
+       "key": "jameson",
+       "name": "Jameson"
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "виски",
+    "віскі"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "bombay",
+   "name": "Bombay",
+   "description": "Джин · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 15,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "rum-house",
+   "name": "Havana Club, Bacardi",
+   "description": "Ром · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 16,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "havana-club",
+       "name": "Havana Club"
+      },
+      {
+       "key": "bacardi",
+       "name": "Bacardi"
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "olmeca",
+   "name": "Olmeca",
+   "description": "Текила · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 17,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 20000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "patron-silver",
+   "name": "Patron Silver",
+   "description": "Текила · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 18,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1600
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 3200
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 4800
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 6400
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 8000
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 9600
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 27000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "hennessy",
+   "name": "Hennessy",
+   "description": "Коньяк · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 19,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "коньяк"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "liqueur",
+   "name": "Liqueurs",
+   "description": "Ликёр на выбор · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 20,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      }
+     ]
+    },
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "disaronno",
+       "name": "Disaronno Amaretto"
+      },
+      {
+       "key": "baileys",
+       "name": "Baileys"
+      },
+      {
+       "key": "jagermeister",
+       "name": "Jägermeister"
+      },
+      {
+       "key": "malibu",
+       "name": "Malibu"
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "mixer",
+       "name": "Микс",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "nalivka",
+   "name": "Nalivka",
+   "description": "Настойка на ягодах и фруктах",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 900,
+   "position": 21,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 900
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 1800
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 2700
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 3600
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 4500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 5400
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 8000
+      }
+     ]
+    },
+    {
+     "key": "flavour",
+     "label": "Вкус",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "citrus",
+       "name": "Цитрус"
+      },
+      {
+       "key": "cherry",
+       "name": "Вишня"
+      },
+      {
+       "key": "strawberry",
+       "name": "Клубника"
+      },
+      {
+       "key": "raspberry",
+       "name": "Малина"
+      },
+      {
+       "key": "black-currant",
+       "name": "Чёрная смородина"
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "aperol-spritz",
+   "name": "Aperol Spritz",
+   "description": "Апероль, просекко, содовая, долька апельсина — лёгкий, горько-цитрусовый",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 22,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "апероль спритц",
+    "апероль шприц"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "porn-star-martini",
+   "name": "Porn Star Martini",
+   "description": "Ванильная водка, маракуйя, лайм; шот просекко отдельно — фруктовый, сладко-кислый",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 23,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "porn star",
+    "porn star martini",
+    "мартини",
+    "мартіні",
+    "порн стар",
+    "порн стар мартини",
+    "порн стар мартіні"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "negroni",
+   "name": "Negroni",
+   "description": "Джин, красный вермут, красный биттер, апельсиновая цедра — крепкий, горький",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 24,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "негрони",
+    "негроні"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "mojito",
+   "name": "Mojito",
+   "description": "Ром, сахар, лайм, мята — освежающий, мятный · Mojito и Margarita — на выбор: классический, клубника, малина, маракуйя, манго",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 25,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "мохито",
+    "мохіто"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "cosmopolitan",
+   "name": "Sexy Cosmopolitan",
+   "description": "Цитрусовая водка, Cointreau, клюква, лайм — ягодно-цитрусовый, кисловатый",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 26,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "cosmopolitan",
+    "sexy cosmopolitan",
+    "космо",
+    "космополитен",
+    "космополітен",
+    "секси космополитен"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "margarita",
+   "name": "Margarita",
+   "description": "Текила, Cointreau, лайм, соль на кромке — кислый, с солёным краем · Mojito и Margarita — на выбор: классический, клубника, малина, маракуйя, манго",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 27,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "маргарита"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "old-fashioned",
+   "name": "Old Fashioned",
+   "description": "Бурбон, сахар, ангостура, апельсиновая цедра, коктейльная вишня — крепкий, карамельный",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 28,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "бурбон",
+    "виски",
+    "віскі",
+    "олд фешн",
+    "олд фешнд",
+    "олд фэшн",
+    "олд фэшнд"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "mai-tai",
+   "name": "Mai Tai",
+   "description": "Два рома, Curaçao, миндальный сироп, лайм, мята — тропический, миндально-цитрусовый",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 29,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "маи таи",
+    "май тай",
+    "ром"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "raspberry-journey",
+   "name": "Raspberry Journey",
+   "description": "Водка, малина, яблоко, лимон, содовая, дроблёный лёд — ягодный, свежий",
+   "category": "cocktails",
+   "station": "bar",
+   "price_pence": 1600,
+   "position": 30,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "малина",
+    "малиновий",
+    "малиновый",
+    "распберри"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "corona",
+   "name": "Corona",
+   "description": "Светлое лагер-пиво",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 800,
+   "position": 31,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "пиво"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "soft-drink",
+   "name": "Soft Drinks / Juices",
+   "description": "Газированные напитки и соки",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 32,
+   "state": "on",
+   "options": [
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola"
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite"
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta"
+      },
+      {
+       "key": "orange",
+       "name": "Апельсиновый сок"
+      },
+      {
+       "key": "apple",
+       "name": "Яблочный сок"
+      },
+      {
+       "key": "cranberry",
+       "name": "Клюквенный сок"
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull"
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": null
+  },
+  {
+   "key": "white-wine",
+   "name": "White Wine",
+   "description": "Белое вино",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 33,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "glass",
+       "name": "Бокал 175 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 8000
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "red-wine",
+   "name": "Red Wine",
+   "description": "Красное вино",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 34,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "glass",
+       "name": "Бокал 175 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 8000
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "prosecco",
+   "name": "Prosecco",
+   "description": "Итальянское игристое",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 35,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "glass",
+       "name": "Бокал 175 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 8000
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "champagne-moet",
+   "name": "Moët & Chandon",
+   "description": "Шампанское",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 2500,
+   "position": 36,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "glass",
+       "name": "Бокал 175 мл",
+       "price_pence": 2500
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 20000
+      }
+     ]
+    },
+    {
+     "key": "style",
+     "label": "Стиль",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "classic",
+       "name": "Классическое"
+      },
+      {
+       "key": "rose",
+       "name": "Розовое"
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "dom-perignon",
+   "name": "Dom Pérignon",
+   "description": "Шампанское, только бутылка",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 50000,
+   "position": 37,
+   "state": "on",
+   "options": [],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "ruinart",
+   "name": "Ruinart Blanc de Blancs",
+   "description": "Шампанское, только бутылка",
+   "category": "wine",
+   "station": "bar",
+   "price_pence": 35000,
+   "position": 38,
+   "state": "on",
+   "options": [],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "tea-pot",
+   "name": "Tea Pot",
+   "description": "Чайник чая",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 1000,
+   "position": 39,
+   "state": "on",
+   "options": [
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "green",
+       "name": "Зелёный"
+      },
+      {
+       "key": "black",
+       "name": "Чёрный"
+      },
+      {
+       "key": "camomile",
+       "name": "Ромашковый"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "чай",
+    "чайник"
+   ],
+   "warning": null
+  },
+  {
+   "key": "tea-pot-special",
+   "name": "Tea Pot Special",
+   "description": "Чайник с ягодами, фруктами и мёдом",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 40,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "чай",
+    "чайник"
+   ],
+   "warning": null
+  },
+  {
+   "key": "hot-chocolate",
+   "name": "Hot Chocolate",
+   "description": "Горячий шоколад",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 600,
+   "position": 41,
+   "state": "on",
+   "options": [
+    {
+     "key": "milk",
+     "label": "Молоко",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "milk",
+       "name": "Коровье"
+      },
+      {
+       "key": "almond",
+       "name": "Миндальное"
+      },
+      {
+       "key": "soya",
+       "name": "Соевое"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "гарячий шоколад",
+    "горячий шоколад",
+    "какао"
+   ],
+   "warning": null
+  },
+  {
+   "key": "espresso",
+   "name": "Black Coffee. Espresso",
+   "description": "Чёрный кофе",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 400,
+   "position": 42,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "еспресо",
+    "кава",
+    "кофе",
+    "эспрессо"
+   ],
+   "warning": null
+  },
+  {
+   "key": "coffee-milk",
+   "name": "Cappuccino, Latte, Mocha",
+   "description": "Кофе на молоке, миндальном или соевом",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 43,
+   "state": "on",
+   "options": [
+    {
+     "key": "kind",
+     "label": "Вид",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "cappuccino",
+       "name": "Капучино"
+      },
+      {
+       "key": "latte",
+       "name": "Латте"
+      },
+      {
+       "key": "mocha",
+       "name": "Мокко"
+      }
+     ]
+    },
+    {
+     "key": "milk",
+     "label": "Молоко",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "milk",
+       "name": "Коровье"
+      },
+      {
+       "key": "almond",
+       "name": "Миндальное"
+      },
+      {
+       "key": "soya",
+       "name": "Соевое"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "кава",
+    "капучино",
+    "кофе",
+    "лате",
+    "латте",
+    "мокко"
+   ],
+   "warning": null
+  },
+  {
+   "key": "hookah",
+   "name": "Hookah",
+   "description": "Цена одинаковая на любой кальян. Вкусы табака спрашивайте у кальянного мастера",
+   "category": "hookah",
+   "station": "bar",
+   "price_pence": 5000,
+   "position": 44,
+   "state": "on",
+   "options": [
+    {
+     "key": "leaf",
+     "label": "Лист",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "dark-leaf",
+       "name": "Дарк-лиф"
+      },
+      {
+       "key": "cigar-leaf",
+       "name": "Сигарный лист"
+      }
+     ]
+    },
+    {
+     "key": "dark-leaf",
+     "label": "Дарк-лиф",
+     "mode": "one",
+     "required": true,
+     "depends": {
+      "group": "leaf",
+      "value": "dark-leaf"
+     },
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "musthave",
+       "name": "MustHave"
+      },
+      {
+       "key": "snobless",
+       "name": "Snobless"
+      },
+      {
+       "key": "darkside",
+       "name": "Darkside"
+      },
+      {
+       "key": "deus-duft",
+       "name": "Deus Duft"
+      },
+      {
+       "key": "blackburn",
+       "name": "Blackburn"
+      },
+      {
+       "key": "tangiers",
+       "name": "Tangiers"
+      },
+      {
+       "key": "overdose",
+       "name": "Overdose"
+      }
+     ]
+    },
+    {
+     "key": "cigar-leaf",
+     "label": "Сигарный лист",
+     "mode": "one",
+     "required": true,
+     "depends": {
+      "group": "leaf",
+      "value": "cigar-leaf"
+     },
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "bonche",
+       "name": "Bonche"
+      },
+      {
+       "key": "kraken",
+       "name": "Kraken"
+      },
+      {
+       "key": "satyr",
+       "name": "Satyr"
+      }
+     ]
+    },
+    {
+     "key": "fruit-head",
+     "label": "Фруктовая чаша",
+     "mode": "one",
+     "required": false,
+     "depends": null,
+     "add_pence": 1000,
+     "choices": [
+      {
+       "key": "apple",
+       "name": "Яблоко"
+      },
+      {
+       "key": "lemon",
+       "name": "Лимон"
+      },
+      {
+       "key": "orange",
+       "name": "Апельсин"
+      },
+      {
+       "key": "grapefruit",
+       "name": "Грейпфрут"
+      },
+      {
+       "key": "pineapple",
+       "name": "Ананас"
+      }
+     ]
+    },
+    {
+     "key": "extra",
+     "label": "Дополнительно",
+     "mode": "one",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "re-head",
+       "name": "Замена чаши"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "shisha",
+    "дарк лиф",
+    "дарк ліф",
+    "кальян",
+    "кальяни",
+    "кальяны",
+    "ре-хед",
+    "рехед",
+    "сигарний лист",
+    "сигарный лист",
+    "фруктова чаша",
+    "фруктовая чаша",
+    "шиша"
+   ],
+   "warning": "Табак. Подаётся только совершеннолетним — бармен проверит документ."
+  }
+ ]
+}
