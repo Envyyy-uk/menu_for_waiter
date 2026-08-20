@@ -6,33 +6,36 @@
 <title>Админка</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#100f0d">
+<link rel="manifest" href="/admin/manifest.json">
+<link rel="icon" href="/assets/icons/admin-192.png">
+<link rel="apple-touch-icon" href="/assets/icons/admin-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Админка">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 
 <header class="topbar" hidden id="bar">
-  <span class="netdot on" id="link"></span>
+  <span class="netdot" id="link" title="связь с сервером"></span>
   <h1>Админка</h1>
   <span class="who" id="who"></span>
   <button class="btn ghost" id="out" type="button">Выйти</button>
 </header>
 
-<main id="app" hidden style="padding:20px"></main>
+<nav class="tabs" id="tabs" hidden></nav>
+<main id="app"></main>
 
 <script src="/assets/api.js"></script>
 <script src="/assets/auth.js"></script>
+<script src="/assets/live.js"></script>
+<script src="/assets/sheets.js"></script>
+<script src="/assets/admin.js"></script>
 <script src="/assets/pwa.js"></script>
 <script>
 Auth.start(me => {
   document.getElementById('bar').hidden = false;
-  document.getElementById('app').hidden = false;
-  document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
-  document.getElementById('out').addEventListener('click', () => Auth.logout());
-  document.getElementById('app').innerHTML =
-    '<p class="muted">Администратор. Экран собирается в следующем спринте.</p>';
+  document.getElementById('tabs').hidden = false;
+  Admin.start(me);
 });
 </script>
 </body>

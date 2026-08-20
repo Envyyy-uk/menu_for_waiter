@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from app.api import admin as admin_api
 from app.api import auth as auth_api
 from app.api import checks as checks_api
 from app.api import menu as menu_api
@@ -34,6 +35,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_api.router)
+app.include_router(admin_api.router)
 app.include_router(menu_api.router)
 app.include_router(tables_api.router)
 app.include_router(checks_api.router)

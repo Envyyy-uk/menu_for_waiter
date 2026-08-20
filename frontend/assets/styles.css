@@ -603,3 +603,97 @@ body.station { background: #0b0a09; }
    а не в середине. */
 .signal { display: flex; gap: 8px; margin-bottom: 4px; }
 .signal .btn { flex: 1; min-height: 44px; font-size: 14px; font-weight: 500; }
+
+/* ==========================================================================
+   Админка
+
+   Её открывают с ноутбука или планшета в подсобке, поэтому здесь можно
+   таблицы и мелкий шрифт — но не мелкие кнопки.
+   ========================================================================== */
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 12px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  font-size: 15px;
+}
+.tab.on { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+
+.panel { padding: 16px; max-width: 1000px; }
+.panel h2 { margin: 0 0 4px; font-size: 20px; }
+.panel .hint { margin: 0 0 16px; color: var(--ink-soft); font-size: 14px; }
+
+/* Плитки чисел отчёта: то, ради чего его открывают, читается сразу. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.figure {
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.figure .label { font-size: 13px; color: var(--ink-soft); }
+.figure .value { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.figure.cash .value { color: var(--ok); }
+.figure.card .value { color: var(--info); }
+.figure.warn .value { color: var(--danger); }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: 15px; }
+table.grid th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line);
+}
+table.grid td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.grid tr.off { opacity: .5; }
+
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.row-actions .btn { min-height: 38px; padding: 0 12px; font-size: 14px; }
+
+.form { display: grid; gap: 10px; margin-bottom: 20px; }
+.form .line-fields { display: flex; flex-wrap: wrap; gap: 10px; }
+.form .field { flex: 1; min-width: 140px; }
+select.field { appearance: none; }
+
+/* PIN показывается один раз — и он должен быть виден через всю подсобку. */
+.pin-shown {
+  margin: 14px 0;
+  padding: 16px;
+  text-align: center;
+  border-radius: var(--radius);
+  background: var(--ok-bg);
+  border: 1px solid #2b6045;
+}
+.pin-shown .code {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: .28em;
+  font-variant-numeric: tabular-nums;
+}
+.pin-shown .note { font-size: 14px; color: var(--ink-soft); }
+
+.journal { font-size: 14px; }
+.journal .when { color: var(--ink-faint); white-space: nowrap; }
+.journal .what { font-weight: 600; }
+.journal .detail { color: var(--ink-soft); overflow-wrap: anywhere; }
