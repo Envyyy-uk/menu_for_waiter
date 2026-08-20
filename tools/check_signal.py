@@ -28,6 +28,13 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 PHONE = {"width": 390, "height": 844}
 TABLET = {"width": 1180, "height": 820}
 
+# Зал рисуется планом, а сетка осталась запасным видом — когда
+# расстановки ещё нет. Проверки ищут стол в обоих.
+FREE_TABLE = ":is(.spot, .tile):not(.busy)"
+BUSY_TABLE = ":is(.spot, .tile).busy"
+TABLE_NUMBER = ":is(.n, .num)"
+HALL = ":is(.plan, .tables)"
+
 fails: list[str] = []
 
 
@@ -92,7 +99,7 @@ def main() -> None:
         pin(bar, "2222")
 
         # Официант отправляет заказ.
-        waiter.locator(".tile:not(.busy)").first.click()
+        waiter.locator(FREE_TABLE).first.click()
         waiter.wait_for_timeout(400)
         waiter.get_by_role("button", name="Открыть стол").click()
         waiter.wait_for_timeout(900)
@@ -134,7 +141,7 @@ def main() -> None:
         # Сокет оборвался, событие потеряно — сигнал всё равно должен ожить.
         waiter.get_by_role("button", name="←").click()
         waiter.wait_for_timeout(600)
-        waiter.locator(".tile.busy").first.click()
+        waiter.locator(BUSY_TABLE).first.click()
         waiter.wait_for_timeout(600)
         if waiter.locator(".sheet").count():
             waiter.locator(".sheet .btn").first.click()

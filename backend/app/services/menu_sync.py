@@ -102,10 +102,14 @@ def apply(db: Session, venue: Venue, payload: dict[str, Any], *, actor_id=None) 
         key = raw["key"]
         seen.add(key)
         item = existing.get(key)
-        is_new = item is None
-        if is_new:
+        # Позиция, которую убирали из каталога и вернули, для человека
+        # именно появилась: в меню её не было, а теперь есть. Считать это
+        # «изменением» — значит спрятать возврат в общем списке правок.
+        is_new = item is None or not item.active
+        if item is None:
             item = MenuItem(venue_id=venue.id, key=key, state=raw.get("state", "on"))
             db.add(item)
+        if is_new:
             added.append(raw["name"])
 
         was = {

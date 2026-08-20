@@ -18,6 +18,21 @@ CATALOGUE = {
     "addons": {"mixer": {"price_pence": 300, "names": {"ru": "Микс"}}},
     "items": [
         {
+            "key": "soft-drink",
+            "name": "Soft Drinks / Juices",
+            "category": "beer-soft",
+            "station": "bar",
+            "price_pence": 500,
+            "desc": {"ru": "Газированные напитки и соки"},
+            "options": [
+                {
+                    "key": "kind",
+                    "label": "opt.kind",
+                    "choices": [{"key": "cola", "name": "Cola"}, {"key": "fanta", "name": "Fanta"}],
+                }
+            ],
+        },
+        {
             "key": "mojito",
             "name": "Mojito",
             "category": "bar",
@@ -67,6 +82,9 @@ def test_real_catalogue_converts(db, venue):
     mixer = next(g for g in vodka["options"] if g["key"] == "mixer")
     assert mixer["mode"] == "many"
     assert mixer["choices"][0]["add_pence"] == 300
+    # Миксы собираются из самого каталога: добавили на сайте сок — он
+    # появился и здесь, руками ничего дописывать не нужно.
+    assert {c["name"] for c in mixer["choices"]} >= {"Cola", "Sprite", "Red Bull"}
 
 
 def test_empty_catalogue_is_refused():
@@ -79,7 +97,7 @@ def test_empty_catalogue_is_refused():
 
 def test_items_without_a_name_are_skipped():
     payload = convert(catalogue(items=CATALOGUE["items"] + [{"key": "broken"}]))
-    assert [i["key"] for i in payload["items"]] == ["mojito", "new-thing"]
+    assert [i["key"] for i in payload["items"]] == ["soft-drink", "mojito", "new-thing"]
 
 
 # ------------------------------------------------------------- запись -----
@@ -98,6 +116,23 @@ def test_new_item_appears_and_missing_one_hides(db, venue):
     assert db.get(MenuItem, have["hookah"].id) is not None
 
 
+def test_returned_item_reads_as_added(db, venue):
+    """Убрали с сайта и вернули — для человека позиция именно появилась."""
+    apply(db, venue, convert(catalogue()))
+    db.commit()
+
+    without = catalogue()
+    without["items"] = [i for i in without["items"] if i["key"] != "new-thing"]
+    gone = apply(db, venue, convert(without))
+    db.commit()
+    assert "Espresso Martini" in gone["removed"]
+
+    back = apply(db, venue, convert(catalogue()))
+    db.commit()
+    assert "Espresso Martini" in back["added"]
+    assert "Espresso Martini" not in back["updated"]
+
+
 def test_stop_list_survives_sync(db, venue):
     """Кончилось час назад — синхронизация не возвращает это в продажу."""
     item = keys(db, venue)["mojito"]
@@ -114,7 +149,7 @@ def test_price_change_is_written_down(db, venue):
     from app.models import AuditLog
 
     changed = catalogue()
-    changed["items"][0]["price_pence"] = 1900
+    next(i for i in changed["items"] if i["key"] == "mojito")["price_pence"] = 1900
     report = apply(db, venue, convert(changed))
     db.commit()
 

@@ -332,10 +332,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -395,10 +432,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -497,10 +571,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -580,10 +691,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -678,10 +826,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -753,10 +938,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -828,10 +1050,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -903,10 +1162,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }
@@ -1006,10 +1302,47 @@
      "required": false,
      "depends": null,
      "add_pence": 0,
+     "prefix": "Микс",
      "choices": [
       {
-       "key": "mixer",
-       "name": "Микс",
+       "key": "soft-drink:cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:orange",
+       "name": "Апельсиновый сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:apple",
+       "name": "Яблочный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:cranberry",
+       "name": "Клюквенный сок",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "soft-drink:red-bull",
+       "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
       }

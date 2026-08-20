@@ -24,20 +24,53 @@ def test_required_group_cannot_be_skipped(db, venue):
     assert exc.value.payload["missing_option"] == "kind"
 
 
+def test_mixer_names_the_drink(db, venue):
+    """«Микс» без названия напитка — загадка для бармена ровно так же,
+    как «Мохито» без вкуса."""
+    vodka = item(db, "vodka-house")
+    mixer = next(g for g in vodka.options if g["key"] == "mixer")
+    names = [c["name"] for c in mixer["choices"]]
+    assert "Cola" in names and "Апельсиновый сок" in names
+    # Горячее в стакан с виски не льют, а пиво миксом не бывает.
+    assert "Corona" not in names
+    assert all("чай" not in n.lower() and "кофе" not in n.lower() for n in names)
+
+
 def test_addon_adds_and_counts(db, venue):
     vodka = item(db, "vodka-house")
     price, names, chosen = resolve(
-        vodka, {"size": "ml50", "kind": "stoli", "mixer": ["mixer", "mixer"]}
+        vodka,
+        {"size": "ml50", "kind": "stoli", "mixer": ["soft-drink:cola", "soft-drink:cola"]},
     )
     assert price == 1300 + 300 * 2
-    assert "Микс ×2" in names
-    assert chosen["mixer"] == ["mixer", "mixer"]
+    # На марке видно, что это разбавить, а не отдельный стакан колы.
+    assert "Микс: Cola ×2" in names
+    assert chosen["mixer"] == ["soft-drink:cola", "soft-drink:cola"]
+
+
+def test_two_different_mixers(db, venue):
+    """Кола к одному стакану, сок к другому — это одна строка чека."""
+    vodka = item(db, "vodka-house")
+    price, names, _ = resolve(
+        vodka,
+        {"size": "ml100", "kind": "absolut", "mixer": ["soft-drink:cola", "soft-drink:orange"]},
+    )
+    assert price == 2600 + 300 * 2
+    assert "Микс: Cola" in names
+    assert "Микс: Апельсиновый сок" in names
 
 
 def test_addon_respects_limit(db, venue):
     vodka = item(db, "vodka-house")
     with pytest.raises(PriceError):
-        resolve(vodka, {"size": "ml50", "kind": "stoli", "mixer": ["mixer"] * 7})
+        resolve(vodka, {"size": "ml50", "kind": "stoli", "mixer": ["soft-drink:cola"] * 7})
+
+
+def test_unknown_mixer_is_rejected(db, venue):
+    """Браузер присылает, что выбрали, а не что придумали."""
+    vodka = item(db, "vodka-house")
+    with pytest.raises(PriceError):
+        resolve(vodka, {"size": "ml50", "kind": "stoli", "mixer": ["soft-drink:whisky"]})
 
 
 def test_dependent_group_required_only_when_relevant(db, venue):

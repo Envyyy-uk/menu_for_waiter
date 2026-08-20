@@ -779,8 +779,16 @@ const MENU = [
         { k: 'ml150', n: '150 мл', p: 3900 }, { k: 'bottle', n: 'Бутылка', p: 23000 } ] },
       { k: 'kind', l: 'Вид', req: true, ch: [
         { k: 'absolut', n: 'Absolut' }, { k: 'stoli', n: 'Stoli' } ] },
-      { k: 'mixer', l: 'Микс', req: false, many: true, max: 4, ch: [
-        { k: 'mixer', n: 'Микс', add: 300 } ] }
+      // Микс называет конкретный напиток: «микс» без названия — такая же
+      // загадка для бармена, как «мохито» без вкуса. Список тот же, что в
+      // софт-дринках каталога; горячее в стакан с виски не льют.
+      { k: 'mixer', l: 'Микс', req: false, many: true, max: 4, prefix: 'Микс', ch: [
+        { k: 'cola', n: 'Cola', add: 300 }, { k: 'sprite', n: 'Sprite', add: 300 },
+        { k: 'fanta', n: 'Fanta', add: 300 },
+        { k: 'orange', n: 'Апельсиновый сок', add: 300 },
+        { k: 'apple', n: 'Яблочный сок', add: 300 },
+        { k: 'cranberry', n: 'Клюквенный сок', add: 300 },
+        { k: 'redbull', n: 'Red Bull', add: 300 } ] }
     ] },
   { k: 'hookah',    n: 'Hookah',            p: 5000, c: 'Кальяны',  st: 'bar',
     d: 'Цена одинаковая на любой кальян', find: 'кальян шиша',
@@ -1117,9 +1125,17 @@ function priceOf(item, chosen) {
     if (g.many) {
       const list = picked || [];
       if (!list.length) return;
-      const c = g.ch[0];
-      add += (c.add || 0) * list.length;
-      names.push(list.length > 1 ? `${c.n} ×${list.length}` : c.n);
+      const counts = {};
+      list.forEach(k => { counts[k] = (counts[k] || 0) + 1; });
+      Object.entries(counts).forEach(([k, count]) => {
+        const c = g.ch.find(x => x.k === k);
+        if (!c) return;
+        add += (c.add || 0) * count;
+        // «Микс: Cola» на марке — это разбавить, а «Cola» — отдельный
+        // стакан. Разница в подаче.
+        const label = g.prefix ? `${g.prefix}: ${c.n}` : c.n;
+        names.push(count > 1 ? `${label} ×${count}` : label);
+      });
       return;
     }
     if (!picked) return;
@@ -1345,11 +1361,15 @@ document.addEventListener('click', e => {
     const item = MENU.find(i => i.k === S.sheet.key);
     const g = item.o.find(x => x.k === d.pick);
     if (g.many) {
+      // Нажатие добавляет ещё один такой же, после предела — сбрасывает.
+      // Разные напитки при этом не мешают друг другу: кола к одному стакану,
+      // сок к другому.
       const list = S.sheet.chosen[g.k] || [];
       const have = list.filter(x => x === d.choice).length;
-      const next = have >= (g.ch[0].max || g.max || 4) ? 0 : have + 1;
-      S.sheet.chosen[g.k] = Array(next).fill(d.choice);
-      if (!next) delete S.sheet.chosen[g.k];
+      const rest = list.filter(x => x !== d.choice);
+      const next = have >= (g.max || 4) ? 0 : have + 1;
+      S.sheet.chosen[g.k] = rest.concat(Array(next).fill(d.choice));
+      if (!S.sheet.chosen[g.k].length) delete S.sheet.chosen[g.k];
     } else {
       S.sheet.chosen[g.k] = S.sheet.chosen[g.k] === d.choice ? undefined : d.choice;
       if (!S.sheet.chosen[g.k]) delete S.sheet.chosen[g.k];

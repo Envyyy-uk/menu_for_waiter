@@ -22,6 +22,13 @@ CHROME = next(
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 PHONE = {"width": 390, "height": 844}
 
+# Зал рисуется планом, а сетка осталась запасным видом — когда
+# расстановки ещё нет. Проверки ищут стол в обоих.
+FREE_TABLE = ":is(.spot, .tile):not(.busy)"
+BUSY_TABLE = ":is(.spot, .tile).busy"
+TABLE_NUMBER = ":is(.n, .num)"
+HALL = ":is(.plan, .tables)"
+
 fails: list[str] = []
 
 
@@ -48,10 +55,10 @@ def main() -> None:
 
         page.goto(BASE, wait_until="networkidle")
         pin(page, "1111")
-        check("официант попадает на столы", page.locator(".tables").count() > 0, page.url)
+        check("официант попадает на столы", page.locator(HALL).count() > 0, page.url)
 
-        free = page.locator(".tile:not(.busy)").first
-        label = free.locator(".num").inner_text()
+        free = page.locator(FREE_TABLE).first
+        label = free.locator(TABLE_NUMBER).inner_text()
         free.click()
         page.wait_for_timeout(400)
         check("спрашивают число гостей", page.locator(".sheet").is_visible())
@@ -81,6 +88,9 @@ def main() -> None:
         groups = page.locator(".sheet .group")
         groups.nth(0).locator(".opt").first.click()   # объём — 50 мл
         groups.nth(1).locator(".opt").first.click()   # вид — Absolut
+        check("микс называет конкретный напиток",
+              "Cola" in groups.nth(2).inner_text(),
+              groups.nth(2).inner_text()[:90])
         page.wait_for_timeout(300)
         add = page.locator(".sheet .btn.primary")
         check("цена варианта показана до отправки", "£13.00" in add.inner_text(), add.inner_text())
@@ -111,8 +121,8 @@ def main() -> None:
         page.get_by_role("button", name="Принял £26.00").click()
         page.wait_for_timeout(1200)
 
-        check("вернулись к столам", page.locator(".tables").count() > 0)
-        tile = page.locator(f".tile:has(.num:text-is('{label}'))")
+        check("вернулись к столам", page.locator(HALL).count() > 0)
+        tile = page.locator(f":is(.spot, .tile):has(:is(.n, .num):text-is('{label}'))")
         check("стол снова свободен", "busy" not in (tile.get_attribute("class") or ""),
               tile.get_attribute("class") or "")
 

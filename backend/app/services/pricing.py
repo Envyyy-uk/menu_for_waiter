@@ -82,13 +82,17 @@ def resolve(item: MenuItem, chosen: Selection | None) -> tuple[int, list[str], S
                 counts[pick] = counts.get(pick, 0) + 1
             if not counts:
                 continue
+            prefix = group.get("prefix")
             for pick, count in counts.items():
                 choice = choices[pick]
                 limit = int(choice.get("max_qty") or 1)
                 if count > limit:
                     raise PriceError(f"{choice['name']}: больше {limit} нельзя")
                 add += int(choice.get("add_pence") or 0) * count
-                names.append(choice["name"] if count == 1 else f"{choice['name']} ×{count}")
+                # С подписью группы: «Микс: Cola» на марке — это разбавить,
+                # а «Cola» — отдельный стакан. Разница в подаче.
+                label = f"{prefix}: {choice['name']}" if prefix else choice["name"]
+                names.append(label if count == 1 else f"{label} ×{count}")
             add += int(group.get("add_pence") or 0)
             normalised[key] = [p for p, c in counts.items() for _ in range(c)]
             continue

@@ -80,18 +80,31 @@ def main() -> None:
         staff = staff_ctx.new_page()
         staff.goto(BASE, wait_until="networkidle")
         pin(staff, fresh_pin)
-        check("новый сотрудник вошёл своим PIN", staff.locator(".tables").count() > 0, staff.url)
+        check("новый сотрудник вошёл своим PIN",
+              staff.locator(":is(.plan, .tables)").count() > 0, staff.url)
         check("вошёл под своим именем", name in staff.locator("#who").inner_text())
         staff_ctx.close()
 
-        # Стол заводится оттуда же.
+        # Стол заводится оттуда же — на плане зала, а не в таблице координат.
         page.get_by_role("button", name="Столы").click()
-        page.wait_for_timeout(700)
-        page.get_by_placeholder("Номер").fill(table)
-        page.get_by_placeholder("Зона (Зал, Терраса…)").fill("Терраса")
+        page.wait_for_timeout(800)
+        check("зал показан планом", page.locator(".plan .spot").count() > 0)
+
         page.get_by_role("button", name="Добавить стол").click()
-        page.wait_for_timeout(900)
-        check("стол добавлен", "Терраса" in page.locator("table.grid").inner_text())
+        page.wait_for_timeout(500)
+        page.locator(".sheet .field").first.fill(table)
+        page.get_by_role("button", name="Поставить в зал").click()
+        page.wait_for_timeout(1000)
+        check("стол встал в зал",
+              page.locator(f".plan .spot:has(.n:text-is('{table}'))").count() == 1)
+
+        # И убирается: по нему ещё не было чеков.
+        page.locator(f".plan .spot:has(.n:text-is('{table}'))").click()
+        page.wait_for_timeout(500)
+        page.get_by_role("button", name="Убрать стол").click()
+        page.wait_for_timeout(1000)
+        check("и убирается, пока по нему не было чеков",
+              page.locator(f".plan .spot:has(.n:text-is('{table}'))").count() == 0)
 
         # Цена меняется и попадает в журнал.
         page.get_by_role("button", name="Меню").click()

@@ -34,6 +34,11 @@ OPTIONAL: set[tuple[str, str]] = {
 # Сколько добавок одной строкой имеет смысл заказать.
 ADDON_MAX_QTY = 6
 
+# Из чего собираются миксы к крепкому: холодные безалкогольные напитки того же
+# каталога. Горячее в стакан с виски не льют, а пиво миксом не бывает — оно
+# отсекается по возрастному предупреждению, а не по списку названий.
+MIXER_CATEGORIES = ("beer-soft",)
+
 
 class CatalogueError(Exception):
     """Каталог получен, но им нельзя пользоваться."""
@@ -44,6 +49,45 @@ def ru(value: Any, fallback: str = "") -> str:
     if isinstance(value, dict):
         return value.get(RU) or value.get("en") or fallback
     return value if isinstance(value, str) else fallback
+
+
+def mixer_choices(items: list[dict[str, Any]], price_pence: int) -> list[dict[str, Any]]:
+    """Чем можно разбавить крепкое.
+
+    «Микс» без названия напитка — это загадка для бармена ровно так же, как
+    «Мохито» без вкуса. Поэтому выбор не абстрактный: официант называет
+    конкретную колу или сок, и она попадает на марку.
+
+    Список берётся из самого каталога, а не пишется руками: добавили на сайте
+    новый сок — он появится и в миксах.
+    """
+    out: list[dict[str, Any]] = []
+    for entry in items:
+        if entry.get("category") not in MIXER_CATEGORIES:
+            continue
+        if any(str(w).endswith("age-check") for w in entry.get("w") or []):
+            continue  # алкоголь миксом не бывает
+        kinds = [g for g in entry.get("options") or [] if g.get("key") == "kind"]
+        if kinds:
+            for choice in kinds[0]["choices"]:
+                out.append(
+                    {
+                        "key": f"{entry['key']}:{choice['key']}",
+                        "name": ru(choice.get("name"), choice["key"]),
+                        "add_pence": price_pence,
+                        "max_qty": ADDON_MAX_QTY,
+                    }
+                )
+        else:
+            out.append(
+                {
+                    "key": entry["key"],
+                    "name": entry.get("name") or entry["key"],
+                    "add_pence": price_pence,
+                    "max_qty": ADDON_MAX_QTY,
+                }
+            )
+    return out
 
 
 def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -107,12 +151,21 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
             )
 
         # Добавки — отдельная группа с набором, а не переключателем: миксов к
-        # бутылке берут два, и это одна строка чека, а не две.
+        # бутылке берут два, и это одна строка чека, а не две. Причём миксы
+        # разные: кола к одному стакану, сок к другому.
         for addon_key in entry.get("add") or []:
             addon = addons.get(addon_key)
             if addon is None:
                 continue
             name = ru(addon.get("names"), addon_key)
+            price = int(addon.get("price_pence") or 0)
+            choices = mixer_choices(raw["items"], price)
+            if not choices:
+                # Каталог без безалкогольных напитков — оставляем добавку
+                # безымянной, чтобы она не пропала совсем.
+                choices = [
+                    {"key": addon_key, "name": name, "add_pence": price, "max_qty": ADDON_MAX_QTY}
+                ]
             groups.append(
                 {
                     "key": addon_key,
@@ -121,14 +174,10 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
                     "required": False,
                     "depends": None,
                     "add_pence": 0,
-                    "choices": [
-                        {
-                            "key": addon_key,
-                            "name": name,
-                            "add_pence": int(addon.get("price_pence") or 0),
-                            "max_qty": ADDON_MAX_QTY,
-                        }
-                    ],
+                    # На марке читается «Микс: Cola», а не просто «Cola»:
+                    # бармен видит, что это разбавить, а не отдельный стакан.
+                    "prefix": name,
+                    "choices": choices,
                 }
             )
 

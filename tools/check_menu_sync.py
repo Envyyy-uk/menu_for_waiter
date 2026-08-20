@@ -68,6 +68,15 @@ def main() -> None:
         _, jar = api("/api/auth/pin", "POST", body={"pin": "1234"})
 
         state, _ = api("/api/admin/menu/sync", cookies=jar)
+        if str(PORT) not in (state.get("url") or ""):
+            # Прогон не может перенастроить чужой сервер, но и делать вид,
+            # что проверил, не должен.
+            print("сервер смотрит не на этот каталог:", state.get("url"))
+            print("\nПодняться так:\n"
+                  f'  MENU_SOURCE_URL="http://127.0.0.1:{PORT}/data/menu.json" \\\n'
+                  f'  MENU_LABELS_URL="http://127.0.0.1:{PORT}/data/ui.json" \\\n'
+                  "  uvicorn app.main:app --app-dir backend")
+            sys.exit(1)
         check("сервер знает адрес каталога", bool(state["url"]), str(state))
 
         result, _ = api("/api/admin/menu/sync", "POST", cookies=jar)

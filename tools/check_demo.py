@@ -2,15 +2,11 @@
 """Прогон демо-страницы: весь путь смены в одном окне.
 
 Демо (`docs/demo.html`) — не рабочая версия, а стенд: два устройства рядом,
-чтобы показать связь «отправил — приехало». Всё состояние живёт в браузере,
+чтобы показать связь «отправил — приехало». Состояние живёт в браузере,
 сервер не нужен.
 
 Отдавать файл нужно с явной кодировкой, иначе браузер разберёт кириллицу как
-латиницу:
-
-    python3 -c "import http.server,os;os.chdir('docs');\
-      http.server.HTTPServer(('127.0.0.1',8790), http.server.SimpleHTTPRequestHandler).serve_forever()"
-    python3 tools/check_demo.py
+латиницу и страница превратится в «Ð¡Ð¼ÐµÐ½Ð°».
 """
 import sys
 from pathlib import Path
@@ -66,13 +62,23 @@ with sync_playwright() as pw:
     p.wait_for_timeout(200)
     txt = p.locator("#phone [data-confirm]").inner_text()
     check("цена посчиталась", "£13.00" in txt, txt)
-    p.locator("#phone .opt[data-pick='mixer']").click(); p.wait_for_timeout(200)
+    # Микс называет конкретный напиток, а не «микс вообще».
+    check("микс предлагает конкретные напитки",
+          p.locator("#phone .opt[data-pick='mixer']").count() >= 5,
+          str(p.locator("#phone .opt[data-pick='mixer']").count()))
+    p.locator("#phone .opt[data-pick='mixer'][data-choice='cola']").click(); p.wait_for_timeout(200)
     txt = p.locator("#phone [data-confirm]").inner_text()
     check("микс прибавил £3", "£16.00" in txt, txt)
+    p.locator("#phone .opt[data-pick='mixer'][data-choice='orange']").click(); p.wait_for_timeout(200)
+    txt = p.locator("#phone [data-confirm]").inner_text()
+    check("второй микс — другой напиток", "£19.00" in txt, txt)
     p.locator("#phone [data-confirm]").click(); p.wait_for_timeout(400)
 
     p.locator("#phone [data-go='check']").click(); p.wait_for_timeout(400)
     check("в чеке две позиции", p.locator("#phone .line").count() == 2, str(p.locator("#phone .line").count()))
+    check("на марке видно, какой именно микс",
+          "Микс: Cola" in p.locator("#phone .line").nth(1).inner_text(),
+          p.locator("#phone .line").nth(1).inner_text().replace("\n", " "))
     check("на планшете пока пусто", p.locator("#tablet .mark").count() == 0)
 
     p.locator("#phone [data-send]").click(); p.wait_for_timeout(500)

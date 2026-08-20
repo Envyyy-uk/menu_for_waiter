@@ -23,6 +23,13 @@ BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
 PHONE = {"width": 390, "height": 844}
 TABLET = {"width": 1180, "height": 820}
 
+# Зал рисуется планом, а сетка осталась запасным видом — когда
+# расстановки ещё нет. Проверки ищут стол в обоих.
+FREE_TABLE = ":is(.spot, .tile):not(.busy)"
+BUSY_TABLE = ":is(.spot, .tile).busy"
+TABLE_NUMBER = ":is(.n, .num)"
+HALL = ":is(.plan, .tables)"
+
 fails: list[str] = []
 
 
@@ -62,7 +69,7 @@ def main() -> None:
 
         before = bar.locator(".mark").count()
 
-        waiter.locator(".tile:not(.busy)").first.click()
+        waiter.locator(FREE_TABLE).first.click()
         waiter.wait_for_timeout(400)
         waiter.get_by_role("button", name="Открыть стол").click()
         waiter.wait_for_timeout(900)
