@@ -34,6 +34,10 @@ class Venue(UUIDPk, Timestamped, Base):
     # сериализует выдачу.
     check_seq: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
+    # Состояние синхронизации меню с сайтом: когда последний раз ходили, что
+    # получилось, и метка версии каталога (ETag), чтобы не качать одно и то же.
+    menu_sync: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+
     tables: Mapped[list["Table"]] = relationship(back_populates="venue")
 
 

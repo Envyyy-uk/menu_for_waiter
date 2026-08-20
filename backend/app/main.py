@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,7 +17,7 @@ from app.api import tables as tables_api
 from app.api import ws as ws_api
 from app.core.config import settings
 from app.db import engine
-from app.services import realtime
+from app.services import menu_sync, realtime
 
 
 @asynccontextmanager
@@ -24,7 +25,15 @@ async def lifespan(app: FastAPI):
     # Реалтайм зовётся из синхронных обработчиков, живущих в пуле потоков.
     # Чтобы класть события в очередь, ему нужен цикл событий сервера.
     realtime.bind_loop(asyncio.get_running_loop())
-    yield
+    # Меню приезжает с сайта само. Задача живёт рядом с сервером и молчит,
+    # пока всё хорошо.
+    watcher = asyncio.create_task(menu_sync.run_forever())
+    try:
+        yield
+    finally:
+        watcher.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await watcher
 
 
 app = FastAPI(

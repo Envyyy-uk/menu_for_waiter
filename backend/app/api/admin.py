@@ -37,6 +37,7 @@ from app.models import (
     new_table_token,
     utcnow,
 )
+from app.services import menu_sync
 from app.services.audit import record
 from app.services.auth import PIN_LENGTH, AuthError, issue_pin
 
@@ -356,6 +357,33 @@ def edit_item(
 
     realtime.publish(realtime.CHANNEL_ALL, {"type": "menu.state", "key": item.key})
     return item_payload(item)
+
+
+# ------------------------------------------------------ меню с сайта -----
+@router.get("/menu/sync")
+def sync_status(
+    actor: User = Depends(require("items.edit")),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    return menu_sync.status(venue)
+
+
+@router.post("/menu/sync")
+def sync_now(
+    actor: User = Depends(require("items.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Сходить за меню прямо сейчас.
+
+    Обычно это делается само раз в несколько минут, но перед сменой удобно не
+    ждать: поправили цену на сайте — нажали здесь и увидели.
+
+    `force` намеренный: кнопку жмут именно тогда, когда не верят, что метка
+    версии на сайте поменялась.
+    """
+    result = menu_sync.sync_once(db, venue, force=True, actor_id=actor.id)
+    return {**result, "state": menu_sync.status(venue)}
 
 
 # ---------------------------------------------------------------- отчёт ----

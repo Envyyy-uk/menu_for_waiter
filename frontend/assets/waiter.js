@@ -33,6 +33,7 @@ const App = {
     Live.on('check.changed', () => this.refresh())
         .on('ticket.ready', d => this.onReady(d))
         .on('menu.state', () => this.reloadMenu())
+        .on('menu.changed', () => this.reloadMenu())
         .on('resync', () => this.refresh(true));
     Live.onLink = up => { if (up) this.refresh(); };
     Live.start();

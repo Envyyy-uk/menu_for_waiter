@@ -21,6 +21,12 @@ class Settings(BaseSettings):
 
     public_base_url: str = "http://localhost:8000"
 
+    # Каталог меню на сайте. Пустой адрес = синхронизация выключена, меню
+    # живёт снимком из seed_menu.json.
+    menu_source_url: str = "https://envyyy-uk.github.io/Menu-qr/data/menu.json"
+    menu_labels_url: str = "https://envyyy-uk.github.io/Menu-qr/data/ui.json"
+    menu_sync_minutes: int = 5
+
     # Сессии. Смена длиннее таймера, поэтому сессия продлевается при
     # активности, а не рвётся посреди заказа.
     staff_session_minutes: int = 720

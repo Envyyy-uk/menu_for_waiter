@@ -57,7 +57,10 @@ const Admin = {
       if (this.tab === 'report') this.data.report = await API.get('/api/admin/report');
       if (this.tab === 'users') this.data.users = await API.get('/api/admin/users');
       if (this.tab === 'tables') this.data.tables = await API.get('/api/admin/tables');
-      if (this.tab === 'menu') this.data.menu = await API.get('/api/menu');
+      if (this.tab === 'menu') {
+        this.data.menu = await API.get('/api/menu');
+        this.data.sync = await API.get('/api/admin/menu/sync');
+      }
       if (this.tab === 'audit') this.data.audit = await API.get('/api/admin/audit');
     } catch (e) {
       if (e.status === 401) return location.reload();
@@ -281,6 +284,7 @@ const Admin = {
     wrap.appendChild(el('p', 'hint',
       'Цена — это деньги, поэтому её изменение попадает в журнал с именем. '
       + 'Стоп-лист ставят бар и кухня со своего планшета: кончилось у них.'));
+    wrap.appendChild(this.syncBox());
 
     wrap.appendChild(this.table(
       ['Позиция', 'Категория', 'Станция', 'Цена', 'Состояние', ''],
@@ -294,6 +298,51 @@ const Admin = {
       ])
     ));
     return wrap;
+  },
+
+  /* Меню приезжает с сайта само. Здесь видно, когда оно приезжало в
+     последний раз, — и кнопка на случай «поправил цену и хочу увидеть
+     сейчас», чтобы не ждать следующей проверки. */
+  syncBox() {
+    const state = this.data.sync || {};
+    const box = el('div', 'sync');
+
+    if (!state.enabled) {
+      box.classList.add('off');
+      box.innerHTML = '<div class="body"><b>Меню ведётся здесь.</b>'
+        + '<div class="muted">Синхронизация с сайтом выключена: в настройках '
+        + 'сервера пуст адрес каталога.</div></div>';
+      return box;
+    }
+
+    const bad = state.status === 'error';
+    if (bad) box.classList.add('bad');
+    const when = state.at ? new Date(state.at).toLocaleString('ru-RU') : 'ещё не ходили';
+    box.innerHTML = `<div class="body">
+        <b>${bad ? 'Меню не обновилось' : 'Меню приезжает с сайта'}</b>
+        <div class="muted">${esc(when)}${bad ? ' · ' + esc(state.error || '') : ''}</div>
+        <div class="faint">Цены и позиции ведутся в админке гостевого меню.
+          Правка здесь продержится до следующей проверки.</div>
+      </div>`;
+
+    const now = el('button', 'btn', 'Обновить сейчас');
+    now.addEventListener('click', async () => {
+      now.disabled = true;
+      now.textContent = 'Идём за меню…';
+      try {
+        const result = await API.post('/api/admin/menu/sync', {});
+        const r = result.report;
+        if (result.status === 'error') toast(result.error || 'Не получилось', 'bad');
+        else if (!r || (!r.added.length && !r.updated.length && !r.removed.length)) {
+          toast('Меню и так свежее', 'good');
+        } else {
+          toast(`Обновлено: +${r.added.length} ~${r.updated.length} −${r.removed.length}`, 'good');
+        }
+      } catch (e) { toast(e.message, 'bad'); }
+      this.load();
+    });
+    box.appendChild(now);
+    return box;
   },
 
   menuActions(item) {
