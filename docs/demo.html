@@ -652,6 +652,65 @@ h1 {
 .tabs { display: flex; gap: 6px; padding: 10px 12px 0; }
 .hintline { margin: 10px 2px; font-size: 12px; color: var(--app-soft); }
 
+/* -------------------------------------------------------------- склад -- */
+.alarm {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--app-bad);
+  border-radius: 4px;
+  background: var(--app-bad-bg);
+  color: var(--app-bad);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sublabel {
+  margin: 20px 2px 8px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.rows { width: 100%; border-collapse: collapse; }
+.rows th {
+  padding: 0 8px 6px;
+  border-bottom: 1px solid var(--app-rule);
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.rows td {
+  padding: 8px;
+  border-bottom: 1px solid var(--app-hair);
+  font-size: 14px;
+  vertical-align: baseline;
+}
+.rows td.q {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.rows tr.low td.q { color: var(--app-warn); }
+.rows tr.out td.q { color: var(--app-bad); }
+.rows td .o { display: block; font-size: 12px; color: var(--app-gold); }
+.rows td.when { color: var(--app-faint); font-size: 12px; white-space: nowrap; }
+.rows td.d {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.rows td.d.minus { color: var(--app-bad); }
+.rows td.d.plus  { color: var(--app-ok); }
+
 /* --------------------------------------------------------- всплывашка -- */
 .toast {
   position: absolute;
@@ -703,7 +762,8 @@ h1 {
       Слева телефон официанта, справа планшет бара. Это не картинки —
       нажимайте: заказ, отправленный на телефоне, <b>появляется на планшете
       сразу</b>, а «Готово» на планшете возвращается официанту сигналом.
-      Столов можно занять несколько, у каждого свой чек.
+      Столов можно занять несколько, у каждого свой чек. Планшет открывается
+      своим PIN станции, а проданное само уходит со склада.
     </p>
   </header>
 
@@ -728,9 +788,10 @@ h1 {
 
       <div class="device tablet">
         <div class="cap">
-          <b id="right-name">Планшет</b> бара
+          <b id="right-name">Планшет бара</b>
           <span class="switch" id="right-switch">
             <button type="button" data-right="station" class="on">Станция</button>
+            <button type="button" data-right="stock">Склад</button>
             <button type="button" data-right="admin">Админка</button>
           </span>
         </div>
@@ -754,15 +815,18 @@ h1 {
       <p><b>Звук</b> здесь короткий и играет только по нажатию. В приложении
         сигнал идёт по медиаканалу — его слышно при выключенном звонке — и
         повторяется каждые четыре секунды, пока официант не нажал «Забрал».</p>
-      <p>Нет входа по личному PIN каждого сотрудника, push при свёрнутом
-        приложении, отчёта по смене, склада и журнала. Всё это есть в рабочей
-        версии.</p>
+      <p>Нет push при свёрнутом приложении, отчёта по выручке и журнала
+        действий. Склад здесь показывает списание, но приход и инвентаризацию
+        в него не заводят — в рабочей версии заводят.</p>
     </div>
     <div class="note">
       <h3>Что стоит попробовать</h3>
       <p>Займите два стола подряд и убедитесь, что чеки не перепутались.
         Отправьте заказ и нажмите «Готово» только на баре — кухня останется в
         работе, и стол это покажет.</p>
+      <p>Наберите водку с миксом и загляните в <b>Склад</b>: с бутылки ушло
+        ровно налитое, а банка колы списалась отдельно. Закройте смену на
+        планшете — он спросит PIN и скажет, сколько марок прошло.</p>
       <p>Переключитесь на <b>Админку</b> и перетащите стол: телефон официанта
         тут же покажет зал по-новому. Кнопка <b>Заново</b> сбрасывает смену.</p>
     </div>
@@ -846,6 +910,40 @@ const MENU = [
 
 const STATION = { bar: 'Бар', kitchen: 'Кухня' };
 
+/* Склад: сколько чего стоит на полке. Правило связывает позицию меню с
+   продуктом — «водка 50 мл» это минус 50 мл с бутылки. Правило без варианта
+   действует на любой: пицца съедает моцареллу независимо от того, какая она.
+
+   Остатки нарочно взяты низкими: чтобы «мало» и «кончилось» было видно за
+   один вечер, а не за неделю. */
+const STOCK = [
+  { k: 'absolut',    n: 'Absolut, бутылка',  u: 'мл', q: 700,  low: 200 },
+  { k: 'stoli',      n: 'Stoli, бутылка',    u: 'мл', q: 300,  low: 200 },
+  { k: 'cola',       n: 'Cola 0.33',         u: 'шт', q: 5,    low: 4 },
+  { k: 'tobacco',    n: 'MustHave, табак',   u: 'г',  q: 250,  low: 50 },
+  { k: 'mozzarella', n: 'Моцарелла',         u: 'г',  q: 1000, low: 400 }
+];
+
+const RECIPES = [
+  { m: 'vodka', o: { size: 'ml50',   kind: 'absolut' }, s: 'absolut', per: 50 },
+  { m: 'vodka', o: { size: 'ml100',  kind: 'absolut' }, s: 'absolut', per: 100 },
+  { m: 'vodka', o: { size: 'ml150',  kind: 'absolut' }, s: 'absolut', per: 150 },
+  { m: 'vodka', o: { size: 'bottle', kind: 'absolut' }, s: 'absolut', per: 700 },
+  { m: 'vodka', o: { size: 'ml50',   kind: 'stoli' },   s: 'stoli',   per: 50 },
+  { m: 'vodka', o: { size: 'ml100',  kind: 'stoli' },   s: 'stoli',   per: 100 },
+  { m: 'vodka', o: { size: 'ml150',  kind: 'stoli' },   s: 'stoli',   per: 150 },
+  { m: 'vodka', o: { size: 'bottle', kind: 'stoli' },   s: 'stoli',   per: 700 },
+  // Микс — тоже расход: банка колы уходит со склада так же, как налитая водка.
+  { m: 'vodka', o: { mixer: 'cola' },  s: 'cola', per: 1 },
+  { m: 'soft',  o: { kind: 'cola' },   s: 'cola', per: 1 },
+  { m: 'hookah', o: { dark: 'musthave' }, s: 'tobacco', per: 20 },
+  // Без вариантов — значит на любой: у пиццы моцарелла одна и та же.
+  { m: 'margh',     o: {}, s: 'mozzarella', per: 120 },
+  { m: 'pepperoni', o: {}, s: 'mozzarella', per: 120 }
+];
+
+const STATION_PIN = '2468';
+
 const PLAN = [
   { id: 1, x: 14, y: 16 }, { id: 2, x: 38, y: 16 }, { id: 3, x: 62, y: 16 }, { id: 4, x: 86, y: 16 },
   { id: 5, x: 14, y: 44 }, { id: 6, x: 38, y: 44 }, { id: 7, x: 62, y: 44 }, { id: 8, x: 86, y: 44 },
@@ -858,6 +956,9 @@ function fresh(keepPlan) {
   S = {
     screen: 'pin',
     pin: '',
+    shift: { open: false, closing: false, pin: '', done: 0, why: null },
+    stock: STOCK.map(x => ({ ...x })),
+    moves: [],
     right: S ? S.right : 'station',
     night: S ? S.night : false,
     seq: 41,
@@ -867,7 +968,8 @@ function fresh(keepPlan) {
     tickets: [],         // {id, checkId, station, status, order, table, check, items, at}
     filter: { text: '', cat: null },
     sheet: null,
-    toast: null
+    toast: null,
+    tip: null
   };
 }
 fresh();
@@ -889,6 +991,9 @@ const totalOf = c => c.items.reduce((n, i) => n + i.price * i.qty, 0);
 const ticketsOf = c => S.tickets.filter(t => t.checkId === c.id);
 const waiting = () => S.tickets.filter(t => t.status === 'ready');
 const live = () => S.tickets.filter(t => t.status !== 'served');
+const stockOf = k => S.stock.find(x => x.k === k);
+const stateOf = x => x.q <= 0 ? 'out' : x.q <= x.low ? 'low' : 'ok';
+const troubled = () => S.stock.filter(x => stateOf(x) !== 'ok');
 
 /* --------------------------------------------------------------- звук --- */
 /* Три восходящих тона — тот же рисунок, что в приложении. Контекст
@@ -916,7 +1021,8 @@ function beep() {
 /* Шаг не хранится, а выводится из состояния: иначе он врёт, стоит нажать
    что-нибудь не по порядку — а именно так демо и трогают. */
 const STEPS = [
-  ['Вход по PIN', 'Наберите 1111'],
+  ['Вход по PIN', 'Наберите 1111 на телефоне'],
+  ['Открыть смену', 'PIN станции на планшете: 2468'],
   ['Открыть стол', 'Нажмите свободный стол на плане'],
   ['Набрать заказ', 'Добавьте что-нибудь из меню'],
   ['Отправить', 'Заказ уходит на бар и кухню'],
@@ -927,13 +1033,14 @@ const STEPS = [
 
 function step() {
   if (S.screen === 'pin') return 1;
-  if (waiting().length) return 6;
+  if (!S.shift.open) return 2;
+  if (waiting().length) return 7;
   const c = openCheck();
-  if (!c) return S.checks.length ? 7 : 2;
-  if (!c.items.length) return 3;
-  if (c.items.some(i => i.status === 'draft')) return 4;
-  if (ticketsOf(c).some(t => t.status !== 'served')) return 5;
-  return 7;
+  if (!c) return S.checks.length ? 8 : 3;
+  if (!c.items.length) return 4;
+  if (c.items.some(i => i.status === 'draft')) return 5;
+  if (ticketsOf(c).some(t => t.status !== 'served')) return 6;
+  return 8;
 }
 
 function paintSteps() {
@@ -1098,12 +1205,15 @@ function readyHTML() {
 /* ---------------------------------------------------------- планшет ----- */
 function tabletHTML() {
   if (S.right === 'admin') return adminHTML();
+  if (S.right === 'stock') return stockHTML();
+  if (!S.shift.open || S.shift.closing) return shiftHTML();
 
   const list = live();
   const news = list.filter(t => t.status === 'new').length;
   return `<div class="bar">
       <span class="dot"></span><h3>Бар и кухня</h3>
       <span class="who">${news ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : list.length + ' в работе'}</span>
+      <button type="button" data-shift="close">Закрыть смену</button>
     </div>
     <div class="view"><div class="board-grid">
       ${list.length ? list.map(markHTML).join('')
@@ -1132,6 +1242,69 @@ function markHTML(t) {
           : '<span class="wait">Ждёт официанта</span>'}
     </div>
   </div>`;
+}
+
+/* Планшет станции живёт отдельно от личных входов: у него свой PIN, которым
+   смену открывают и им же закрывают. Личный PIN на каждую марку — способ не
+   получить ни одного нажатия; к деньгам этот экран не ведёт. */
+function shiftHTML() {
+  const closing = !!S.shift.closing;
+  return `<div class="bar">
+      <span class="dot"></span><h3>${closing ? 'Закрытие смены' : 'Смена не открыта'}</h3>
+      <span class="who">Бар</span>
+      ${closing ? '<button type="button" data-shift="cancel">Отмена</button>' : ''}
+    </div>
+    <div class="view pad0"><div class="gate">
+      <p>${closing ? 'PIN станции — закрыть смену' : 'PIN станции'}</p>
+      <div class="dots">${[0, 1, 2, 3].map(i =>
+        `<i class="${i < S.shift.pin.length ? 'on' : ''}"></i>`).join('')}</div>
+      <div class="pad">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d =>
+          `<button type="button" data-skey="${d}">${d}</button>`).join('')}
+        <button type="button" class="act" data-skey="c">Сброс</button>
+        <button type="button" data-skey="0">0</button>
+        <button type="button" class="act" data-skey="b">←</button>
+      </div>
+      <p class="hint">${S.shift.why ? esc(S.shift.why) : 'Подсказка: 2468'}</p>
+    </div></div>`;
+}
+
+/* Склад виден владельцу и администратору. Менеджер, который сбрасывает
+   PIN-ы, сюда не заходит: остаток это деньги. */
+function stockHTML() {
+  const bad = troubled();
+  const rows = S.stock.map(x => `<tr class="${stateOf(x)}">
+      <td>${esc(x.n)}${stateOf(x) === 'out'
+        ? '<span class="o">кончилось</span>'
+        : stateOf(x) === 'low' ? '<span class="o">мало</span>' : ''}</td>
+      <td class="q">${x.q} ${esc(x.u)}</td>
+    </tr>`).join('');
+
+  const moves = S.moves.slice(0, 8).map(m => `<tr>
+      <td class="when">${esc(m.when)}</td>
+      <td>${esc(m.name)}<span class="o">${esc(m.why)} · ${esc(m.who)}</span></td>
+      <td class="d ${m.delta < 0 ? 'minus' : 'plus'}">${m.delta > 0 ? '+' : ''}${m.delta} ${esc(m.u)}</td>
+    </tr>`).join('');
+
+  return `<div class="bar">
+      <span class="dot"></span><h3>Склад</h3>
+      <span class="who">только владелец и администратор</span>
+    </div>
+    <div class="view">
+      ${bad.length ? `<p class="alarm">${bad.map(x =>
+        esc(x.n) + (stateOf(x) === 'out' ? ' — кончилось' : ' — мало')).join(' · ')}</p>` : ''}
+      <table class="rows">
+        <tr><th>Позиция</th><th style="text-align:right">Остаток</th></tr>
+        ${rows}
+      </table>
+      <p class="sublabel">Движения</p>
+      ${moves ? `<table class="rows">${moves}</table>`
+        : '<p class="hintline">Пока пусто. Отправьте заказ — списание появится здесь.</p>'}
+      <p class="hintline">Списывается на отправке, а не на закрытии чека: продукт
+        кончается тогда, когда бармен его налил. В рабочей версии сюда же
+        заводят приход руками и проводят инвентаризацию — она пишет разницу
+        с расчётным остатком, а не новое число.</p>
+    </div>`;
 }
 
 function clock(t) {
@@ -1180,6 +1353,7 @@ function addItem(key, opts, qty) {
   const { price, names } = priceOf(item, opts || {});
   check.items.push({
     key, name: item.n, station: item.st, price, qty: qty || 1,
+    chosen: opts || {},          // ключи нужны складу: по ним ищется правило
     opts: names, status: 'draft', ticket: null
   });
   flash(`${item.n} · ${qty || 1}×`);
@@ -1240,15 +1414,55 @@ function send() {
       items: mine.map(i => ({ name: i.name, qty: i.qty, opts: i.opts }))
     });
   });
-  flash('Отправлено на станции');
+
+  // Списание на отправке, а не на закрытии чека: продукт кончается тогда,
+  // когда бармен его налил.
+  drafts.forEach(i => recipesFor(i.key, i.chosen || {})
+    .forEach(r => moveStock(r.s, -r.per * i.qty, 'продажа', 'Аня')));
+
+  const bad = troubled();
+  flash(bad.length
+    ? `Отправлено · на складе: ${bad.map(x => x.n).join(', ')}`
+    : 'Отправлено на станции', bad.length ? 2600 : 1800);
 }
 send.seq = 0;
+
+/* Правило подходит, если совпали все указанные варианты. Для группы с
+   несколькими выборами (микс) считается, сколько раз выбран напиток: две колы
+   это две банки. */
+function recipesFor(key, chosen) {
+  const out = [];
+  RECIPES.filter(r => r.m === key).forEach(r => {
+    let mult = 1, ok = true;
+    Object.keys(r.o || {}).forEach(g => {
+      const want = r.o[g], got = chosen[g];
+      if (Array.isArray(got)) {
+        const n = got.filter(x => x === want).length;
+        if (n) mult *= n; else ok = false;
+      } else if (got !== want) ok = false;
+    });
+    if (ok) out.push({ s: r.s, per: r.per * mult });
+  });
+  return out;
+}
+
+function moveStock(key, delta, why, who) {
+  const x = stockOf(key);
+  if (!x) return;
+  x.q = Math.max(0, x.q + delta);
+  const now = new Date();
+  S.moves.unshift({
+    name: x.n, u: x.u, delta, why, who,
+    when: now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0')
+  });
+}
 
 function moveMark(id, to) {
   const t = S.tickets.find(x => x.id === id);
   if (!t) return;
   t.status = to;
   if (to === 'ready') {
+    S.shift.done += 1;          // столько марок станция отдала за смену
     t.fresh = true;
     beep();
     setTimeout(() => { t.fresh = false; render(); }, 3400);
@@ -1271,6 +1485,15 @@ function closeCheck(method, change) {
   flash(method === 'cash' && change > 0
     ? `Чек закрыт наличными · сдача ${money(change)}`
     : 'Чек закрыт', 2400);
+}
+
+/* У планшета своя всплывашка: смену открывают на нём, и сообщать об этом
+   на чужом экране — значит не сообщить никому. */
+let tipTimer = null;
+function tip(text, ms) {
+  S.tip = text;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => { S.tip = null; render(); }, ms || 2400);
 }
 
 let flashTimer = null;
@@ -1378,10 +1601,10 @@ function render() {
 
   const tablet = document.getElementById('tablet');
   tablet.className = 'screen' + (S.night ? ' night' : '');
-  tablet.innerHTML = tabletHTML();
+  tablet.innerHTML = tabletHTML() + (S.tip ? `<div class="toast">${esc(S.tip)}</div>` : '');
 
   document.getElementById('right-name').textContent =
-    S.right === 'admin' ? 'Админка' : 'Планшет';
+    S.right === 'admin' ? 'Админка' : S.right === 'stock' ? 'Склад' : 'Планшет бара';
   document.getElementById('theme-phone').textContent = S.night ? 'День' : 'Ночь';
   paintSteps();
 
@@ -1402,7 +1625,8 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-key],[data-table],[data-add],[data-go],[data-back],'
     + '[data-cat],[data-send],[data-mark],[data-take],[data-pay],[data-guests],[data-open],'
     + '[data-pick],[data-choice],[data-qty],[data-confirm],[data-close],[data-cash],'
-    + '[data-given],[data-veil],[data-right],[data-check],[data-new],[data-split]');
+    + '[data-given],[data-veil],[data-right],[data-check],[data-new],[data-split],'
+    + '[data-skey],[data-shift]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1417,6 +1641,35 @@ document.addEventListener('click', e => {
     else if (d.key === 'b') S.pin = S.pin.slice(0, -1);
     else if (S.pin.length < 4) S.pin += d.key;
     if (S.pin.length === 4) { S.pin = ''; S.screen = 'tables'; }
+  }
+
+  if (d.shift === 'close') { S.shift.closing = true; S.shift.pin = ''; S.shift.why = null; }
+  if (d.shift === 'cancel') { S.shift.closing = false; S.shift.pin = ''; S.shift.why = null; }
+
+  if (d.skey) {
+    const f = S.shift;
+    if (d.skey === 'c') f.pin = '';
+    else if (d.skey === 'b') f.pin = f.pin.slice(0, -1);
+    else if (f.pin.length < 4) f.pin += d.skey;
+    if (f.pin.length === 4) {
+      const right = f.pin === STATION_PIN;
+      f.pin = '';
+      if (!right) {
+        // Чужой PIN смену не закрывает — иначе отчёт по станции превращается
+        // в набор огрызков.
+        f.why = 'Не тот PIN станции';
+      } else if (f.closing) {
+        f.closing = false;
+        f.open = false;
+        f.why = null;
+        tip(`Смена закрыта · ${f.done} ${plural(f.done, 'марка', 'марки', 'марок')}`, 3000);
+        f.done = 0;
+      } else {
+        f.open = true;
+        f.why = null;
+        tip('Смена открыта');
+      }
+    }
   }
 
   if (d.table) tapTable(Number(d.table));

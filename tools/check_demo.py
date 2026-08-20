@@ -25,6 +25,11 @@ def enter(p, pin="1111"):
         p.locator(f"#phone .pad button[data-key='{d}']").click()
     p.wait_for_timeout(300)
 
+def station_pin(p, pin="2468"):
+    for d in pin:
+        p.locator(f"#tablet .pad button[data-skey='{d}']").click()
+    p.wait_for_timeout(300)
+
 def open_table(p, n, guests_taps=0):
     p.locator(f"#phone .spot[data-table='{n}']").click(); p.wait_for_timeout(300)
     for _ in range(guests_taps):
@@ -62,6 +67,18 @@ with sync_playwright() as pw:
 
     enter(p)
     check("после PIN — план зала", p.locator("#phone .plan .spot").count() == 12)
+
+    # ---- смена на планшете станции -----------------------------------------
+    # Планшет живёт отдельно от личных входов: пока смена не открыта, на нём
+    # нет ничего, даже если официант уже вошёл.
+    check("планшет без смены просит PIN станции", p.locator("#tablet .gate").count() == 1)
+    station_pin(p, "1357")
+    check("чужой PIN смену не открывает",
+          p.locator("#tablet .gate").count() == 1
+          and "не тот" in p.locator("#tablet .gate .hint").inner_text().lower(),
+          p.locator("#tablet .gate .hint").inner_text())
+    station_pin(p)
+    check("свой PIN открыл смену", p.locator("#tablet .board-grid").count() == 1)
 
     # ---- два стола рядом: то, на чём демо ломалось -------------------------
     open_table(p, 5)
@@ -140,6 +157,22 @@ with sync_playwright() as pw:
     p.locator("#phone [data-take]").click(); p.wait_for_timeout(400)
     check("станция опустела по этому чеку", p.locator("#tablet .mark").count() == 0)
 
+    # ---- склад --------------------------------------------------------------
+    # Списание идёт на отправке, а не на закрытии чека: чек ещё не оплачен,
+    # а продукт уже налит.
+    p.locator("[data-right='stock']").click(); p.wait_for_timeout(400)
+    stock = p.locator("#tablet .view").inner_text()
+    check("с бутылки ушло ровно налитое", "650 мл" in stock, stock.replace("\n", " ")[:160])
+    check("банка микса списалась отдельно", "4 шт" in stock, stock.replace("\n", " ")[:160])
+    check("кухня списала своё", "880 г" in stock, stock.replace("\n", " ")[:160])
+    check("видно, что это продажа и кто отправил",
+          "продажа" in stock and "Аня" in stock)
+    check("«мало» показано тревогой", p.locator("#tablet .alarm").count() == 1
+          and "Cola" in p.locator("#tablet .alarm").inner_text(),
+          stock.replace("\n", " ")[:160])
+    p.screenshot(path=str(OUT/"demo-6.png"))
+    p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
+
     # ---- оплата ------------------------------------------------------------
     p.locator("#phone [data-pay]").click(); p.wait_for_timeout(300)
     p.locator("#phone [data-cash]").click(); p.wait_for_timeout(300)
@@ -204,6 +237,30 @@ with sync_playwright() as pw:
           str(p.locator("#phone .spot.busy").count()))
     check("расстановка после сброса сохранилась",
           abs(p.locator("#phone .spot[data-table='5']").bounding_box()["y"] - after["y"]) < 6)
+
+    # ---- закрытие смены -----------------------------------------------------
+    p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
+    check("после сброса планшет снова просит PIN", p.locator("#tablet .gate").count() == 1)
+    station_pin(p)
+    p.locator("#phone .spot[data-table='3']").click(); p.wait_for_timeout(300)
+    p.locator("#phone [data-open]").click(); p.wait_for_timeout(300)
+    add(p, "pelmeni")
+    to_check(p)
+    p.locator("#phone [data-send]").click(); p.wait_for_timeout(400)
+    p.locator("#tablet .mark").first.locator("[data-to='ready']").click(); p.wait_for_timeout(400)
+
+    p.locator("#tablet [data-shift='close']").click(); p.wait_for_timeout(300)
+    check("закрытие смены тоже просит PIN",
+          p.locator("#tablet .gate").count() == 1
+          and "закрыт" in p.locator("#tablet .bar h3").inner_text().lower(),
+          p.locator("#tablet .bar h3").inner_text())
+    station_pin(p, "1357")
+    check("чужим PIN смену не закрыть", p.locator("#tablet .gate").count() == 1)
+    station_pin(p)
+    check("смена закрылась и посчитала марки",
+          "1 марка" in p.locator("#tablet .toast").inner_text().lower(),
+          p.locator("#tablet .toast").inner_text())
+    check("после закрытия планшет снова просит PIN", p.locator("#tablet .gate").count() == 1)
 
     p.locator("#theme-phone").click(); p.wait_for_timeout(300)
     check("ночной режим включился", "night" in (p.locator("#phone").get_attribute("class") or ""))
