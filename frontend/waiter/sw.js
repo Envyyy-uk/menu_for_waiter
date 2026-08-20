@@ -53,3 +53,42 @@ self.addEventListener('fetch', e => {
       .catch(() => caches.match(e.request).then(hit => hit || caches.match('/')))
   );
 });
+
+/* --------------------------------------------------------------------------
+   Push: сигнал, когда приложение свёрнуто.
+
+   `requireInteraction` держит уведомление на экране, пока его не тронут, —
+   мигнувшая и исчезнувшая плашка это ровно тот пропущенный сигнал, из-за
+   которого напиток стоит на баре.
+   -------------------------------------------------------------------------- */
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (err) { data = {}; }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Готово', {
+      body: data.body || '',
+      tag: data.tag || 'ready',
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [220, 120, 220, 120, 320],
+      icon: '/assets/icons/waiter-192.png',
+      badge: '/assets/icons/waiter-192.png',
+      data: { url: data.url || '/' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // Уже открытое окно поднимаем, а не открываем второе: два экрана зала
+      // на одном телефоне — это два разных представления о том, что готово.
+      for (const client of list) {
+        if (client.url.includes(self.location.origin)) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

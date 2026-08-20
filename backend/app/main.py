@@ -9,6 +9,7 @@ from sqlalchemy import text
 from app.api import auth as auth_api
 from app.api import checks as checks_api
 from app.api import menu as menu_api
+from app.api import push as push_api
 from app.api import station as station_api
 from app.api import tables as tables_api
 from app.api import ws as ws_api
@@ -36,6 +37,7 @@ app.include_router(auth_api.router)
 app.include_router(menu_api.router)
 app.include_router(tables_api.router)
 app.include_router(checks_api.router)
+app.include_router(push_api.router)
 app.include_router(station_api.router)
 app.include_router(ws_api.router)
 

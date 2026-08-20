@@ -36,6 +36,7 @@ const App = {
         .on('resync', () => this.refresh(true));
     Live.onLink = up => { if (up) this.refresh(); };
     Live.start();
+    Push.init();
 
     await this.refresh(true);
     this.go('tables');
@@ -49,6 +50,9 @@ const App = {
       const [tables, waiting, check] = await Promise.all(jobs);
       this.tables = tables;
       this.waiting = waiting;
+      // Сигнал держится на состоянии, а не на событии: событие можно
+      // пропустить, а список ждущих марок врать не умеет.
+      Sound.pending(waiting.length);
       if (check) this.check = check;
       this.paint();
     } catch (e) {
@@ -120,21 +124,22 @@ const App = {
     buzz(20);
     try {
       await API.post(`/api/station/tickets/${ticketId}/served`);
-      Sound.stop();
       await this.refresh();
     } catch (e) { toast(e.message, 'bad'); }
   },
 
   onReady(data) {
-    // Сигнал — забота отдельного модуля: звук должен пробиться даже сквозь
-    // выключенный звонок, и это не дело экрана.
-    Sound.alert(data);
+    // Звонок сразу, не дожидаясь ответа сервера со списком: секунда задержки
+    // здесь — это официант, который уже отвернулся.
+    Sound.arm();
+    toast(`Готово · ${data.station_name} · стол ${data.table}`, 'good');
     this.refresh();
   },
 
   /* ----------------------------------------------------------- столы ---- */
   tablesView() {
     const wrap = el('div', 'screen');
+    wrap.appendChild(this.signalRow());
     const zones = {};
     this.tables.forEach(t => (zones[t.zone] = zones[t.zone] || []).push(t));
 
@@ -145,6 +150,28 @@ const App = {
       wrap.appendChild(grid);
     });
     return wrap;
+  },
+
+  /* Разрешение на уведомления спрашивается по кнопке, а не при запуске:
+     системный вопрос в первую же секунду учит нажимать «нет», а второго раза
+     браузер не даёт. Рядом — проверка звука: убедиться, что телефон звонит,
+     лучше в начале смены, чем в середине. */
+  signalRow() {
+    const row = el('div', 'signal');
+    const test = el('button', 'btn ghost', 'Проверить звук');
+    test.addEventListener('click', () => { Sound.unlock(); Sound.alert(); });
+    row.appendChild(test);
+
+    if (Push.offer()) {
+      const ask = el('button', 'btn', 'Включить уведомления');
+      ask.addEventListener('click', async () => {
+        const ok = await Push.ask();
+        toast(ok ? 'Уведомления включены' : 'Уведомления не включились', ok ? 'good' : 'bad');
+        this.paint();
+      });
+      row.appendChild(ask);
+    }
+    return row;
   },
 
   tile(table) {

@@ -10,6 +10,11 @@
    по нему готовят то, что уже отменили, и не готовят то, что заказали.
    ========================================================================== */
 
+// Сколько секунд марка может лежать не взятой, прежде чем начнёт кричать.
+// То же число живёт на сервере (`late_ticket_seconds`) — там оно нужно для
+// отчётов, здесь для того, чтобы карточка краснела без перезагрузки.
+const LATE_SECONDS = 120;
+
 const Board = {
   me: null,
   station: null,
@@ -81,7 +86,7 @@ const Board = {
 
   mark(ticket) {
     const waited = this.waitedFor(ticket);
-    const late = ticket.status === 'new' && waited >= 120;
+    const late = ticket.status === 'new' && waited >= LATE_SECONDS;
 
     const node = el('div', `mark ${ticket.status}${late ? ' late' : ''}`);
 

@@ -598,3 +598,8 @@ body.station { background: #0b0a09; }
   font-size: 14px;
   color: var(--ink-soft);
 }
+
+/* Кнопки сигнала внизу сетки столов: проверить звук стоит в начале смены,
+   а не в середине. */
+.signal { display: flex; gap: 8px; margin-bottom: 4px; }
+.signal .btn { flex: 1; min-height: 44px; font-size: 14px; font-weight: 500; }

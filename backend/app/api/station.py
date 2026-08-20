@@ -28,7 +28,7 @@ from app.models import (
     Venue,
     utcnow,
 )
-from app.services import realtime
+from app.services import push, realtime
 from app.services.checks import CheckError, set_ticket_status, ticket_payload
 
 router = APIRouter(prefix="/api/station", tags=["станция"])
@@ -167,6 +167,7 @@ def move(
         # Ради этого события существует половина системы: бармен нажал
         # «Готово» — официант должен услышать это сейчас, а не когда
         # соберётся посмотреть в телефон.
+        station_name = STATION_NAMES.get(ticket.station, ticket.station)
         realtime.publish(
             realtime.waiter_channel(check.waiter_id),
             {
@@ -175,7 +176,18 @@ def move(
                 "check_id": str(check.id),
                 "table": label,
                 "station": ticket.station,
-                "station_name": STATION_NAMES.get(ticket.station, ticket.station),
+                "station_name": station_name,
+            },
+        )
+        # Второй уровень — на случай свёрнутого приложения. Он не заменяет
+        # звук в открытом приложении, а страхует его.
+        push.notify(
+            check.waiter_id,
+            {
+                "title": f"Готово · {station_name}",
+                "body": f"Стол {label or '—'} · чек №{check.number}",
+                "tag": f"ready-{ticket.id}",
+                "url": "/",
             },
         )
     realtime.publish(realtime.CHANNEL_FLOOR, {"type": "check.changed", "check_id": str(check.id)})
