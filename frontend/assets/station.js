@@ -21,10 +21,13 @@ const Board = {
   tickets: [],
   tick: null,
 
-  async start(me) {
-    this.me = me;
-    document.getElementById('who').textContent = me.name;
-    document.getElementById('out').addEventListener('click', () => Auth.logout());
+  async start(shift) {
+    this.shift = shift;
+    document.getElementById('who').textContent = shift.opened_at
+      ? 'смена с ' + new Date(shift.opened_at).toLocaleTimeString('ru-RU',
+          { hour: '2-digit', minute: '2-digit' })
+      : '';
+    document.getElementById('out').addEventListener('click', () => this.closeShift());
 
     Live.on('ticket.new', d => this.arrived(d))
         .on('ticket.changed', () => this.refresh())
@@ -50,8 +53,19 @@ const Board = {
       document.getElementById('title').textContent = data.station_name;
       this.paint();
     } catch (e) {
+      // 401 здесь означает одно: смену закрыли. Планшет должен снова
+      // спросить PIN, а не показывать застывшую очередь.
       if (e.status === 401) location.reload();
     }
+  },
+
+  /* Смена закрывается тем же PIN станции. Спрашивается он не для
+     формальности: иначе смену закрывает любой, кто прошёл мимо планшета. */
+  closeShift() {
+    Shift.ask('Закрыть смену', 'Введите PIN станции', async pin => {
+      const done = await API.post('/api/station/shift/close', { pin });
+      Shift.done(`Смена закрыта · марок отдано: ${done.tickets_done}`);
+    });
   },
 
   arrived(event) {

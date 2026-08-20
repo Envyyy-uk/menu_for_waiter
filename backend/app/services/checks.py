@@ -232,11 +232,14 @@ def send(db: Session, check: Check, user: User) -> tuple[Order, list[Ticket]]:
     return order, list(tickets.values())
 
 
-def set_ticket_status(db: Session, ticket: Ticket, target: str, user: User) -> Ticket:
+def set_ticket_status(db: Session, ticket: Ticket, target: str, user: User | None) -> Ticket:
     """Единственное место, где двигается статус марки.
 
     Всё вне карты переходов — ошибка, а не «ну почти». Повторное нажатие на
     планшете при этом ничего не ломает: мокрый палец жмёт дважды.
+
+    `user` может быть пустым: планшет станции работает по смене, а не по
+    личному входу. Имя тогда не записывается — записывать нечего.
     """
     if target == ticket.status:
         return ticket
@@ -245,16 +248,17 @@ def set_ticket_status(db: Session, ticket: Ticket, target: str, user: User) -> T
 
     now = utcnow()
     ticket.status = target
+    who = user.id if user else None
     if target == "accepted":
         ticket.accepted_at = now
-        ticket.accepted_by_id = user.id
+        ticket.accepted_by_id = who
     elif target == TICKET_READY:
         ticket.ready_at = now
-        ticket.ready_by_id = user.id
+        ticket.ready_by_id = who
         # Взяли сразу «готово», минуя «принял» — принято тем же нажатием.
         if ticket.accepted_at is None:
             ticket.accepted_at = now
-            ticket.accepted_by_id = user.id
+            ticket.accepted_by_id = who
     elif target == TICKET_SERVED:
         ticket.served_at = now
         ticket.acked_at = ticket.acked_at or now

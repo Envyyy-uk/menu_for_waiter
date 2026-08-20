@@ -12,10 +12,13 @@ from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
+from dataclasses import dataclass
+
 from app.core.permissions import can
 from app.db import get_db
 from app.models import Session, User, Venue
 from app.services.auth import SESSION_COOKIE, resolve_session
+from app.services.shifts import SHIFT_COOKIE, by_token
 
 
 def get_venue(db: DbSession = Depends(get_db)) -> Venue:
@@ -53,3 +56,43 @@ def require(permission: str) -> Callable[[User], User]:
         return user
 
     return dependency
+
+
+@dataclass
+class StationAccess:
+    """Кто смотрит на очередь станции.
+
+    Два разных входа ведут к одному экрану, и это намеренно:
+
+    * **планшет станции** — открытая смена, личного имени нет. Он стоит на
+      полке, к нему подходят все по очереди, и требовать личный PIN на каждую
+      марку значит не получить ни одного нажатия;
+    * **человек с личным входом** — бармен, который пробивает и готовит сам,
+      или менеджер, который зашёл посмотреть.
+
+    К деньгам ни один из этих путей не ведёт: здесь только марки и их статус.
+    """
+
+    station: str | None
+    user: User | None
+    shift: object | None = None
+
+    @property
+    def actor_id(self):
+        return self.user.id if self.user else None
+
+
+def station_access(
+    request: Request,
+    db: DbSession = Depends(get_db),
+) -> StationAccess:
+    shift = by_token(db, request.cookies.get(SHIFT_COOKIE))
+    if shift is not None:
+        return StationAccess(station=shift.station, user=None, shift=shift)
+
+    found = resolve_session(db, request.cookies.get(SESSION_COOKIE))
+    if found is not None and can(found[0].role, "tickets.view"):
+        db.commit()
+        return StationAccess(station=None, user=found[0])
+
+    raise HTTPException(status_code=401, detail="смена не открыта")

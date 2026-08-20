@@ -3,12 +3,19 @@
 from tests.test_floor import add, hall, login, open_check  # noqa: F401
 
 
-def test_only_admin_manages_staff(client, hall):
+def test_staff_list_is_not_for_everyone(client, hall):
+    """Официанту список не нужен, менеджеру — нужен ради забытого PIN,
+    а заводить людей может только администратор."""
     login(client, "1111")
     assert client.get("/api/admin/users").status_code == 403
-    login(client, "4444")  # менеджер
-    assert client.get("/api/admin/users").status_code == 403
-    login(client, "1234")  # администратор из сидера
+
+    login(client, "4444")  # менеджер: смотреть да, менять нет
+    assert client.get("/api/admin/users").status_code == 200
+    assert client.post(
+        "/api/admin/users", json={"name": "Кто-то", "role": "waiter"}
+    ).status_code == 403
+
+    login(client, "1234")  # владелец из сидера
     assert client.get("/api/admin/users").status_code == 200
 
 

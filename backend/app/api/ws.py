@@ -19,6 +19,7 @@ from app.db import SessionLocal
 from app.models import ROLE_BAR, ROLE_KITCHEN, STATION_BAR, STATION_KITCHEN
 from app.services import realtime
 from app.services.auth import SESSION_COOKIE, resolve_session
+from app.services.shifts import SHIFT_COOKIE, by_token
 
 router = APIRouter(tags=["реалтайм"])
 log = logging.getLogger("ws")
@@ -27,12 +28,20 @@ PING_SECONDS = 3
 ROLE_STATION = {ROLE_BAR: STATION_BAR, ROLE_KITCHEN: STATION_KITCHEN}
 
 
-def _channels(token: str | None) -> set[str] | None:
-    """На что подписан этот человек. None — вход не подтверждён.
+def _channels(token: str | None, shift_token: str | None) -> set[str] | None:
+    """На что подписан этот экран. None — вход не подтверждён.
 
     Подписка адресная: планшет бара не просыпается от каждого чека в зале,
     а телефон официанта — от чужих марок.
     """
+    if shift_token:
+        # Планшет станции: только своя очередь и ничего больше. Он для этого
+        # и существует.
+        with SessionLocal() as db:
+            shift = by_token(db, shift_token)
+            if shift is not None:
+                return {realtime.station_channel(shift.station)}
+
     if not token:
         return None
     with SessionLocal() as db:
@@ -60,7 +69,8 @@ def _channels(token: str | None) -> set[str] | None:
 @router.websocket("/ws")
 async def socket(websocket: WebSocket) -> None:
     token = websocket.cookies.get(SESSION_COOKIE)
-    channels = await asyncio.to_thread(_channels, token)
+    shift_token = websocket.cookies.get(SHIFT_COOKIE)
+    channels = await asyncio.to_thread(_channels, token, shift_token)
     if channels is None:
         # 1008 — policy violation. Экран должен показать вход, а не молчаливый
         # пустой список.

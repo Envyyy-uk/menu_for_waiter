@@ -476,6 +476,87 @@ def edit_item(
     return item_payload(item)
 
 
+# ------------------------------------------------------- станции ---------
+class StationPinIn(BaseModel):
+    station: str
+    pin: str = Field(min_length=4, max_length=4)
+
+
+@router.get("/stations")
+def stations(
+    actor: User = Depends(require("stations.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> list[dict]:
+    """PIN планшета и текущая смена по каждой станции."""
+    from app.models import STATION_NAMES, STATIONS
+    from app.services import shifts
+
+    out = []
+    for station in STATIONS:
+        live = shifts.current(db, venue.id, station)
+        out.append(
+            {
+                "station": station,
+                "name": STATION_NAMES[station],
+                "has_pin": shifts.has_pin(db, venue.id, station),
+                "shift": shifts.payload(live, station),
+            }
+        )
+    return out
+
+
+@router.post("/stations/pin")
+def station_pin(
+    body: StationPinIn,
+    actor: User = Depends(require("stations.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Задать или сменить PIN планшета станции.
+
+    Он отдельный от личных намеренно: планшет стоит на полке, к нему подходят
+    все по очереди, и личный PIN на каждую марку никто вводить не станет.
+    """
+    from app.services import shifts
+
+    try:
+        shifts.set_pin(db, venue.id, body.station, body.pin, actor)
+    except AuthError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status, detail=exc.message) from None
+    db.commit()
+    return {"status": "ok", "station": body.station}
+
+
+@router.get("/shifts")
+def shift_log(
+    limit: int = Query(default=30, ge=1, le=200),
+    actor: User = Depends(require("shifts.view")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> list[dict]:
+    from app.models import STATION_NAMES, Shift
+
+    rows = db.scalars(
+        select(Shift)
+        .where(Shift.venue_id == venue.id)
+        .order_by(Shift.opened_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "station": s.station,
+            "name": STATION_NAMES.get(s.station, s.station),
+            "opened_at": s.opened_at.isoformat(),
+            "closed_at": s.closed_at.isoformat() if s.closed_at else None,
+            "tickets_done": s.tickets_done,
+            "note": s.note,
+        }
+        for s in rows
+    ]
+
+
 # ------------------------------------------------------ меню с сайта -----
 @router.get("/menu/sync")
 def sync_status(

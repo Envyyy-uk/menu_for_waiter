@@ -36,6 +36,7 @@ from app.models.menu import (
     STATIONS,
     MenuItem,
 )
+from app.models.shift import Shift, StationPin
 from app.models.system import AuditLog, Session
 from app.models.user import (
     ROLE_ADMIN,
@@ -105,6 +106,8 @@ __all__ = [
     "Payment",
     "PushSubscription",
     "Session",
+    "Shift",
+    "StationPin",
     "Table",
     "Ticket",
     "User",

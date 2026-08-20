@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from app.core.config import settings
-from app.core.deps import current_user, get_venue, require
+from app.core.deps import StationAccess, current_user, get_venue, require, station_access
 from app.db import get_db
 from app.models import (
     ROLE_BAR,
@@ -28,8 +30,11 @@ from app.models import (
     Venue,
     utcnow,
 )
-from app.services import push, realtime
+from app.services import push, realtime, shifts
+from app.services.audit import record
 from app.services.checks import CheckError, set_ticket_status, ticket_payload
+from app.services.auth import AuthError
+from app.services.shifts import SHIFT_COOKIE
 
 router = APIRouter(prefix="/api/station", tags=["станция"])
 
@@ -38,13 +43,25 @@ router = APIRouter(prefix="/api/station", tags=["станция"])
 ROLE_STATION = {ROLE_BAR: STATION_BAR, ROLE_KITCHEN: STATION_KITCHEN}
 
 
-def station_for(user: User, asked: str | None) -> str:
-    fixed = ROLE_STATION.get(user.role)
+def station_for(user: User | None, asked: str | None) -> str:
+    """Какую станцию показывать. Роль отвечает раньше вопроса.
+
+    Бармену не нужно выбирать «бар» каждую смену, и он не может случайно
+    забрать марку кухни.
+    """
+    fixed = ROLE_STATION.get(user.role) if user else None
     if fixed:
         return fixed
     if asked in STATIONS:
         return asked
     return STATION_BAR
+
+
+def station_of(access: StationAccess, asked: str | None) -> str:
+    """Станция планшета известна из смены, человека — из роли."""
+    if access.station:
+        return access.station
+    return station_for(access.user, asked)
 
 
 def _context(db: DbSession, ticket: Ticket) -> tuple[Order, Check, str | None, str | None]:
@@ -58,12 +75,12 @@ def _context(db: DbSession, ticket: Ticket) -> tuple[Order, Check, str | None, s
 @router.get("/queue")
 def queue(
     station: str | None = Query(default=None, pattern="^(bar|kitchen)$"),
-    actor: User = Depends(require("tickets.view")),
+    access: StationAccess = Depends(station_access),
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> dict:
     """Очередь станции. Отданное не показывается — оно уже не работа."""
-    which = station_for(actor, station)
+    which = station_of(access, station)
     tickets = db.scalars(
         select(Ticket)
         .join(Order, Order.id == Ticket.order_id)
@@ -92,6 +109,9 @@ def queue(
         "station": which,
         "station_name": STATION_NAMES.get(which, which),
         "tickets": rows,
+        # Планшету нужно знать, чья это смена и когда её открыли; человеку с
+        # личным входом — нет, он и так знает, кто он.
+        "shift": shifts.payload(access.shift, which) if access.shift else None,
     }
 
 
@@ -133,7 +153,7 @@ def served(
 def move(
     ticket_id: uuid.UUID,
     target: str,
-    actor: User = Depends(require("tickets.status")),
+    access: StationAccess = Depends(station_access),
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> dict:
@@ -150,11 +170,13 @@ def move(
     order, check, label, waiter = _context(db, ticket)
     if check.venue_id != venue.id:
         raise HTTPException(status_code=404, detail="марка не найдена")
-    if ticket.station != station_for(actor, None) and actor.role in ROLE_STATION:
+    if access.station and ticket.station != access.station:
+        raise HTTPException(status_code=403, detail="это марка другой станции")
+    if access.user and access.user.role in ROLE_STATION and ticket.station != station_for(access.user, None):
         raise HTTPException(status_code=403, detail="это марка другой станции")
 
     try:
-        set_ticket_status(db, ticket, target, actor)
+        set_ticket_status(db, ticket, target, access.user)
     except CheckError as exc:
         raise HTTPException(status_code=exc.status, detail=exc.message) from None
     db.commit()
@@ -192,6 +214,94 @@ def move(
         )
     realtime.publish(realtime.CHANNEL_FLOOR, {"type": "check.changed", "check_id": str(check.id)})
     return ticket_payload(ticket, order, check, label, waiter)
+
+
+# ------------------------------------------------------------- смена -----
+class ShiftPinIn(BaseModel):
+    pin: str = Field(min_length=4, max_length=4)
+
+
+class ShiftCloseIn(BaseModel):
+    pin: str = Field(min_length=4, max_length=4)
+    note: str | None = None
+
+
+def _shift_cookie(answer: Response, token: str, days: int = 2) -> None:
+    answer.set_cookie(
+        SHIFT_COOKIE,
+        token,
+        max_age=days * 86400,
+        httponly=True,
+        samesite="lax",
+        secure=settings.public_base_url.startswith("https://"),
+        path="/",
+    )
+
+
+@router.get("/shift")
+def shift_state(
+    request: Request,
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Что показывать планшету: очередь или экран PIN."""
+    shift = shifts.by_token(db, request.cookies.get(SHIFT_COOKIE))
+    if shift is None:
+        return {
+            "open": False,
+            # Пока PIN станции не задан, планшет говорит об этом прямо, а не
+            # отвергает любые четыре цифры молча.
+            "configured": any(shifts.has_pin(db, venue.id, s) for s in STATIONS),
+        }
+    return {**shifts.payload(shift), "configured": True}
+
+
+@router.post("/shift/open")
+def shift_open(
+    body: ShiftPinIn,
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> Response:
+    """Открыть смену планшета.
+
+    Станцию не спрашиваем: планшет бара и планшет кухни отличаются как раз
+    PIN-ом, и лишний экран выбора — это лишний способ открыть чужую смену.
+    """
+    station = shifts.station_for_pin(db, venue.id, body.pin)
+    if station is None:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN станции"})
+
+    shift, token = shifts.open_shift(db, venue.id, station)
+    db.commit()
+    answer = JSONResponse({**shifts.payload(shift), "configured": True})
+    _shift_cookie(answer, token)
+    return answer
+
+
+@router.post("/shift/close")
+def shift_close(
+    body: ShiftCloseIn,
+    request: Request,
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> Response:
+    """Закрыть смену — тем же PIN станции.
+
+    Спрашивается он не для формальности: иначе смену закрывает любой, кто
+    прошёл мимо планшета, и отчёт по станции превращается в набор огрызков.
+    """
+    shift = shifts.by_token(db, request.cookies.get(SHIFT_COOKIE))
+    if shift is None:
+        raise HTTPException(status_code=409, detail="смена не открыта")
+    station = shifts.station_for_pin(db, venue.id, body.pin)
+    if station != shift.station:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN станции"})
+
+    shifts.close_shift(db, shift, body.note)
+    db.commit()
+    answer = JSONResponse({**shifts.payload(shift), "configured": True})
+    answer.delete_cookie(SHIFT_COOKIE, path="/")
+    return answer
 
 
 @router.get("/waiting")

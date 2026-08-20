@@ -36,23 +36,25 @@ try {
   <span class="station-state" id="state"></span>
   <span class="who" id="who"></span>
   <button class="btn" id="theme" type="button">Ночь</button>
-  <button class="btn" id="out" type="button">Выйти</button>
+  <button class="btn" id="out" type="button">Закрыть смену</button>
 </header>
 
 <main id="board" class="board"></main>
 
 <script src="/assets/theme.js"></script>
 <script src="/assets/api.js"></script>
-<script src="/assets/auth.js"></script>
+<script src="/assets/shift.js"></script>
 <script src="/assets/live.js"></script>
 <script src="/assets/sound.js"></script>
 <script src="/assets/station.js"></script>
 <script src="/assets/pwa.js" data-sw="/station/sw.js" data-scope="/station/"></script>
 <script>
-Auth.start(me => {
+/* Планшет не спрашивает, кто ты: он спрашивает PIN станции. Личные входы
+   живут в приложении зала — бармен пробивает там же, где готовит. */
+Shift.start(shift => {
   document.getElementById('bar').hidden = false;
   Theme.start();
-  Board.start(me);
+  Board.start(shift);
 });
 </script>
 </body>

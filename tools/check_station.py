@@ -48,19 +48,51 @@ def pin(page, code: str) -> None:
     page.wait_for_timeout(700)
 
 
+def station_pin(page, code: str) -> None:
+    """PIN планшета: у него свой экран, без личных имён."""
+    for digit in code:
+        page.locator("#pin-pad button", has_text=digit).first.click()
+    page.wait_for_timeout(1500)
+
+
 def main() -> None:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=CHROME)
+
+        # PIN станции задаёт администратор — планшет к личным входам не
+        # обращается вовсе.
+        admin_ctx = browser.new_context(viewport=TABLET)
+        admin = admin_ctx.new_page()
+        admin.goto(BASE + "/admin/", wait_until="networkidle")
+        pin(admin, "1234")
+        admin.get_by_role("button", name="Станции").click()
+        admin.wait_for_timeout(900)
+        row = admin.locator("tr", has_text="Бар").first
+        row.locator("button").first.click()
+        admin.wait_for_timeout(500)
+        admin.locator(".sheet .field").fill("5555")
+        admin.get_by_role("button", name="Сохранить").click()
+        admin.wait_for_timeout(1000)
+        check("PIN станции задаётся в админке",
+              "задан" in admin.locator("tr", has_text="Бар").first.inner_text(),
+              admin.locator("tr", has_text="Бар").first.inner_text())
 
         bar_ctx = browser.new_context(viewport=TABLET, has_touch=True)
         bar = bar_ctx.new_page()
         bar_errors: list[str] = []
         bar.on("pageerror", lambda e: bar_errors.append(str(e)))
         bar.goto(BASE + "/station/", wait_until="networkidle")
-        pin(bar, "3333")
-        check("станция открывается своей очередью",
-              bar.locator("#title").inner_text().strip().lower() == "кухня",
+        bar.wait_for_timeout(800)
+        check("планшет без смены спрашивает PIN станции",
+              bar.locator("#gate").is_visible() and bar.locator(".mark").count() == 0)
+
+        station_pin(bar, "5555")
+        check("смена открылась своей станцией",
+              bar.locator("#title").inner_text().strip().lower() == "бар",
               bar.locator("#title").inner_text())
+        check("в шапке видно время открытия смены",
+              "смена с" in bar.locator("#who").inner_text(),
+              bar.locator("#who").inner_text())
 
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
         waiter = waiter_ctx.new_page()
@@ -73,7 +105,7 @@ def main() -> None:
         waiter.wait_for_timeout(400)
         waiter.get_by_role("button", name="Открыть стол").click()
         waiter.wait_for_timeout(900)
-        waiter.locator(".search input").fill("пельмени")
+        waiter.locator(".search input").fill("мохито")
         waiter.wait_for_timeout(400)
         waiter.locator(".dish").first.click()
         waiter.wait_for_timeout(500)
@@ -87,7 +119,7 @@ def main() -> None:
 
         mark = bar.locator(".mark").last
         check("на марке видно стол", mark.locator(".table").inner_text().strip() != "")
-        check("на марке видно позицию", "Pelmeni" in mark.inner_text(), mark.inner_text()[:120])
+        check("на марке видно позицию", "Mojito" in mark.inner_text(), mark.inner_text()[:120])
         check("есть обе кнопки",
               mark.get_by_role("button", name="Принял").count() == 1
               and mark.get_by_role("button", name="Готово").count() == 1)
@@ -106,6 +138,19 @@ def main() -> None:
         check("готовое ждёт официанта",
               "ждёт официанта" in mark.inner_text().lower(),
               mark.inner_text()[:120])
+
+        # Смена закрывается тем же PIN станции.
+        bar.get_by_role("button", name="Закрыть смену").click()
+        bar.wait_for_timeout(600)
+        check("закрытие смены тоже просит PIN", bar.locator("#gate").is_visible())
+        station_pin(bar, "0000")
+        check("чужой PIN смену не закрывает",
+              "PIN" in bar.locator("#pin-msg").inner_text(),
+              bar.locator("#pin-msg").inner_text())
+        station_pin(bar, "5555")
+        bar.wait_for_timeout(2500)
+        check("после закрытия планшет снова просит PIN", bar.locator("#gate").is_visible())
+        station_pin(bar, "5555")
 
         # Официант слышит и забирает.
         waiter.wait_for_selector(".ready-item", timeout=6000)

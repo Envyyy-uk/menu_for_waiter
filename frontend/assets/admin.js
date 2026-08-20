@@ -16,6 +16,7 @@ const Admin = {
     { key: 'report', name: 'Смена', need: 'reports' },
     { key: 'users', name: 'Персонал', need: 'users.view' },
     { key: 'tables', name: 'Столы', need: 'tables.manage' },
+    { key: 'stations', name: 'Станции', need: 'stations.manage' },
     { key: 'menu', name: 'Меню', need: 'items.edit' },
     { key: 'audit', name: 'Журнал', need: 'audit.view' }
   ],
@@ -58,6 +59,10 @@ const Admin = {
       if (this.tab === 'report') this.data.report = await API.get('/api/admin/report');
       if (this.tab === 'users') this.data.users = await API.get('/api/admin/users');
       if (this.tab === 'tables') this.data.tables = await API.get('/api/admin/tables');
+      if (this.tab === 'stations') {
+        this.data.stations = await API.get('/api/admin/stations');
+        this.data.shifts = await API.get('/api/admin/shifts');
+      }
       if (this.tab === 'menu') {
         this.data.menu = await API.get('/api/menu');
         this.data.sync = await API.get('/api/admin/menu/sync');
@@ -431,6 +436,78 @@ const Admin = {
       } catch (e) { toast(e.message, 'bad'); }
     });
     box.appendChild(toggle);
+    return box;
+  },
+
+  /* ---------------------------------------------------------- станции --- */
+  view_stations() {
+    const wrap = el('div', 'panel');
+    wrap.appendChild(el('h2', '', 'Планшеты станций'));
+    wrap.appendChild(el('p', 'hint',
+      'У планшета свой PIN, отдельный от личных. Он стоит на полке, к нему '
+      + 'подходят все по очереди, и личный PIN на каждую марку никто вводить '
+      + 'не станет. Этим же PIN смену открывают и закрывают.'));
+
+    wrap.appendChild(this.table(
+      ['Станция', 'PIN', 'Смена', ''],
+      this.data.stations.map(s => [
+        esc(s.name),
+        s.has_pin ? 'задан' : '<span style="color:var(--danger)">не задан</span>',
+        s.shift.open
+          ? `<span style="color:var(--ok)">открыта с ${esc(new Date(s.shift.opened_at)
+              .toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))}</span>`
+          : '<span class="faint">закрыта</span>',
+        { actions: this.stationActions(s) }
+      ])
+    ));
+
+    if (this.data.shifts.length) {
+      wrap.appendChild(el('h2', '', 'Смены'));
+      wrap.appendChild(el('p', 'hint',
+        'Открытая смена — это ответ на вопрос «кто-нибудь вообще смотрит на бар?». '
+        + 'Если марки висят, а смена не открыта, планшет просто не включили.'));
+      wrap.appendChild(this.table(
+        ['Станция', 'Открыта', 'Закрыта', 'Марок'],
+        this.data.shifts.map(s => [
+          esc(s.name),
+          esc(new Date(s.opened_at).toLocaleString('ru-RU')),
+          s.closed_at
+            ? esc(new Date(s.closed_at).toLocaleString('ru-RU'))
+              + (s.note ? ` <span class="faint">· ${esc(s.note)}</span>` : '')
+            : '<span style="color:var(--ok)">идёт</span>',
+          { num: s.tickets_done || '' }
+        ])
+      ));
+    }
+    return wrap;
+  },
+
+  stationActions(station) {
+    const box = el('div', 'row-actions');
+    const set = el('button', 'btn', station.has_pin ? 'Сменить PIN' : 'Задать PIN');
+    set.addEventListener('click', () => {
+      Sheet.show(esc(station.name), 'PIN планшета — четыре цифры', body => {
+        const input = el('input', 'field');
+        input.inputMode = 'numeric';
+        input.maxLength = 4;
+        input.placeholder = 'Новый PIN станции';
+        body.appendChild(input);
+        body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+        const ok = el('button', 'btn wide big primary', 'Сохранить');
+        ok.addEventListener('click', async () => {
+          if (input.value.length !== 4) return toast('PIN — ровно четыре цифры', 'bad');
+          Sheet.hide();
+          try {
+            await API.post('/api/admin/stations/pin',
+              { station: station.station, pin: input.value });
+            toast('PIN станции сохранён', 'good');
+            this.load();
+          } catch (e) { toast(e.message, 'bad'); }
+        });
+        body.appendChild(ok);
+      });
+    });
+    box.appendChild(set);
     return box;
   },
 
