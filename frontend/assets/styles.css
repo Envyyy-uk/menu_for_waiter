@@ -778,7 +778,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .tab.on { background: var(--gold); border-color: var(--gold); color: #1d1a16; }
 
-.panel { padding: 20px 16px; max-width: 1000px; min-height: 100vh; background: var(--paper); }
+/* Колонка по центру, а не прижатая влево: иначе на широком экране справа
+   висит полоса другого цвета и выглядит как недогрузившаяся страница. */
+.panel { padding: 20px 16px; min-height: 100vh; background: var(--paper); }
+.panel > * { max-width: 1100px; margin-left: auto; margin-right: auto; }
 .panel h2 {
   margin: 24px 0 4px;
   font-size: 26px;
