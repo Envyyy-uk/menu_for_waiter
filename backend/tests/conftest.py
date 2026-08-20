@@ -37,8 +37,20 @@ def database():
     engine.dispose()
 
 
+def _truncate() -> None:
+    """Каждый тест начинается с чистой базы.
+
+    Иначе сотрудники и чеки копятся между тестами, и падает не тот тест,
+    который сломан, а тот, который шёл следом.
+    """
+    names = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    with engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
+
+
 @pytest.fixture()
 def db(database):
+    _truncate()
     with SessionLocal() as session:
         yield session
 
@@ -56,3 +68,20 @@ def client(venue):
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture()
+def make_user(db, venue):
+    """Сотрудник с известным PIN. Роль по умолчанию — официант."""
+    from app.models import User
+    from app.services.auth import issue_pin
+
+    def factory(name: str, role: str = "waiter", pin: str = "1111", active: bool = True):
+        user = User(venue_id=venue.id, name=name, role=role, active=active)
+        db.add(user)
+        db.flush()
+        issue_pin(db, user, pin)
+        db.commit()
+        return user
+
+    return factory

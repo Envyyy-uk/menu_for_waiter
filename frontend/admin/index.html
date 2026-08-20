@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Зал</title>
+<title>Админка</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#100f0d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Зал">
+<meta name="apple-mobile-web-app-title" content="Админка">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 
 <header class="topbar" hidden id="bar">
   <span class="netdot on" id="link"></span>
-  <h1>Зал</h1>
+  <h1>Админка</h1>
   <span class="who" id="who"></span>
   <button class="btn ghost" id="out" type="button">Выйти</button>
 </header>
@@ -32,7 +32,7 @@ Auth.start(me => {
   document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
   document.getElementById('out').addEventListener('click', () => Auth.logout());
   document.getElementById('app').innerHTML =
-    '<p class="muted">Официант. Экран собирается в следующем спринте.</p>';
+    '<p class="muted">Администратор. Экран собирается в следующем спринте.</p>';
 });
 </script>
 </body>

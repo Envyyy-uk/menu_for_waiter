@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+from app.api import auth as auth_api
 from app.core.config import settings
 from app.db import engine
 
@@ -11,6 +12,8 @@ app = FastAPI(
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
 )
+
+app.include_router(auth_api.router)
 
 
 @app.get("/health", tags=["ops"])

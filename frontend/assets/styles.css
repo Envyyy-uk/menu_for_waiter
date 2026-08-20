@@ -1,0 +1,234 @@
+/* ==========================================================================
+   Оформление POS. Тёмная тема одна и намеренно: зал вечером, экран в руке,
+   светлая заливка бьёт по глазам и светит соседнему столу.
+
+   Всё крупное. Официант попадает пальцем на ходу, бармен — мокрой рукой.
+   ========================================================================== */
+
+:root {
+  --bg:        #100f0d;
+  --bg-2:      #1a1815;
+  --bg-3:      #232019;
+  --ink:       #f0ebe1;
+  --ink-soft:  #b3aa9b;
+  --ink-faint: #7d7466;
+  --line:      #322e27;
+  --accent:    #d9945c;
+  --accent-in: #1a1206;
+  --ok:        #4fae7d;
+  --ok-bg:     #16301f;
+  --warn:      #e0b64a;
+  --warn-bg:   #322808;
+  --danger:    #e0645c;
+  --danger-bg: #331614;
+  --info:      #6ba7d6;
+
+  --radius: 12px;
+  --tap: 52px;               /* меньше этого палец не попадает */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  /* убирает зум по двойному тапу, оставляя щипок и прокрутку */
+  touch-action: manipulation;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, system-ui, sans-serif;
+  overscroll-behavior-y: contain;
+}
+
+/* В режиме программы интерфейс не должен вести себя как веб-страница:
+   ни выделения текста, ни длинного тапа с меню «скопировать». */
+.pwa, .pwa button, .pwa .tap {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------- кнопки --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 18px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  font-weight: 600;
+  transition: transform .06s ease, opacity .12s ease;
+}
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+
+.btn.primary { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+.btn.ok      { background: var(--ok);     color: #06170e;          border-color: transparent; }
+.btn.danger  { background: var(--danger-bg); color: var(--danger); border-color: #52201d; }
+.btn.ghost   { background: transparent; }
+.btn.wide    { width: 100%; }
+.btn.big     { min-height: 62px; font-size: 18px; }
+
+/* ------------------------------------------------------------ карточки --- */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.muted { color: var(--ink-soft); }
+.faint { color: var(--ink-faint); }
+.mono  { font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------- вход --- */
+/* Экран PIN. Он перекрывает всё: пока человек не назвался, показывать
+   нечего — ни столов, ни марок. */
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: calc(24px + var(--safe-t)) 20px calc(24px + var(--safe-b));
+  background: var(--bg);
+}
+
+.gate h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--ink-soft);
+}
+
+/* Точки вместо цифр: PIN вводят при людях. */
+.gate .dots { display: flex; gap: 14px; height: 16px; }
+.gate .dots i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  transition: background .12s ease, border-color .12s ease;
+}
+.gate .dots i.on { background: var(--accent); border-color: var(--accent); }
+
+.gate .msg { min-height: 22px; font-size: 15px; text-align: center; color: var(--danger); }
+
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  width: min(320px, 100%);
+}
+.pad button {
+  height: 72px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  font-size: 26px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.pad button:active { background: var(--bg-3); transform: scale(.95); }
+.pad button.blank { background: none; border: 0; pointer-events: none; }
+.pad button.action { font-size: 18px; color: var(--ink-soft); }
+
+/* Тряска на неверный PIN. Ошибку надо почувствовать, а не вычитать. */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(9px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+.gate.wrong .dots { animation: shake .32s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .gate.wrong .dots { animation: none; }
+  .btn:active, .pad button:active { transform: none; }
+}
+
+/* ------------------------------------------------------- нет связи ------ */
+/* Баннер перекрывает всё намеренно: тихий устаревший список хуже ошибки. */
+.offline {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  background: var(--danger-bg);
+  color: var(--ink);
+}
+.offline .head { margin: 0; font-size: 26px; font-weight: 700; }
+.offline .body { margin: 0; color: var(--ink-soft); }
+
+/* --------------------------------------------------------------- шапка -- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(8px + var(--safe-t)) 14px 8px;
+  min-height: 56px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; }
+.topbar .who { font-size: 13px; color: var(--ink-soft); }
+
+/* Точка связи. Зелёная — сервер отвечает, красная — нет. */
+.netdot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex: none;
+}
+.netdot.on { background: var(--ok); }
+
+/* ------------------------------------------------------------- всплывашка */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 80;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+  font-size: 15px;
+}
+.toast.bad { background: var(--danger-bg); border-color: #52201d; color: var(--ink); }
+.toast.good { background: var(--ok-bg); border-color: #1d4630; }
