@@ -20,7 +20,7 @@ from app.models import (
     User,
     Venue,
 )
-from app.services import realtime
+from app.services import realtime, stock
 from app.services.audit import record
 from app.services.checks import (
     CheckError,
@@ -227,6 +227,8 @@ def cancel(
         name = row.name_snapshot
         cancel_item(db, check, row, user=actor, reason=body.reason)
         if was_sent:
+            # Отменили отправленное — продукт вернулся на полку.
+            stock.give_back(db, row, actor)
             record.write(
                 db,
                 venue_id=venue.id,
@@ -259,7 +261,12 @@ def send_order(
 ) -> dict:
     try:
         check = get_check(db, venue, check_id)
+        drafts = [i for i in check.items if i.status == "draft"]
         order, tickets = send(db, check, actor)
+        # Позиция ушла на станцию — её уже наливают. Ждать закрытия чека
+        # значит весь вечер видеть на складе остаток, которого там нет.
+        for row in drafts:
+            stock.consume(db, row, actor)
         db.commit()
     except CheckError as exc:
         _fail(exc)

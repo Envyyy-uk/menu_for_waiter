@@ -18,6 +18,7 @@ const Admin = {
     { key: 'tables', name: 'Столы', need: 'tables.manage' },
     { key: 'stations', name: 'Станции', need: 'stations.manage' },
     { key: 'menu', name: 'Меню', need: 'items.edit' },
+    { key: 'stock', name: 'Склад', need: 'stock.view' },
     { key: 'audit', name: 'Журнал', need: 'audit.view' }
   ],
 
@@ -66,6 +67,11 @@ const Admin = {
       if (this.tab === 'menu') {
         this.data.menu = await API.get('/api/menu');
         this.data.sync = await API.get('/api/admin/menu/sync');
+      }
+      if (this.tab === 'stock') {
+        this.data.stock = await API.get('/api/stock');
+        this.data.recipes = await API.get('/api/stock/recipes');
+        this.data.menu = await API.get('/api/menu');
       }
       if (this.tab === 'audit') this.data.audit = await API.get('/api/admin/audit');
     } catch (e) {
@@ -613,6 +619,230 @@ const Admin = {
       } catch (e) { toast(e.message, 'bad'); }
     });
     box.appendChild(stop);
+    return box;
+  },
+
+  /* ------------------------------------------------------------ склад --- */
+  view_stock() {
+    const wrap = el('div', 'panel');
+    const data = this.data.stock;
+    wrap.appendChild(el('h2', '', 'Склад'));
+    wrap.appendChild(el('p', 'hint',
+      'Остаток — это сумма движений, а не число, которое кто-то правит: иначе '
+      + 'на вопрос «куда делось полбутылки» ответить нечем. Продажи '
+      + 'списываются сами, когда позиция уходит на станцию.'));
+
+    if (data.out.length || data.low.length) {
+      const alarm = el('div', 'sync' + (data.out.length ? ' bad' : ''));
+      alarm.innerHTML = `<div class="body">
+        ${data.out.length ? `<b>Кончилось: ${esc(data.out.join(', '))}</b>` : ''}
+        ${data.low.length ? `<div class="muted">Заканчивается: ${esc(data.low.join(', '))}</div>` : ''}
+      </div>`;
+      wrap.appendChild(alarm);
+    }
+
+    const form = el('div', 'form');
+    const fields = el('div', 'line-fields');
+    const name = el('input', 'field');
+    name.placeholder = 'Название (Absolut, лимоны…)';
+    const unit = el('select', 'field');
+    data.units.forEach(u => {
+      const o = el('option', '', esc(u.name));
+      o.value = u.key;
+      unit.appendChild(o);
+    });
+    const qty = el('input', 'field');
+    qty.type = 'number';
+    qty.step = '0.001';
+    qty.placeholder = 'Сколько сейчас';
+    const low = el('input', 'field');
+    low.type = 'number';
+    low.step = '0.001';
+    low.placeholder = 'Порог «мало»';
+    fields.append(name, unit, qty, low);
+    form.appendChild(fields);
+
+    const add = el('button', 'btn primary', 'Завести позицию');
+    add.addEventListener('click', async () => {
+      if (!name.value.trim()) return toast('Впишите название', 'bad');
+      try {
+        await API.post('/api/stock', {
+          name: name.value.trim(),
+          unit: unit.value,
+          quantity: Number(qty.value) || 0,
+          low_at: Number(low.value) || 0
+        });
+        name.value = ''; qty.value = ''; low.value = '';
+        this.load();
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    form.appendChild(add);
+    wrap.appendChild(form);
+
+    wrap.appendChild(this.table(
+      ['Позиция', 'Остаток', 'Порог', ''],
+      data.items.map(i => [
+        esc(i.name),
+        { num: `${i.quantity} ${i.unit_name}` },
+        { num: i.low_at ? `${i.low_at} ${i.unit_name}` : '' },
+        { actions: this.stockActions(i) }
+      ]),
+      data.items.map(i => (i.state === 'out' ? 'off' : ''))
+    ));
+
+    wrap.appendChild(el('h2', '', 'Что с чего списывается'));
+    wrap.appendChild(el('p', 'hint',
+      '50 мл и бутылка — одна строка меню и совсем разный расход, поэтому '
+      + 'правило привязывается к варианту. Без правила позиция склад не трогает.'));
+    wrap.appendChild(this.recipeForm());
+    wrap.appendChild(this.table(
+      ['Позиция меню', 'Вариант', 'Списывается', ''],
+      this.data.recipes.map(r => [
+        esc(r.menu_item),
+        r.options_text ? esc(r.options_text) : '<span class="faint">любой</span>',
+        { num: `${r.per_unit} ${r.unit_name} · ${esc(r.stock_item)}` },
+        { actions: this.recipeActions(r) }
+      ])
+    ));
+    return wrap;
+  },
+
+  stockActions(item) {
+    const box = el('div', 'row-actions');
+
+    const move = el('button', 'btn', 'Движение');
+    move.addEventListener('click', () => {
+      Sheet.show(esc(item.name), `Остаток ${item.quantity} ${item.unit_name}`, body => {
+        const amount = el('input', 'field');
+        amount.type = 'number';
+        amount.step = '0.001';
+        amount.placeholder = 'Сколько';
+        body.appendChild(amount);
+        body.appendChild(el('div', '', '<div style="height:10px"></div>'));
+
+        const note = el('input', 'field');
+        note.placeholder = 'Примечание (необязательно)';
+        body.appendChild(note);
+        body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+        const send = async (reason, useCounted) => {
+          const value = Number(amount.value);
+          if (!value && !useCounted) return toast('Впишите количество', 'bad');
+          Sheet.hide();
+          try {
+            await API.post(`/api/stock/${item.id}/move`, useCounted
+              ? { counted: value, reason: 'count', note: note.value }
+              : { delta: value, reason, note: note.value });
+            this.load();
+          } catch (e) { toast(e.message, 'bad'); }
+        };
+
+        const arrival = el('button', 'btn wide big primary', 'Приход');
+        arrival.addEventListener('click', () => send('in', false));
+        const off = el('button', 'btn wide big danger', 'Списать');
+        off.addEventListener('click', () => send('off', false));
+        const counted = el('button', 'btn wide big', 'Насчитали на полке');
+        counted.addEventListener('click', () => send('count', true));
+        [arrival, off, counted].forEach(b => {
+          body.appendChild(b);
+          body.appendChild(el('div', '', '<div style="height:8px"></div>'));
+        });
+      });
+    });
+    box.appendChild(move);
+
+    const history = el('button', 'btn', 'История');
+    history.addEventListener('click', async () => {
+      try {
+        const rows = await API.get(`/api/stock/${item.id}/moves`);
+        Sheet.show(esc(item.name), 'Куда делось', body => {
+          body.appendChild(this.table(
+            ['Когда', 'Что', 'Сколько', 'Кто'],
+            rows.map(r => [
+              `<span class="when">${esc(new Date(r.at).toLocaleString('ru-RU'))}</span>`,
+              esc(r.reason_name) + (r.note ? ` <span class="faint">${esc(r.note)}</span>` : ''),
+              { num: (r.delta > 0 ? '+' : '') + r.delta },
+              esc(r.who)
+            ])
+          ));
+        });
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    box.appendChild(history);
+    return box;
+  },
+
+  recipeForm() {
+    const form = el('div', 'form');
+    const fields = el('div', 'line-fields');
+
+    const dish = el('select', 'field');
+    (this.data.menu.items || []).forEach(i => {
+      const o = el('option', '', esc(i.name));
+      o.value = i.id;
+      dish.appendChild(o);
+    });
+    const good = el('select', 'field');
+    this.data.stock.items.forEach(i => {
+      const o = el('option', '', esc(i.name));
+      o.value = i.id;
+      good.appendChild(o);
+    });
+    const per = el('input', 'field');
+    per.type = 'number';
+    per.step = '0.001';
+    per.placeholder = 'Сколько уходит';
+    const variant = el('select', 'field');
+    fields.append(dish, variant, good, per);
+    form.appendChild(fields);
+
+    // Варианты подставляются от выбранной позиции: у пиццы их нет, у водки
+    // семь, и печатать их руками — верный способ ошибиться.
+    const fillVariants = () => {
+      const item = (this.data.menu.items || []).find(i => i.id === dish.value);
+      variant.innerHTML = '';
+      const any = el('option', '', 'любой вариант');
+      any.value = '';
+      variant.appendChild(any);
+      ((item && item.options) || []).forEach(g => {
+        (g.choices || []).forEach(c => {
+          const o = el('option', '', esc(`${g.label}: ${c.name}`));
+          o.value = JSON.stringify({ [g.key]: c.key });
+          variant.appendChild(o);
+        });
+      });
+    };
+    dish.addEventListener('change', fillVariants);
+    fillVariants();
+
+    const add = el('button', 'btn primary', 'Добавить правило');
+    add.addEventListener('click', async () => {
+      if (!Number(per.value)) return toast('Впишите расход', 'bad');
+      try {
+        await API.post('/api/stock/recipes', {
+          menu_item_id: dish.value,
+          stock_item_id: good.value,
+          per_unit: Number(per.value),
+          options: variant.value ? JSON.parse(variant.value) : {}
+        });
+        per.value = '';
+        this.load();
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    form.appendChild(add);
+    return form;
+  },
+
+  recipeActions(recipe) {
+    const box = el('div', 'row-actions');
+    const kill = el('button', 'btn danger', 'Убрать');
+    kill.addEventListener('click', async () => {
+      try {
+        await API.del(`/api/stock/recipes/${recipe.id}`);
+        this.load();
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    box.appendChild(kill);
     return box;
   },
 

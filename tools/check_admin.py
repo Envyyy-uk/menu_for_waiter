@@ -55,7 +55,7 @@ def main() -> None:
         page.goto(BASE + "/admin/", wait_until="networkidle")
         pin(page, "1234")
         check("владелец видит все разделы",
-              page.locator(".tab").count() == 6, str(page.locator(".tab").count()))
+              page.locator(".tab").count() == 7, str(page.locator(".tab").count()))
         # Подписи набраны капителью средствами оформления — сравниваем без
         # учёта регистра, иначе проверка ломается от смены шрифта.
         check("смена открывается первой",

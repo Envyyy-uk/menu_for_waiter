@@ -37,6 +37,20 @@ from app.models.menu import (
     MenuItem,
 )
 from app.models.shift import Shift, StationPin
+from app.models.stock import (
+    MOVE_COUNT,
+    MOVE_IN,
+    MOVE_NAMES,
+    MOVE_REASONS,
+    MOVE_RETURN,
+    MOVE_SALE,
+    MOVE_WRITE_OFF,
+    UNIT_NAMES,
+    UNITS,
+    Recipe,
+    StockItem,
+    StockMove,
+)
 from app.models.system import AuditLog, Session
 from app.models.user import (
     ROLE_ADMIN,
@@ -105,8 +119,20 @@ __all__ = [
     "Order",
     "Payment",
     "PushSubscription",
+    "MOVE_COUNT",
+    "MOVE_IN",
+    "MOVE_NAMES",
+    "MOVE_REASONS",
+    "MOVE_RETURN",
+    "MOVE_SALE",
+    "MOVE_WRITE_OFF",
+    "UNITS",
+    "UNIT_NAMES",
+    "Recipe",
     "Session",
     "Shift",
+    "StockItem",
+    "StockMove",
     "StationPin",
     "Table",
     "Ticket",
