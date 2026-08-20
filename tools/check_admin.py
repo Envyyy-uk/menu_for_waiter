@@ -61,7 +61,7 @@ def main() -> None:
               page.locator(".gate .elsewhere").count() == 1)
         pin(page, "123456")
         check("владелец видит все разделы",
-              page.locator(".tab").count() == 8, str(page.locator(".tab").count()))
+              page.locator(".tab").count() == 9, str(page.locator(".tab").count()))
         # Подписи набраны капителью средствами оформления — сравниваем без
         # учёта регистра, иначе проверка ломается от смены шрифта.
         check("смена открывается первой",

@@ -34,10 +34,11 @@ from app.models import (
     Table,
     User,
     Venue,
+    WorkShift,
     new_table_token,
     utcnow,
 )
-from app.services import menu_sync
+from app.services import menu_sync, worktime
 from app.services.audit import record
 from app.services.auth import AuthError, issue_pin, pin_length
 
@@ -795,6 +796,68 @@ def payments(
         ),
         "discount_pence": sum(r["discount_pence"] for r in rows),
         "rows": rows,
+    }
+
+
+@router.get("/timesheet")
+def timesheet(
+    days: int = Query(default=30, ge=1, le=366),
+    actor: User = Depends(require("timesheet.view")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Табель: кто сколько отработал.
+
+    Отчёт по смене отвечает «сколько заведение заработало», табель — «сколько
+    отработал человек». Путать их нельзя: зарплату платят за часы.
+
+    Хранится год, поэтому и спрашивать можно за год.
+    """
+    since = utcnow() - timedelta(days=days)
+    rows = db.scalars(
+        select(WorkShift)
+        .where(WorkShift.venue_id == venue.id, WorkShift.opened_at >= since)
+        .order_by(WorkShift.opened_at.desc())
+    ).all()
+
+    people: dict[str, dict] = {}
+    for row in rows:
+        # Идущая смена в часы не считается: она ещё не отработана, а строка
+        # «0 мин» рядом с именем читается как «человек не работал».
+        if row.closed_at is None:
+            continue
+        who = people.setdefault(
+            str(row.user_id),
+            {"name": row.name_snapshot, "role": row.role_snapshot,
+             "role_name": ROLE_NAMES.get(row.role_snapshot, row.role_snapshot),
+             "shifts": 0, "minutes": 0, "revenue_pence": 0},
+        )
+        who["shifts"] += 1
+        who["minutes"] += row.minutes
+        who["revenue_pence"] += int((row.report or {}).get("revenue_pence") or 0)
+
+    for who in people.values():
+        who["hours_text"] = worktime.hours_text(who["minutes"])
+
+    return {
+        "days": days,
+        "since": since.isoformat(),
+        "minutes": sum(p["minutes"] for p in people.values()),
+        "people": sorted(people.values(), key=lambda p: -p["minutes"]),
+        "shifts": [
+            {
+                "id": str(row.id),
+                "name": row.name_snapshot,
+                "role_name": ROLE_NAMES.get(row.role_snapshot, row.role_snapshot),
+                "opened_at": row.opened_at.isoformat(),
+                "closed_at": row.closed_at.isoformat() if row.closed_at else None,
+                "minutes": row.minutes,
+                "hours_text": worktime.hours_text(row.minutes) if row.closed_at else "идёт",
+                "auto_closed": bool((row.report or {}).get("auto_closed")),
+                "report": row.report or {},
+            }
+            for row in rows
+        ],
     }
 
 

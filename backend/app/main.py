@@ -15,6 +15,7 @@ from app.api import push as push_api
 from app.api import station as station_api
 from app.api import stock as stock_api
 from app.api import tables as tables_api
+from app.api import work as work_api
 from app.api import ws as ws_api
 from app.core.config import settings
 from app.db import engine
@@ -52,6 +53,7 @@ app.include_router(checks_api.router)
 app.include_router(push_api.router)
 app.include_router(station_api.router)
 app.include_router(stock_api.router)
+app.include_router(work_api.router)
 app.include_router(ws_api.router)
 
 

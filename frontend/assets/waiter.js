@@ -14,6 +14,7 @@ const App = {
   tables: [],
   check: null,
   waiting: [],
+  shift: null,          // своя смена: идёт или нет
   view: 'tables',
   filter: { text: '', category: null },
 
@@ -56,7 +57,10 @@ const App = {
       // Бармен пробивает за стойкой и тут же готовит: марки нужны ему в том же
       // приложении, а не на планшете в другом конце бара.
       jobs.push(this.station ? API.get('/api/station/queue') : Promise.resolve(null));
-      const [tables, waiting, check, queue] = await Promise.all(jobs);
+      // Своя смена: часы идут на сервере, экран только показывает.
+      jobs.push(Auth.can('work.shift') ? API.get('/api/work/shift') : Promise.resolve(null));
+      const [tables, waiting, check, queue, shift] = await Promise.all(jobs);
+      if (shift) this.shift = shift;
       this.tables = tables;
       this.waiting = waiting;
       if (queue) this.queue = queue;
@@ -216,6 +220,17 @@ const App = {
      лучше в начале смены, чем в середине. */
   signalRow() {
     const row = el('div', 'signal');
+
+    // Смена — первым делом: её открывают, приходя на работу, и закрывают,
+    // уходя. Часы считает сервер, здесь только кнопка и то, сколько уже идёт.
+    if (Auth.can('work.shift') && this.shift) {
+      const on = this.shift.open;
+      const b = el('button', 'btn' + (on ? ' ghost' : ' primary'),
+        on ? `Закрыть смену · ${this.shift.hours_text}` : 'Открыть смену');
+      b.addEventListener('click', () => (on ? this.closeShift() : this.openShift()));
+      row.appendChild(b);
+    }
+
     const test = el('button', 'btn ghost', 'Проверить звук');
     test.addEventListener('click', () => { Sound.unlock(); Sound.alert(); });
     row.appendChild(test);
@@ -234,6 +249,62 @@ const App = {
       row.appendChild(ask);
     }
     return row;
+  },
+
+  /* ------------------------------------------------------------ смена --- */
+  /* Табель ведёт сам человек: пришёл — открыл, ушёл — закрыл. Часы считает
+     сервер: телефон можно перезагрузить, часовой пояс подкрутить, а время
+     смены должно остаться тем же. */
+  async openShift() {
+    try {
+      this.shift = await API.post('/api/work/shift/open');
+      toast('Смена открылась', 'good');
+      this.paint();
+    } catch (e) { toast(e.message, 'bad'); }
+  },
+
+  async closeShift() {
+    let closed;
+    try {
+      closed = await API.post('/api/work/shift/close');
+    } catch (e) {
+      // Открытый чек смену не закрывает: уйти домой с ним значит оставить
+      // деньги на столе. Сервер называет столы поимённо.
+      return toast(e.message, 'bad');
+    }
+    this.shift = { open: false };
+    this.paint();
+    this.shiftReport(closed);
+  },
+
+  /* Итог вечера показывается один раз — сразу после закрытия. Дальше он
+     живёт в табеле, и достать его может менеджер. */
+  shiftReport(shift) {
+    const r = shift.report || {};
+    const when = t => (t ? new Date(t).toLocaleTimeString('ru-RU',
+      { hour: '2-digit', minute: '2-digit' }) : '');
+    Sheet.show('Смена закрыта',
+      `${when(r.opened_at)} — ${when(r.closed_at)}`, body => {
+      const box = el('div', 'totals');
+      box.innerHTML =
+        `<div class="row big"><span>Отработано</span><span>${esc(shift.hours_text)}</span></div>`
+        + `<div class="row"><span class="muted">Чеков</span><span>${r.checks || 0}</span></div>`
+        + `<div class="row"><span class="muted">Гостей</span><span>${r.guests || 0}</span></div>`
+        + `<div class="row"><span class="muted">Наличными</span><span>${money(r.cash_pence || 0)}</span></div>`
+        + `<div class="row"><span class="muted">Картой</span><span>${money(r.card_pence || 0)}</span></div>`
+        + (r.discount_pence ? `<div class="row off"><span>Скидки</span><span>−${money(r.discount_pence)}</span></div>` : '')
+        + (r.cancelled && r.cancelled.count
+            ? `<div class="row off"><span>Отмены</span><span>${r.cancelled.count} · ${money(r.cancelled.amount_pence)}</span></div>`
+            : '')
+        + `<div class="row big"><span>Выручка</span><span>${money(r.revenue_pence || 0)}</span></div>`;
+      body.appendChild(box);
+      body.appendChild(el('p', 'faint',
+        'Записано в табель. Он хранится год — по нему сверяют часы.'));
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+      const ok = el('button', 'btn wide big primary', 'Понятно');
+      ok.addEventListener('click', () => Sheet.hide());
+      body.appendChild(ok);
+    });
   },
 
   /* Свой PIN человек меняет сам, зная старый. Забыл — это к менеджеру:

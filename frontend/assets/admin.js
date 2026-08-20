@@ -22,11 +22,13 @@ const Admin = {
   tab: 'report',
   zone: 'Зал',
   hours: 24,
+  days: 30,
   data: {},
 
   TABS: [
     { key: 'report', name: 'Смена', need: 'reports' },
     { key: 'payments', name: 'Оплаты', need: 'payments.view' },
+    { key: 'timesheet', name: 'Табель', need: 'timesheet.view' },
     { key: 'users', name: 'Персонал', need: 'users.view' },
     { key: 'tables', name: 'Столы', need: 'tables.manage' },
     { key: 'stations', name: 'Станции', need: 'stations.manage' },
@@ -80,6 +82,9 @@ const Admin = {
       if (this.tab === 'report') this.data.report = await API.get('/api/admin/report');
       if (this.tab === 'payments') {
         this.data.payments = await API.get('/api/admin/payments?hours=' + this.hours);
+      }
+      if (this.tab === 'timesheet') {
+        this.data.timesheet = await API.get('/api/admin/timesheet?days=' + this.days);
       }
       if (this.tab === 'users') this.data.users = await API.get('/api/admin/users');
       if (this.tab === 'tables') this.data.tables = await API.get('/api/admin/tables');
@@ -271,6 +276,59 @@ const Admin = {
       body.appendChild(el('div', '', '<div style="height:12px"></div>'));
       body.appendChild(ok);
     });
+  },
+
+  /* ---------------------------------------------------------- табель ---- */
+  /* Отчёт отвечает «сколько заведение заработало», табель — «сколько
+     отработал человек». Путать нельзя: зарплату платят за часы. */
+  view_timesheet() {
+    const d = this.data.timesheet;
+    const wrap = el('div', 'panel');
+    wrap.appendChild(el('h2', '', 'Табель'));
+    wrap.appendChild(el('p', 'hint',
+      'Смену открывает и закрывает сам человек в своём приложении: пришёл — '
+      + 'открыл, ушёл — закрыл. Часы считает сервер, в минутах: округление до '
+      + 'часа в обе стороны — это чужие деньги. Табель хранится год.'));
+
+    const pick = el('div', 'row-actions');
+    [[7, 'Неделя'], [30, 'Месяц'], [365, 'Год']].forEach(([n, name]) => {
+      const b = el('button', 'btn' + (this.days === n ? ' primary' : ''), name);
+      b.addEventListener('click', () => { this.days = n; this.load(); });
+      pick.appendChild(b);
+    });
+    wrap.appendChild(pick);
+
+    if (!d.people.length) {
+      wrap.appendChild(el('p', 'hint', 'За этот срок смен не закрывали.'));
+      return wrap;
+    }
+
+    wrap.appendChild(el('h2', '', 'Часы'));
+    wrap.appendChild(this.table(
+      ['Сотрудник', 'Роль', 'Смен', 'Отработано', 'Выручка'],
+      d.people.map(p => [
+        esc(p.name), esc(p.role_name),
+        { num: p.shifts },
+        { num: esc(p.hours_text) },
+        { num: money(p.revenue_pence) }
+      ])
+    ));
+
+    wrap.appendChild(el('h2', '', 'Смены'));
+    wrap.appendChild(this.table(
+      ['Сотрудник', 'Открыл', 'Закрыл', 'Отработано', ''],
+      d.shifts.map(s => [
+        esc(s.name),
+        esc(this.when(s.opened_at)),
+        s.closed_at ? esc(this.when(s.closed_at)) : '<span class="faint">идёт</span>',
+        { num: esc(s.hours_text) },
+        s.auto_closed
+          ? '<span style="color:var(--warn)">закрыта сама</span>'
+          : ''
+      ]),
+      d.shifts.map(s => (s.closed_at ? '' : 'off'))
+    ));
+    return wrap;
   },
 
   /* -------------------------------------------------------- персонал ---- */
