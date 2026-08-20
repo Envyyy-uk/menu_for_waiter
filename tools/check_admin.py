@@ -104,6 +104,30 @@ def main() -> None:
         check("стол встал в зал",
               page.locator(f".plan .spot:has(.n:text-is('{table}'))").count() == 1)
 
+        # Зал ставят целиком: несколько столов одной формой.
+        many = str(random.randrange(300, 899))
+        page.get_by_role("button", name="Добавить стол").click()
+        page.wait_for_timeout(500)
+        page.locator(".sheet .field").nth(0).fill(many)
+        page.locator(".sheet .field").nth(2).fill("4")
+        page.get_by_role("button", name="Поставить в зал").click()
+        page.wait_for_timeout(1400)
+        added = [str(int(many) + n) for n in range(4)]
+        check("четыре стола встали одной формой",
+              all(page.locator(f".plan .spot:has(.n:text-is('{n}'))").count() == 1
+                  for n in added),
+              page.locator(".plan-bar").inner_text().replace("\n", " "))
+
+        # И убираются оттуда же — по ним не было чеков.
+        for n in added:
+            page.locator(f".plan .spot:has(.n:text-is('{n}'))").click()
+            page.wait_for_timeout(400)
+            page.get_by_role("button", name="Убрать стол").click()
+            page.wait_for_timeout(900)
+        check("и убираются обратно",
+              all(page.locator(f".plan .spot:has(.n:text-is('{n}'))").count() == 0
+                  for n in added))
+
         # И убирается: по нему ещё не было чеков.
         page.locator(f".plan .spot:has(.n:text-is('{table}'))").click()
         page.wait_for_timeout(500)

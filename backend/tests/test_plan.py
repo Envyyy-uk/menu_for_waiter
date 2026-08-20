@@ -123,3 +123,50 @@ def test_waiter_cannot_rearrange_the_hall(client, db, venue, hall):
         json={"tables": [{"id": rows[0]["id"], "x": 1.0, "y": 1.0}]},
     )
     assert r.status_code == 403
+
+
+# --------------------------------------------------- зал ставят целиком ---
+def test_several_tables_at_once(client, db, venue, hall):
+    """Двадцать столов по одному — это двадцать одинаковых форм подряд."""
+    login(client, "123456")
+    was = len(tables(client))
+    r = client.post(
+        "/api/admin/tables/batch",
+        json={"count": 5, "zone": "Терраса", "seats": 2},
+    )
+    assert r.status_code == 201, r.text
+    made = r.json()["tables"]
+    assert len(made) == 5
+    assert {t["zone"] for t in made} == {"Терраса"}
+    assert {t["seats"] for t in made} == {2}
+    assert len(tables(client)) == was + 5
+
+    # Нумерация продолжается с последнего, а не начинается заново.
+    numbers = sorted(int(t["label"]) for t in made)
+    assert numbers == list(range(numbers[0], numbers[0] + 5))
+
+
+def test_busy_numbers_are_skipped(client, db, venue, hall):
+    """Упереться в «стол 7 уже есть» на середине списка хуже, чем пропуск."""
+    login(client, "123456")
+    client.post("/api/admin/tables", json={"label": "101", "zone": "Зал"})
+    made = client.post(
+        "/api/admin/tables/batch", json={"count": 3, "start": 100, "zone": "Зал"}
+    ).json()["tables"]
+    assert [t["label"] for t in made] == ["100", "102", "103"]
+
+
+def test_batch_is_not_for_the_waiter(client, db, venue, hall):
+    login(client, "1111")
+    assert client.post("/api/admin/tables/batch", json={"count": 2}).status_code == 403
+
+
+def test_unused_table_can_be_removed_after_it_was_switched_off(client, db, venue, hall):
+    """Выключенный стол, по которому не было чеков, ни на что не ссылается."""
+    login(client, "123456")
+    made = client.post("/api/admin/tables", json={"label": "777", "zone": "Зал"}).json()
+    client.patch(f"/api/admin/tables/{made['id']}", json={"active": False})
+    off = next(t for t in tables(client) if t["id"] == made["id"])
+    assert off["ever_used"] is False
+    assert client.delete(f"/api/admin/tables/{made['id']}").status_code == 200
+    assert all(t["id"] != made["id"] for t in tables(client))

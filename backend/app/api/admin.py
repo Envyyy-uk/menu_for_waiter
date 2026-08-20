@@ -287,6 +287,20 @@ class TableIn(BaseModel):
     y: float | None = Field(default=None, ge=0, le=100)
 
 
+def _new_table(venue: Venue, label: str, zone: str, seats: int, position: int,
+               x: float | None = None, y: float | None = None) -> Table:
+    return Table(
+        venue_id=venue.id,
+        label=label.strip(),
+        zone=zone.strip() or "Зал",
+        seats=seats,
+        position=position,
+        x=x,
+        y=y,
+        token=new_table_token(),
+    )
+
+
 @router.post("/tables", status_code=201)
 def create_table(
     body: TableIn,
@@ -299,19 +313,62 @@ def create_table(
     ).first()
     if exists is not None:
         raise HTTPException(status_code=409, detail="стол с таким номером уже есть")
-    table = Table(
-        venue_id=venue.id,
-        label=body.label.strip(),
-        zone=body.zone.strip() or "Зал",
-        seats=body.seats,
-        position=body.position,
-        x=body.x,
-        y=body.y,
-        token=new_table_token(),
-    )
+    table = _new_table(venue, body.label, body.zone, body.seats, body.position, body.x, body.y)
     db.add(table)
     db.commit()
+    _plan_changed()
     return table_payload(table)
+
+
+class TablesIn(BaseModel):
+    count: int = Field(ge=1, le=40)
+    # С какого номера начинать. Пусто — продолжим с последнего в заведении.
+    start: int | None = Field(default=None, ge=1, le=999)
+    zone: str = "Зал"
+    seats: int = Field(default=4, ge=1, le=99)
+
+
+@router.post("/tables/batch", status_code=201)
+def create_tables(
+    body: TablesIn,
+    actor: User = Depends(require("tables.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Завести сразу несколько столов.
+
+    Зал ставят один раз, и ставят целиком: двадцать столов по одному — это
+    двадцать одинаковых форм подряд. Занятые номера пропускаются молча:
+    упереться в «стол 7 уже есть» на середине списка хуже, чем получить
+    столы 6, 8, 9.
+    """
+    have = db.scalars(select(Table).where(Table.venue_id == venue.id)).all()
+    taken = {t.label for t in have}
+    numbers = [int(t.label) for t in have if t.label.isdigit()]
+    number = body.start or ((max(numbers) if numbers else 0) + 1)
+    position = len(have)
+
+    made: list[Table] = []
+    # Предел на случай, когда все номера подряд заняты: искать бесконечно
+    # нельзя, а сказать «не влезло» можно.
+    limit = number + body.count + 200
+    while len(made) < body.count and number < limit:
+        label = str(number)
+        number += 1
+        if label in taken:
+            continue
+        taken.add(label)
+        position += 1
+        table = _new_table(venue, label, body.zone, body.seats, position)
+        db.add(table)
+        made.append(table)
+
+    if not made:
+        raise HTTPException(status_code=409, detail="свободных номеров не нашлось")
+
+    db.commit()
+    _plan_changed()
+    return {"tables": [table_payload(t) for t in made]}
 
 
 class TablePatch(BaseModel):

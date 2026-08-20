@@ -647,7 +647,7 @@ const Admin = {
     const numbers = this.data.tables.map(t => parseInt(t.label, 10)).filter(n => !isNaN(n));
     const next = String((numbers.length ? Math.max(...numbers) : 0) + 1);
 
-    Sheet.show('Новый стол', esc(this.zone), body => {
+    Sheet.show('Новые столы', esc(this.zone), body => {
       const fields = el('div', 'line-fields');
       const label = el('input', 'field');
       label.value = next;
@@ -656,23 +656,44 @@ const Admin = {
       seats.type = 'number';
       seats.min = '1';
       seats.value = '4';
-      fields.append(label, seats);
+      // Зал ставят один раз и целиком: двадцать столов по одному — это
+      // двадцать одинаковых форм подряд.
+      const count = el('input', 'field');
+      count.type = 'number';
+      count.min = '1';
+      count.max = '40';
+      count.value = '1';
+      fields.append(label, seats, count);
       body.appendChild(fields);
+      body.appendChild(el('p', 'hint',
+        'Номер, мест за столом, сколько столов. Занятые номера пропускаются.'));
       body.appendChild(el('div', '', '<div style="height:12px"></div>'));
 
       const ok = el('button', 'btn wide big primary', 'Поставить в зал');
       ok.addEventListener('click', async () => {
         Sheet.hide();
+        const many = Math.max(1, Math.min(40, Number(count.value) || 1));
         const spot = Plan.spot({}, existing.length);
         try {
-          await API.post('/api/admin/tables', {
-            label: label.value.trim() || next,
-            zone: this.zone,
-            seats: Number(seats.value) || 4,
-            position: existing.length + 1,
-            x: spot.x,
-            y: spot.y
-          });
+          if (many > 1) {
+            const start = parseInt(label.value, 10);
+            const made = await API.post('/api/admin/tables/batch', {
+              count: many,
+              start: isNaN(start) ? null : start,
+              zone: this.zone,
+              seats: Number(seats.value) || 4
+            });
+            toast(`Столов добавлено: ${made.tables.length}`, 'good');
+          } else {
+            await API.post('/api/admin/tables', {
+              label: label.value.trim() || next,
+              zone: this.zone,
+              seats: Number(seats.value) || 4,
+              position: existing.length + 1,
+              x: spot.x,
+              y: spot.y
+            });
+          }
           this.load();
         } catch (e) { toast(e.message, 'bad'); }
       });
@@ -709,6 +730,20 @@ const Admin = {
       } catch (e) { toast(e.message, 'bad'); }
     });
     box.appendChild(toggle);
+
+    // Стол, по которому никогда не было чеков, можно убрать совсем — он ни
+    // на что не ссылается. По которому были — только выключить: закрытый
+    // чек должен знать, где сидели.
+    if (!table.ever_used) {
+      const drop = el('button', 'btn danger', 'Убрать совсем');
+      drop.addEventListener('click', async () => {
+        try {
+          await API.del(`/api/admin/tables/${table.id}`);
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      box.appendChild(drop);
+    }
     return box;
   },
 
