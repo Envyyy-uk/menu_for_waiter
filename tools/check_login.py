@@ -61,7 +61,7 @@ def main() -> None:
 
         page.goto(BASE, wait_until="networkidle")
         check("экран PIN закрывает всё до входа", page.locator("#gate").is_visible())
-        check("цифры PIN не показываются", page.locator("#pin-dots i").count() >= 4)
+        check("цифры PIN не показываются", page.locator("#pin-dots i").count() == 4)
 
         type_pin(page, "0000")
         check(
@@ -70,11 +70,19 @@ def main() -> None:
             page.locator("#pin-msg").inner_text(),
         )
 
-        type_pin(page, "1234")
-        page.wait_for_url("**/admin/**", timeout=10000)
-        page.wait_for_timeout(500)
-        check("админ уходит на свой экран", "/admin" in page.url, page.url)
-        check("имя видно в шапке", "Администратор" in page.locator("#who").inner_text())
+        # У админки свой вход и свой PIN — длиннее. Экран зала ждёт четыре
+        # цифры, поэтому владелец идёт по ссылке рядом, а не набирает шесть в
+        # четыре точки.
+        page.locator(".gate .elsewhere").click()
+        page.wait_for_load_state("networkidle")
+        check("в админке шесть точек вместо четырёх",
+              page.locator("#pin-dots i").count() == 6,
+              str(page.locator("#pin-dots i").count()))
+
+        type_pin(page, "123456")
+        page.wait_for_timeout(700)
+        check("владелец попал в админку", "/admin" in page.url, page.url)
+        check("имя видно в шапке", "Владелец" in page.locator("#who").inner_text())
 
         page.get_by_role("button", name="Выйти").click()
         page.wait_for_timeout(800)

@@ -22,7 +22,7 @@ def test_tables_and_owner(db, venue):
     # Заведение заводит тот, кому оно принадлежит.
     owner = db.scalars(select(User).where(User.venue_id == venue.id)).first()
     assert owner.role == ROLE_OWNER
-    assert owner.pin_hash and "1234" not in owner.pin_hash
+    assert owner.pin_hash and "123456" not in owner.pin_hash
 
 
 def test_seed_keeps_stop_list(db, venue):

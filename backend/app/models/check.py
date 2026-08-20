@@ -77,8 +77,11 @@ class Check(UUIDPk, Timestamped, Base):
     guests: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     comment: Mapped[str | None] = mapped_column(Text, default=None)
 
-    # Скидка в пенсах, ставится на весь чек. Кто и почему — в журнале.
+    # Скидка в пенсах, ставится на весь чек. Кто её дал — в журнале, а
+    # причина лежит здесь же: в списке оплат она нужна рядом с суммой, а не
+    # через поиск по журналу.
     discount_pence: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    discount_reason: Mapped[str | None] = mapped_column(Text, default=None)
 
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     closed_by_id: Mapped[uuid.UUID | None] = mapped_column(

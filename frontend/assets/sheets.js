@@ -182,7 +182,91 @@ const Pay = {
         body.appendChild(b);
         body.appendChild(el('div', '', '<div style="height:8px"></div>'));
       });
+
+      // Скидка живёт здесь, а не в чеке: её дают перед тем, как назвать
+      // сумму. После закрытия чек уже документ, и править его нечем.
+      if (Auth.can('checks.discount')) {
+        const off = el('button', 'btn wide ghost',
+          check.discount_pence ? `Скидка · −${money(check.discount_pence)}` : 'Скидка');
+        off.addEventListener('click', () => this.discount(check));
+        body.appendChild(off);
+      }
     });
+  },
+
+  /* Скидку даёт менеджер и не молча: причина остаётся на чеке и видна потом
+     в оплатах. Скидка без причины — просто минус в кассе, и разбираться с
+     ней через неделю будет некому. */
+  discount(check) {
+    const sum = check.subtotal_pence;
+    Sheet.show('Скидка', `Позиции ${money(sum)}`, body => {
+      let value = check.discount_pence || 0;
+
+      const shown = el('p', 'sub');
+      const paint = () => {
+        shown.innerHTML = value
+          ? `Скидка <b>−${money(value)}</b> · к оплате <b>${money(Math.max(0, sum - value))}</b>`
+          : 'Скидки нет';
+      };
+
+      const opts = el('div', 'opts');
+      [5, 10, 15, 20].forEach(pc => {
+        const b = el('button', 'opt', pc + '%');
+        b.addEventListener('click', () => {
+          value = Math.round(sum * pc / 100);
+          input.value = (value / 100).toFixed(2);
+          paint();
+          buzz();
+        });
+        opts.appendChild(b);
+      });
+      body.appendChild(opts);
+      body.appendChild(el('div', '', '<div style="height:10px"></div>'));
+
+      const input = el('input', 'field');
+      input.type = 'text';
+      input.inputMode = 'decimal';
+      input.placeholder = 'Своя сумма, £';
+      if (value) input.value = (value / 100).toFixed(2);
+      input.addEventListener('input', () => {
+        value = Math.round(parseFloat((input.value || '0').replace(',', '.')) * 100) || 0;
+        paint();
+      });
+      body.appendChild(input);
+      body.appendChild(shown);
+      paint();
+
+      const why = el('input', 'field');
+      why.placeholder = 'Причина: постоянный гость, ждали долго…';
+      if (check.discount_reason) why.value = check.discount_reason;
+      body.appendChild(why);
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Применить');
+      save.addEventListener('click', () => {
+        if (value > sum) return toast('Скидка больше суммы чека', 'bad');
+        this.applyDiscount(check, value, why.value.trim());
+      });
+      body.appendChild(save);
+
+      if (check.discount_pence) {
+        body.appendChild(el('div', '', '<div style="height:8px"></div>'));
+        const drop = el('button', 'btn wide ghost', 'Убрать скидку');
+        drop.addEventListener('click', () => this.applyDiscount(check, 0, ''));
+        body.appendChild(drop);
+      }
+    });
+  },
+
+  async applyDiscount(check, pence, reason) {
+    try {
+      const updated = await API.post(`/api/checks/${check.id}/discount`,
+        { discount_pence: pence, reason: reason || null });
+      App.check = updated;
+      App.paint();
+      toast(pence ? 'Скидка применена' : 'Скидка убрана', 'good');
+      this.open(updated);
+    } catch (e) { toast(e.message, 'bad'); }
   },
 
   summary(check) {

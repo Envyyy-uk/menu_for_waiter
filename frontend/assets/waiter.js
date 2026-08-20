@@ -239,24 +239,28 @@ const App = {
   /* Свой PIN человек меняет сам, зная старый. Забыл — это к менеджеру:
      сброс чужого PIN пишется в журнал, потому что это доступ к деньгам. */
   changePin() {
-    Sheet.show('Смена PIN', 'Четыре цифры. Старый нужен обязательно.', body => {
+    // Длина своя у каждой роли: в зале четыре цифры, у тех, кто ходит в
+    // админку, шесть. Спрашивать надо ровно столько, сколько примет вход.
+    const need = (Auth.me && Auth.me.pin_length) || 4;
+    const words = need === 4 ? '4 цифры' : need + ' цифр';
+    Sheet.show('Смена PIN', `${words}. Старый нужен обязательно.`, body => {
       const old = el('input', 'field');
       old.type = 'password';
       old.inputMode = 'numeric';
-      old.maxLength = 4;
+      old.maxLength = need;
       old.placeholder = 'Старый PIN';
       const fresh = el('input', 'field');
       fresh.type = 'password';
       fresh.inputMode = 'numeric';
-      fresh.maxLength = 4;
+      fresh.maxLength = need;
       fresh.placeholder = 'Новый PIN';
       body.append(old, el('div', '', '<div style="height:8px"></div>'), fresh,
                   el('div', '', '<div style="height:12px"></div>'));
 
       const save = el('button', 'btn wide big primary', 'Сохранить');
       save.addEventListener('click', async () => {
-        if (old.value.length !== 4 || fresh.value.length !== 4) {
-          return toast('PIN — ровно четыре цифры', 'bad');
+        if (old.value.length !== need || fresh.value.length !== need) {
+          return toast(`PIN — ровно ${words}`, 'bad');
         }
         try {
           await API.post('/api/auth/pin/change', { old: old.value, new: fresh.value });

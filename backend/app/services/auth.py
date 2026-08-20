@@ -22,16 +22,39 @@ from sqlalchemy.orm import Session as DbSession
 from app.core.config import settings
 from app.core.security import hash_secret, new_token, token_fingerprint, verify_secret
 from app.models import Device, Session, User, utcnow
-from app.models.user import ROLE_ADMIN, ROLE_MANAGER
+from app.models.user import ROLE_ADMIN, ROLE_MANAGER, ROLE_OWNER
 from app.services.audit import record
 
 SESSION_COOKIE = "session"
 DEVICE_COOKIE = "device"
 
-# Ровно четыре цифры, без вариантов. Разная длина означала бы либо кнопку
-# «войти» лишним нажатием на каждую смену, либо отправку недобранного PIN —
-# а это чужие неудачные попытки и заблокированный планшет среди вечера.
+# Длина PIN зависит от роли, и это не украшение.
+#
+# В зале четыре цифры: набрал — и уже вошёл, без кнопки «войти». Лишнее
+# нажатие пятьдесят раз за смену стоит дороже, чем кажется, а к деньгам
+# заведения этот вход не ведёт: официант видит свои столы.
+#
+# В админке шесть: оттуда правят цены, роли, склад и видно все оплаты.
+# Четыре цифры — это десять тысяч вариантов, и подобрать их можно за вечер,
+# если никто не смотрит на счётчик. Шесть — миллион, и это уже другой
+# разговор. Отдельная длина заодно значит отдельный PIN: тот, кем открывают
+# админку, не тот, которым официант входит в зал.
+#
+# Внутри каждого экрана длина всё равно одна и та же, поэтому вход остаётся
+# без кнопки «войти»: набрал шесть — вошёл.
 PIN_LENGTH = 4
+ADMIN_PIN_LENGTH = 6
+# Кому нужен длинный PIN: те, кто открывает админку.
+ADMIN_PIN_ROLES = (ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER)
+
+
+def pin_length(role: str) -> int:
+    return ADMIN_PIN_LENGTH if role in ADMIN_PIN_ROLES else PIN_LENGTH
+
+
+def pin_words(length: int) -> str:
+    return {4: "четыре цифры", 6: "шесть цифр"}.get(length, f"{length} цифр")
+
 
 
 class AuthError(Exception):
@@ -220,15 +243,16 @@ def issue_pin(db: DbSession, user: User, pin: str | None = None) -> str:
     def taken(candidate: str) -> bool:
         return any(verify_secret(o.pin_hash, candidate) for o in others)
 
+    need = pin_length(user.role)
     if pin is not None:
         pin = pin.strip()
-        if not pin.isdigit() or len(pin) != PIN_LENGTH:
-            raise AuthError(f"PIN — ровно {PIN_LENGTH} цифры", status=422)
+        if not pin.isdigit() or len(pin) != need:
+            raise AuthError(f"PIN — ровно {pin_words(need)}", status=422)
         if taken(pin):
             raise AuthError("Такой PIN уже занят", status=409)
     else:
         for _ in range(200):
-            candidate = f"{secrets.randbelow(10 ** PIN_LENGTH):0{PIN_LENGTH}d}"
+            candidate = f"{secrets.randbelow(10 ** need):0{need}d}"
             if not taken(candidate):
                 pin = candidate
                 break

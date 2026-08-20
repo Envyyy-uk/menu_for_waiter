@@ -6,14 +6,27 @@
    или доступ, попадает в журнал, и журнал открыт из того же окна.
    ========================================================================== */
 
+/* Роли и длина PIN. В зале четыре цифры, в админке шесть: оттуда правят
+   цены, роли, склад и видно все оплаты, а четыре цифры это всего десять
+   тысяч вариантов. Сервер считает так же — здесь только подсказка. */
+const ROLE_LIST = [
+  ['waiter', 'Официант'], ['bar', 'Бармен'], ['kitchen', 'Кухня'],
+  ['manager', 'Менеджер'], ['admin', 'Администратор'], ['owner', 'Владелец']
+];
+const ADMIN_ROLES = ['owner', 'admin', 'manager'];
+const pinLength = role => (ADMIN_ROLES.includes(role) ? 6 : 4);
+const digits = n => (n === 4 ? '4 цифры' : n + ' цифр');
+
 const Admin = {
   me: null,
   tab: 'report',
   zone: 'Зал',
+  hours: 24,
   data: {},
 
   TABS: [
     { key: 'report', name: 'Смена', need: 'reports' },
+    { key: 'payments', name: 'Оплаты', need: 'payments.view' },
     { key: 'users', name: 'Персонал', need: 'users.view' },
     { key: 'tables', name: 'Столы', need: 'tables.manage' },
     { key: 'stations', name: 'Станции', need: 'stations.manage' },
@@ -26,6 +39,11 @@ const Admin = {
     this.me = me;
     document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
     document.getElementById('out').addEventListener('click', () => Auth.logout());
+
+    // Менеджер и администратор работают в зале так же, как официант: скидку
+    // и отмену позиции они дают у стола, а не из подсобки. Вход у них один —
+    // через админку, поэтому дорога в зал должна быть отсюда.
+    if (Auth.can('checks.edit')) document.getElementById('hall').hidden = false;
 
     const allowed = this.TABS.filter(t => Auth.can(t.need));
     if (!allowed.length) {
@@ -43,7 +61,9 @@ const Admin = {
       bar.appendChild(b);
     });
 
-    Live.on('check.changed', () => { if (this.tab === 'report') this.load(); });
+    Live.on('check.changed', () => {
+      if (this.tab === 'report' || this.tab === 'payments') this.load();
+    });
     Live.start();
     this.go(this.tab);
   },
@@ -58,6 +78,9 @@ const Admin = {
     const root = document.getElementById('app');
     try {
       if (this.tab === 'report') this.data.report = await API.get('/api/admin/report');
+      if (this.tab === 'payments') {
+        this.data.payments = await API.get('/api/admin/payments?hours=' + this.hours);
+      }
       if (this.tab === 'users') this.data.users = await API.get('/api/admin/users');
       if (this.tab === 'tables') this.data.tables = await API.get('/api/admin/tables');
       if (this.tab === 'stations') {
@@ -133,15 +156,133 @@ const Admin = {
     return wrap;
   },
 
+  /* ---------------------------------------------------------- оплаты ---- */
+  /* Отчёт отвечает «сколько всего», этот список — «за что именно». Его
+     открывают, когда касса не сошлась или гость вернулся со словами «мне
+     посчитали лишнее»: здесь видно позиции, скидку с причиной и то, что
+     отменили до оплаты. */
+  view_payments() {
+    const d = this.data.payments;
+    const wrap = el('div', 'panel');
+    wrap.appendChild(el('h2', '', 'Оплаты'));
+    wrap.appendChild(el('p', 'hint',
+      'Закрытые чеки. Нажмите строку — покажет, что было внутри: позиции, '
+      + 'скидку с причиной и отменённое до оплаты.'));
+
+    const pick = el('div', 'row-actions');
+    [[24, 'Сутки'], [72, 'Три дня'], [168, 'Неделя']].forEach(([h, name]) => {
+      const b = el('button', 'btn' + (this.hours === h ? ' primary' : ''), name);
+      b.addEventListener('click', () => { this.hours = h; this.load(); });
+      pick.appendChild(b);
+    });
+    wrap.appendChild(pick);
+
+    const figures = el('div', 'figures');
+    const put = (label, value, cls) => {
+      const box = el('div', 'figure ' + (cls || ''));
+      box.innerHTML = `<div class="label">${esc(label)}</div><div class="value">${value}</div>`;
+      figures.appendChild(box);
+    };
+    put('Чеков', d.checks);
+    put('Наличными', money(d.cash_pence), 'cash');
+    put('Картой', money(d.card_pence), 'card');
+    if (d.discount_pence) put('Скидки', money(d.discount_pence), 'warn');
+    wrap.appendChild(figures);
+
+    if (!d.rows.length) {
+      wrap.appendChild(el('p', 'hint', 'За этот срок ничего не закрывали.'));
+      return wrap;
+    }
+
+    const node = el('table', 'grid');
+    node.innerHTML = '<thead><tr>'
+      + ['Время', 'Стол', 'Чек', 'Официант', 'Скидка', 'Чем платили', 'Сумма']
+        .map(h => `<th>${esc(h)}</th>`).join('')
+      + '</tr></thead>';
+    const body = el('tbody');
+    d.rows.forEach(r => {
+      const tr = el('tr', 'clickable');
+      tr.innerHTML = `<td>${esc(this.when(r.closed_at))}</td>
+        <td>${esc(r.table)}</td>
+        <td class="num">№${r.number}</td>
+        <td>${esc(r.waiter)}</td>
+        <td>${r.discount_pence ? '−' + money(r.discount_pence) : ''}</td>
+        <td>${esc(this.methods(r.payments))}</td>
+        <td class="num">${money(r.total_pence)}</td>`;
+      tr.addEventListener('click', () => this.showCheck(r));
+      body.appendChild(tr);
+    });
+    node.appendChild(body);
+    wrap.appendChild(node);
+    return wrap;
+  },
+
+  when(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const day = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    // Сегодняшнее без даты: за смену её видеть незачем.
+    const today = new Date().toDateString() === d.toDateString();
+    return today ? time : day + ' ' + time;
+  },
+
+  methods(list) {
+    const names = { card: 'карта', cash: 'наличные' };
+    return [...new Set(list.map(p => names[p.method] || p.method))].join(' + ') || '—';
+  },
+
+  showCheck(r) {
+    Sheet.show(`Стол ${esc(r.table)} · чек №${r.number}`,
+      `${esc(this.when(r.closed_at))} · ${esc(r.waiter)} · ${r.guests} гост.`, body => {
+      const lines = el('div', 'totals');
+      let html = r.items.map(i =>
+        `<div class="row"><span>${i.qty}× ${esc(i.name)}`
+        + (i.options.length ? `<span class="muted"> · ${esc(i.options.join(' · '))}</span>` : '')
+        + `</span><span>${money(i.total_pence)}</span></div>`).join('');
+      html += `<div class="row"><span class="muted">Позиции</span><span>${money(r.subtotal_pence)}</span></div>`;
+      if (r.discount_pence) {
+        html += `<div class="row off"><span>Скидка${r.discount_reason
+          ? ' · ' + esc(r.discount_reason) : ''}</span><span>−${money(r.discount_pence)}</span></div>`;
+      }
+      r.payments.forEach(p => {
+        const name = p.method === 'cash' ? 'Наличные' : 'Карта';
+        const change = p.tendered_pence && p.tendered_pence > p.amount_pence
+          ? ` <span class="muted">(дали ${money(p.tendered_pence)}, сдача ${money(p.tendered_pence - p.amount_pence)})</span>`
+          : '';
+        html += `<div class="row"><span>${name}${change}</span><span>${money(p.amount_pence)}</span></div>`;
+      });
+      html += `<div class="row big"><span>Итого</span><span>${money(r.total_pence)}</span></div>`;
+      lines.innerHTML = html;
+      body.appendChild(lines);
+
+      if (r.cancelled.length) {
+        body.appendChild(el('p', 'hint', 'Отменено до оплаты:'));
+        const off = el('div', 'totals');
+        off.innerHTML = r.cancelled.map(i =>
+          `<div class="row off"><span>${i.qty}× ${esc(i.name)}`
+          + (i.reason ? `<span class="muted"> · ${esc(i.reason)}</span>` : '')
+          + '</span><span></span></div>').join('');
+        body.appendChild(off);
+      }
+
+      const ok = el('button', 'btn wide big primary', 'Закрыть');
+      ok.addEventListener('click', () => Sheet.hide());
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+      body.appendChild(ok);
+    });
+  },
+
   /* -------------------------------------------------------- персонал ---- */
   view_users() {
     const wrap = el('div', 'panel');
     wrap.appendChild(el('h2', '', 'Персонал'));
     wrap.appendChild(el('p', 'hint',
-      'Вход только по личному PIN из четырёх цифр. Свой PIN каждый меняет сам '
-      + 'в приложении; здесь его сбрасывают, когда забыли. PIN показывается '
-      + 'один раз — дальше в базе только хеш, и подсмотреть его нельзя даже '
-      + 'отсюда.'));
+      'Вход только по личному PIN. В зале он из четырёх цифр, в админке — из '
+      + 'шести: отсюда правят цены, роли и склад. Свой PIN каждый меняет сам; '
+      + 'здесь его сбрасывают, когда забыли. PIN показывается один раз — '
+      + 'дальше в базе только хеш, и подсмотреть его нельзя даже отсюда.'));
+    wrap.appendChild(this.ownPin());
 
     // Менеджеру список нужен ради одного: найти того, кто забыл PIN. Заводить
     // людей и менять роли он не может, поэтому формы просто нет.
@@ -163,17 +304,21 @@ const Admin = {
     const name = el('input', 'field');
     name.placeholder = 'Имя';
     const role = el('select', 'field');
-    [['waiter', 'Официант'], ['bar', 'Бармен'], ['kitchen', 'Кухня'],
-     ['manager', 'Менеджер'], ['admin', 'Администратор'],
-     ['owner', 'Владелец']].forEach(([k, n]) => {
+    ROLE_LIST.forEach(([k, n]) => {
       const o = el('option', '', esc(n));
       o.value = k;
       role.appendChild(o);
     });
     const pin = el('input', 'field');
-    pin.placeholder = 'PIN (пусто — придумает сам)';
     pin.inputMode = 'numeric';
-    pin.maxLength = 4;
+    const fitPin = () => {
+      const need = pinLength(role.value);
+      pin.maxLength = need;
+      pin.placeholder = `PIN, ${digits(need)} (пусто — придумает сам)`;
+      if (pin.value.length > need) pin.value = pin.value.slice(0, need);
+    };
+    role.addEventListener('change', fitPin);
+    fitPin();
     fields.append(name, role, pin);
     form.appendChild(fields);
 
@@ -205,6 +350,48 @@ const Admin = {
     return wrap;
   },
 
+  /* Свой PIN меняют здесь же: администратор в приложение зала не заходит, а
+     менять его раз в жизни всё равно приходится — хотя бы после первого
+     входа с PIN из письма. */
+  ownPin() {
+    const box = el('div', 'row-actions');
+    const go = el('button', 'btn', 'Сменить свой PIN');
+    go.addEventListener('click', () => this.changeOwnPin());
+    box.appendChild(go);
+    return box;
+  },
+
+  changeOwnPin() {
+    const need = (Auth.me && Auth.me.pin_length) || 4;
+    Sheet.show('Свой PIN', `${digits(need)}. Старый нужен обязательно.`, body => {
+      const field = (place) => {
+        const f = el('input', 'field');
+        f.type = 'password';
+        f.inputMode = 'numeric';
+        f.maxLength = need;
+        f.placeholder = place;
+        return f;
+      };
+      const old = field('Старый PIN');
+      const fresh = field('Новый PIN');
+      body.append(old, el('div', '', '<div style="height:8px"></div>'), fresh,
+                  el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Сохранить');
+      save.addEventListener('click', async () => {
+        if (old.value.length !== need || fresh.value.length !== need) {
+          return toast(`PIN — ровно ${digits(need)}`, 'bad');
+        }
+        try {
+          await API.post('/api/auth/pin/change', { old: old.value, new: fresh.value });
+          Sheet.hide();
+          toast('PIN изменён', 'good');
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(save);
+    });
+  },
+
   userActions(user) {
     const box = el('div', 'row-actions');
     const reset = el('button', 'btn', 'Новый PIN');
@@ -217,6 +404,26 @@ const Admin = {
     box.appendChild(reset);
 
     if (!Auth.can('users.manage')) return box;
+
+    // Роль меняется здесь же. Переезд между залом и админкой меняет длину
+    // PIN, поэтому сервер сразу выдаёт новый — иначе человек остаётся
+    // снаружи со старым PIN не той длины.
+    const role = el('select', 'field slim');
+    ROLE_LIST.forEach(([k, n]) => {
+      const o = el('option', '', esc(n));
+      o.value = k;
+      if (k === user.role) o.selected = true;
+      role.appendChild(o);
+    });
+    role.addEventListener('change', async () => {
+      try {
+        const out = await API.patch(`/api/admin/users/${user.id}`, { role: role.value });
+        await this.load();
+        if (out.pin) this.showPin(out);
+        else toast('Роль изменена', 'good');
+      } catch (e) { toast(e.message, 'bad'); this.load(); }
+    });
+    box.appendChild(role);
 
     const toggle = el('button', 'btn ' + (user.active ? 'danger' : ''),
       user.active ? 'Отключить' : 'Включить');
@@ -234,7 +441,9 @@ const Admin = {
     Sheet.show(esc(user.name), 'Запишите: второй раз он не покажется', body => {
       const box = el('div', 'pin-shown');
       box.innerHTML = `<div class="code">${esc(user.pin)}</div>
-        <div class="note">Личный PIN. Им сотрудник входит в своё приложение.</div>`;
+        <div class="note">Личный PIN из ${esc(String(user.pin_length || pinLength(user.role)))} цифр.
+          Им сотрудник входит в своё приложение${ADMIN_ROLES.includes(user.role)
+            ? ' — в админку, по адресу /admin/' : ''}.</div>`;
       body.appendChild(box);
       const ok = el('button', 'btn wide big primary', 'Записал');
       ok.addEventListener('click', () => Sheet.hide());

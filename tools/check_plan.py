@@ -47,7 +47,7 @@ def main() -> None:
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         page.goto(BASE + "/admin/", wait_until="networkidle")
-        pin(page, "1234")
+        pin(page, "123456")
         page.get_by_role("button", name="Столы").click()
         page.wait_for_timeout(900)
 

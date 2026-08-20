@@ -99,7 +99,7 @@ def test_discount_is_a_manager_decision(client, hall):
         == 403
     )
 
-    login(client, "4444")
+    login(client, "444444")
     with_discount = client.post(
         f"/api/checks/{check['id']}/discount",
         json={"discount_pence": 600, "reason": "постоянный гость"},
@@ -112,7 +112,7 @@ def test_discount_cannot_exceed_the_bill(client, hall):
     """Заведение не доплачивает гостю."""
     login(client, "1111")
     check = sent_check(client, hall)
-    login(client, "4444")
+    login(client, "444444")
     r = client.post(
         f"/api/checks/{check['id']}/discount", json={"discount_pence": 9999}
     )
@@ -140,7 +140,7 @@ def test_draft_is_removed_by_the_waiter_but_sent_needs_a_manager(client, hall):
         == 403
     )
 
-    login(client, "4444")
+    login(client, "444444")
     after = client.post(
         f"/api/checks/{check['id']}/items/{sent}/cancel", json={"reason": "передумали"}
     ).json()
@@ -156,7 +156,7 @@ def test_cancelled_item_stays_visible_on_the_station(client, hall):
     check = sent_check(client, hall)
     item = check["items"][0]["id"]
 
-    login(client, "4444")
+    login(client, "444444")
     client.post(f"/api/checks/{check['id']}/items/{item}/cancel", json={"reason": "ушли"})
 
     login(client, "2222")
@@ -184,3 +184,26 @@ def test_stop_list_blocks_ordering(client, hall, db):
     r = add(client, check["id"], hall["mojito"])
     assert r.status_code == 409
     assert "стоп" in r.json()["detail"]["message"]
+
+
+def test_discount_keeps_its_reason_on_the_check(client, hall):
+    """Причина живёт на чеке, а не только в журнале.
+
+    В списке оплат она нужна рядом с суммой: «минус шесть фунтов» без причины
+    через неделю не объяснит никто.
+    """
+    login(client, "1111")
+    check = sent_check(client, hall)
+    login(client, "444444")
+    body = client.post(
+        f"/api/checks/{check['id']}/discount",
+        json={"discount_pence": 600, "reason": "ждали долго"},
+    ).json()
+    assert body["discount_reason"] == "ждали долго"
+
+    # Скидку убрали — причина уходит вместе с ней.
+    off = client.post(
+        f"/api/checks/{check['id']}/discount", json={"discount_pence": 0}
+    ).json()
+    assert off["discount_pence"] == 0
+    assert off["discount_reason"] is None

@@ -24,17 +24,17 @@ def stock_of(client, name):
 # ------------------------------------------------------------- доступ -----
 def test_stock_is_closed_to_everyone_but_admins(client, hall):
     """Остаток на полке — это деньги."""
-    for pin in ("1111", "2222", "4444"):     # официант, бармен, менеджер
+    for pin in ("1111", "2222", "444444"):     # официант, бармен, менеджер
         login(client, pin)
         assert client.get("/api/stock").status_code == 403
-    login(client, "1234")                    # владелец
+    login(client, "123456")                    # владелец
     assert client.get("/api/stock").status_code == 200
 
 
 # --------------------------------------------------------- ручной учёт ----
 def test_starting_amount_is_an_arrival_not_a_number(client, hall):
     """Иначе первая же сверка не сойдётся, и объяснить будет нечем."""
-    login(client, "1234")
+    login(client, "123456")
     made = make(client, "Absolut", quantity=1500)
     assert made["quantity"] == 1500
 
@@ -46,7 +46,7 @@ def test_starting_amount_is_an_arrival_not_a_number(client, hall):
 
 def test_write_off_goes_down_even_if_asked_positive(client, hall):
     """Списание — это минус, как бы его ни ввели."""
-    login(client, "1234")
+    login(client, "123456")
     made = make(client, "Absolut", quantity=1000)
     client.post(f"/api/stock/{made['id']}/move",
                 json={"delta": 200, "reason": "off", "note": "разбили"})
@@ -55,7 +55,7 @@ def test_write_off_goes_down_even_if_asked_positive(client, hall):
 
 def test_inventory_records_the_difference(client, hall):
     """Главный вопрос инвентаризации — сколько не сошлось."""
-    login(client, "1234")
+    login(client, "123456")
     made = make(client, "Absolut", quantity=1000)
     client.post(f"/api/stock/{made['id']}/move", json={"counted": 940, "reason": "count"})
 
@@ -66,7 +66,7 @@ def test_inventory_records_the_difference(client, hall):
 
 
 def test_low_and_empty_are_different_news(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     make(client, "Absolut", quantity=100, low=200)
     make(client, "Beluga", quantity=0, low=200)
     make(client, "Jameson", quantity=900, low=200)
@@ -80,7 +80,7 @@ def test_low_and_empty_are_different_news(client, hall):
 # ------------------------------------------------------ списание с продаж --
 def test_sending_an_order_takes_it_off_the_shelf(client, db, hall):
     """Позиция ушла на станцию — её уже наливают."""
-    login(client, "1234")
+    login(client, "123456")
     bottle = make(client, "Absolut", quantity=1500)
     client.post("/api/stock/recipes", json={
         "menu_item_id": menu_id(db, "vodka-house"),
@@ -97,13 +97,13 @@ def test_sending_an_order_takes_it_off_the_shelf(client, db, hall):
         "options": {"size": "ml50", "kind": "absolut"},
     })
     # Черновик склада не трогает: его ещё могут стереть.
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 1500
 
     login(client, "1111")
     client.post(f"/api/checks/{check['id']}/send")
 
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 1400
     moves = client.get(f"/api/stock/{bottle['id']}/moves").json()
     assert moves[0]["reason"] == "sale"
@@ -114,7 +114,7 @@ def test_sending_an_order_takes_it_off_the_shelf(client, db, hall):
 
 def test_recipe_matches_the_chosen_variant(client, db, hall):
     """50 мл и бутылка — одна строка меню и совсем разный расход."""
-    login(client, "1234")
+    login(client, "123456")
     bottle = make(client, "Absolut", quantity=2000)
     for size, per in (("ml50", 50), ("bottle", 700)):
         client.post("/api/stock/recipes", json={
@@ -132,12 +132,12 @@ def test_recipe_matches_the_chosen_variant(client, db, hall):
     })
     client.post(f"/api/checks/{check['id']}/send")
 
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 1300
 
 
 def test_cancelling_puts_it_back(client, db, hall):
-    login(client, "1234")
+    login(client, "123456")
     bottle = make(client, "Absolut", quantity=1000)
     client.post("/api/stock/recipes", json={
         "menu_item_id": menu_id(db, "vodka-house"),
@@ -155,20 +155,20 @@ def test_cancelling_puts_it_back(client, db, hall):
     check = client.post(f"/api/checks/{check['id']}/send").json()
     item = check["items"][0]["id"]
 
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 950
 
-    login(client, "4444")   # отменяет менеджер
+    login(client, "444444")   # отменяет менеджер
     client.post(f"/api/checks/{check['id']}/items/{item}/cancel", json={"reason": "передумали"})
 
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 1000
     assert client.get(f"/api/stock/{bottle['id']}/moves").json()[0]["reason"] == "return"
 
 
 def test_item_without_a_recipe_touches_nothing(client, db, hall):
     """Пока рецепта нет, склад просто не знает про эту позицию — и молчит."""
-    login(client, "1234")
+    login(client, "123456")
     make(client, "Absolut", quantity=1000)
 
     login(client, "1111")
@@ -176,14 +176,14 @@ def test_item_without_a_recipe_touches_nothing(client, db, hall):
     add(client, check["id"], hall["mojito"])
     client.post(f"/api/checks/{check['id']}/send")
 
-    login(client, "1234")
+    login(client, "123456")
     assert stock_of(client, "Absolut")["quantity"] == 1000
 
 
 def test_stock_can_go_negative_and_says_so(client, db, hall):
     """Отрицательный остаток не запрещаем: он означает, что на полке брали
     то, чего по учёту нет, и прятать это нельзя."""
-    login(client, "1234")
+    login(client, "123456")
     bottle = make(client, "Absolut", quantity=30)
     client.post("/api/stock/recipes", json={
         "menu_item_id": menu_id(db, "vodka-house"),
@@ -200,7 +200,7 @@ def test_stock_can_go_negative_and_says_so(client, db, hall):
     })
     client.post(f"/api/checks/{check['id']}/send")
 
-    login(client, "1234")
+    login(client, "123456")
     item = stock_of(client, "Absolut")
     assert item["quantity"] == -20
     assert item["state"] == "out"
@@ -208,7 +208,7 @@ def test_stock_can_go_negative_and_says_so(client, db, hall):
 
 def test_recipe_shows_the_variant_by_name(client, db, hall):
     """Правило списания читают глазами, сверяя с бутылкой на полке."""
-    login(client, "1234")
+    login(client, "123456")
     bottle = make(client, "Absolut", quantity=1000)
     client.post("/api/stock/recipes", json={
         "menu_item_id": menu_id(db, "vodka-house"),

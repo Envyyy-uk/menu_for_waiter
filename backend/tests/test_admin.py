@@ -9,18 +9,18 @@ def test_staff_list_is_not_for_everyone(client, hall):
     login(client, "1111")
     assert client.get("/api/admin/users").status_code == 403
 
-    login(client, "4444")  # менеджер: смотреть да, менять нет
+    login(client, "444444")  # менеджер: смотреть да, менять нет
     assert client.get("/api/admin/users").status_code == 200
     assert client.post(
         "/api/admin/users", json={"name": "Кто-то", "role": "waiter"}
     ).status_code == 403
 
-    login(client, "1234")  # владелец из сидера
+    login(client, "123456")  # владелец из сидера
     assert client.get("/api/admin/users").status_code == 200
 
 
 def test_new_employee_gets_a_pin_shown_once(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     body = client.post(
         "/api/admin/users", json={"name": "Света", "role": "waiter", "pin": "5150"}
     ).json()
@@ -34,7 +34,7 @@ def test_new_employee_gets_a_pin_shown_once(client, hall):
 
 
 def test_pin_is_never_shown_again(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     created = client.post("/api/admin/users", json={"name": "Света", "role": "waiter"}).json()
     assert len(created["pin"]) == 4
 
@@ -46,23 +46,23 @@ def test_pin_is_never_shown_again(client, hall):
 
 
 def test_nobody_hands_out_a_role_above_their_own(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     # Владелец может завести второго владельца — заведение с одним владельцем
     # умирает вместе с его PIN.
     assert client.post(
-        "/api/admin/users", json={"name": "Второй", "role": "owner", "pin": "9911"}
+        "/api/admin/users", json={"name": "Второй", "role": "owner", "pin": "991199"}
     ).status_code == 201
 
 
 def test_admin_cannot_lock_himself_out(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     me = client.get("/api/auth/me").json()
     r = client.patch(f"/api/admin/users/{me['id']}", json={"active": False})
     assert r.status_code == 409
 
 
 def test_reset_pin_replaces_the_old_one(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     users = client.get("/api/admin/users").json()
     anya = next(u for u in users if u["name"] == "Аня")
     client.post(f"/api/admin/users/{anya['id']}/pin", json={"pin": "7007"})
@@ -76,19 +76,19 @@ def test_table_with_an_open_check_cannot_be_switched_off(client, hall):
     login(client, "1111")
     open_check(client, hall)
 
-    login(client, "1234")
+    login(client, "123456")
     r = client.patch(f"/api/admin/tables/{hall['table']}", json={"active": False})
     assert r.status_code == 409
 
 
 def test_table_numbers_do_not_repeat(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     assert client.post("/api/admin/tables", json={"label": "1"}).status_code == 409
     assert client.post("/api/admin/tables", json={"label": "101", "zone": "Терраса"}).status_code == 201
 
 
 def test_price_change_is_written_down(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     client.patch(f"/api/admin/menu/{hall['mojito']}", json={"price_pence": 1800})
 
     journal = client.get("/api/admin/audit").json()
@@ -113,7 +113,7 @@ def test_shift_report_adds_up(client, hall):
         },
     )
 
-    login(client, "4444")  # отчёт смотрит менеджер
+    login(client, "444444")  # отчёт смотрит менеджер
     r = client.get("/api/admin/report").json()
     assert r["checks"] == 1
     assert r["revenue_pence"] == 3200
@@ -132,7 +132,7 @@ def test_report_shows_cancellations(client, hall):
     check = client.post(f"/api/checks/{check['id']}/send").json()
     item = check["items"][0]["id"]
 
-    login(client, "4444")
+    login(client, "444444")
     client.post(f"/api/checks/{check['id']}/items/{item}/cancel", json={"reason": "ушли"})
     r = client.get("/api/admin/report").json()
     assert r["cancelled"] == {"count": 1, "amount_pence": 1600}

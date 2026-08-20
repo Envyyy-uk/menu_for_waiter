@@ -55,7 +55,7 @@ def main() -> None:
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         page.goto(BASE + "/admin/", wait_until="networkidle")
-        pin(page, "1234")
+        pin(page, "123456")
         check("владелец видит склад", page.get_by_role("button", name="Склад").count() == 1)
         page.get_by_role("button", name="Склад").click()
         page.wait_for_timeout(900)
@@ -159,7 +159,7 @@ def main() -> None:
         # Менеджеру склад не показывают вовсе.
         page.get_by_role("button", name="Выйти").click()
         page.wait_for_timeout(900)
-        pin(page, "4444")
+        pin(page, "444444")
         check("менеджер склада не видит",
               page.get_by_role("button", name="Склад").count() == 0)
 

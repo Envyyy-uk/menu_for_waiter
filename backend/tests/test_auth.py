@@ -107,3 +107,76 @@ def test_clearing_device_cookie_does_not_reset_the_counter(client, make_user):
         login(client, "0000")
     client.cookies.delete("device")
     assert login(client, "0000").status_code == 429
+
+
+# ------------------------------------------------------- длина PIN по роли --
+def test_hall_keeps_four_digits(client, make_user):
+    """В зале вход без кнопки «войти»: набрал четыре — уже вошёл."""
+    make_user("Аня", role="waiter", pin="1379")
+    body = login(client, "1379").json()
+    assert body["pin_length"] == 4
+
+
+def test_admin_pin_is_six_digits(client, make_user):
+    """Из админки правят цены, роли и склад, и видно все оплаты.
+
+    Четыре цифры — десять тысяч вариантов; шесть — миллион.
+    """
+    make_user("Ольга", role="admin", pin="314159")
+    body = login(client, "314159").json()
+    assert body["pin_length"] == 6
+    assert body["home"] == "/admin/"
+
+
+def test_admin_cannot_take_a_short_pin(client, make_user):
+    from app.services.auth import AuthError
+
+    try:
+        make_user("Короткий", role="manager", pin="1379")
+    except AuthError as exc:
+        assert "цифр" in exc.message
+    else:
+        raise AssertionError("менеджеру выдали PIN из четырёх цифр")
+
+
+def test_waiter_cannot_take_a_long_pin(client, make_user):
+    """Длина не «не меньше», а «ровно»: экран зала принимает четыре и не ждёт."""
+    from app.services.auth import AuthError
+
+    try:
+        make_user("Длинный", role="waiter", pin="314159")
+    except AuthError as exc:
+        assert "цифр" in exc.message
+    else:
+        raise AssertionError("официанту выдали PIN из шести цифр")
+
+
+def test_role_change_hands_out_a_new_pin(client, make_user):
+    """Переезд из зала в админку меняет длину PIN.
+
+    Оставить старый значит запереть человека снаружи: экран админки ждёт
+    шесть цифр и четырьмя не откроется.
+    """
+    make_user("Аня", role="waiter", pin="1379")
+    login(client, settings.seed_admin_pin)
+    anya = next(u for u in client.get("/api/admin/users").json() if u["name"] == "Аня")
+
+    out = client.patch(f"/api/admin/users/{anya['id']}", json={"role": "manager"}).json()
+    assert out["role"] == "manager"
+    assert len(out["pin"]) == 6
+    assert out["pin_length"] == 6
+
+    # Старый PIN больше не пускает, новый пускает.
+    assert login(client, "1379").status_code == 401
+    assert login(client, out["pin"]).json()["role"] == "manager"
+
+
+def test_role_change_inside_the_hall_keeps_the_pin(client, make_user):
+    """Официант стал барменом — PIN у него тот же, длина не поменялась."""
+    make_user("Игорь", role="waiter", pin="1379")
+    login(client, settings.seed_admin_pin)
+    igor = next(u for u in client.get("/api/admin/users").json() if u["name"] == "Игорь")
+
+    out = client.patch(f"/api/admin/users/{igor['id']}", json={"role": "bar"}).json()
+    assert "pin" not in out
+    assert login(client, "1379").json()["role"] == "bar"

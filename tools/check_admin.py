@@ -53,9 +53,15 @@ def main() -> None:
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         page.goto(BASE + "/admin/", wait_until="networkidle")
-        pin(page, "1234")
+        # У админки свой PIN и он длиннее: отсюда правят цены, роли и склад.
+        check("вход в админку просит шесть цифр",
+              page.locator("#pin-dots i").count() == 6,
+              str(page.locator("#pin-dots i").count()))
+        check("с экрана админки есть ссылка в зал",
+              page.locator(".gate .elsewhere").count() == 1)
+        pin(page, "123456")
         check("владелец видит все разделы",
-              page.locator(".tab").count() == 7, str(page.locator(".tab").count()))
+              page.locator(".tab").count() == 8, str(page.locator(".tab").count()))
         # Подписи набраны капителью средствами оформления — сравниваем без
         # учёта регистра, иначе проверка ломается от смены шрифта.
         check("смена открывается первой",
@@ -65,7 +71,7 @@ def main() -> None:
         page.get_by_role("button", name="Персонал").click()
         page.wait_for_timeout(700)
         page.get_by_placeholder("Имя").fill(name)
-        page.get_by_placeholder("PIN (пусто — придумает сам)").fill(fresh_pin)
+        page.get_by_placeholder("PIN,").fill(fresh_pin)
         page.get_by_role("button", name="Завести сотрудника").click()
         page.wait_for_timeout(900)
         check("PIN показан один раз и крупно",
@@ -122,7 +128,7 @@ def main() -> None:
         page.wait_for_timeout(900)
         journal = page.locator("table.grid").inner_text()
         check("правка цены записана с именем",
-              "Правка меню" in journal and "Администратор" in journal,
+              "Правка меню" in journal and "Владелец" in journal,
               journal[:200])
         check("новый сотрудник записан", "Новый сотрудник" in journal)
 

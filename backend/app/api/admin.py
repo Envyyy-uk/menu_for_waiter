@@ -39,7 +39,7 @@ from app.models import (
 )
 from app.services import menu_sync
 from app.services.audit import record
-from app.services.auth import PIN_LENGTH, AuthError, issue_pin
+from app.services.auth import AuthError, issue_pin, pin_length
 
 router = APIRouter(prefix="/api/admin", tags=["админка"])
 
@@ -115,7 +115,7 @@ def create_user(
     db.commit()
     # PIN показывается один раз — дальше в базе только хеш, и подсмотреть его
     # нельзя даже администратору.
-    return {**user_payload(user), "pin": pin}
+    return {**user_payload(user), "pin": pin, "pin_length": pin_length(user.role)}
 
 
 class UserPatch(BaseModel):
@@ -153,6 +153,20 @@ def edit_user(
         user.colour = body.colour
     if body.active is not None:
         user.active = body.active
+
+    # Роль переехала через границу «зал ↔ админка» — старый PIN стал не той
+    # длины, и войти по нему больше нельзя. Молча оставить его значит запереть
+    # человека снаружи, поэтому здесь же выдаётся новый: администратор видит
+    # его один раз и передаёт из рук в руки.
+    fresh = None
+    if body.role is not None and pin_length(user.role) != pin_length(before["role"]):
+        if user.pin_hash is not None:
+            try:
+                fresh = issue_pin(db, user)
+            except AuthError as exc:
+                db.rollback()
+                _fail(exc)
+
     record.write(
         db,
         venue_id=venue.id,
@@ -162,8 +176,20 @@ def edit_user(
         before=before,
         after=user_payload(user),
     )
+    if fresh is not None:
+        record.write(
+            db,
+            venue_id=venue.id,
+            user_id=actor.id,
+            action="user.pin",
+            entity=f"user:{user.id}",
+            after={"name": user.name, "reason": "смена роли"},
+        )
     db.commit()
-    return user_payload(user)
+    out = user_payload(user)
+    if fresh is not None:
+        out |= {"pin": fresh, "pin_length": pin_length(user.role)}
+    return out
 
 
 class PinIn(BaseModel):
@@ -203,7 +229,7 @@ def reset_pin(
         after={"name": user.name},
     )
     db.commit()
-    return {**user_payload(user), "pin": pin, "pin_length": PIN_LENGTH}
+    return {**user_payload(user), "pin": pin, "pin_length": pin_length(user.role)}
 
 
 # ----------------------------------------------------------------- столы ---
@@ -680,6 +706,95 @@ def report(
         ],
         "top_items": [{"name": name, "qty": int(qty)} for name, qty in top],
         "stations": [{"key": s, "name": STATION_NAMES[s]} for s in STATIONS],
+    }
+
+
+@router.get("/payments")
+def payments(
+    hours: int = Query(default=24, ge=1, le=24 * 31),
+    limit: int = Query(default=200, ge=1, le=1000),
+    actor: User = Depends(require("payments.view")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Закрытые чеки: чем платили, сколько и что было внутри.
+
+    Отчёт отвечает «сколько всего», а это — «за что именно». Когда касса не
+    сходится или гость возвращается со словами «мне посчитали лишнее», нужен
+    именно такой список: позиции, скидка с причиной и способ оплаты рядом.
+    """
+    until = utcnow()
+    since = until - timedelta(hours=hours)
+
+    closed = db.scalars(
+        select(Check)
+        .where(
+            Check.venue_id == venue.id,
+            Check.status == CHECK_CLOSED,
+            Check.closed_at >= since,
+        )
+        .order_by(Check.closed_at.desc())
+        .limit(limit)
+    ).all()
+
+    names = {u.id: u.name for u in db.scalars(select(User).where(User.venue_id == venue.id)).all()}
+    labels = {t.id: t.label for t in db.scalars(select(Table).where(Table.venue_id == venue.id)).all()}
+
+    rows = []
+    for check in closed:
+        live = [i for i in check.items if i.status != ITEM_CANCELLED]
+        rows.append(
+            {
+                "id": str(check.id),
+                "number": check.number,
+                "table": labels.get(check.table_id, "—"),
+                "guests": check.guests,
+                "waiter": names.get(check.waiter_id, "—"),
+                "closed_by": names.get(check.closed_by_id, "—"),
+                "closed_at": check.closed_at.isoformat() if check.closed_at else None,
+                "subtotal_pence": sum(i.unit_price_pence * i.qty for i in live),
+                "discount_pence": check.discount_pence or 0,
+                "discount_reason": check.discount_reason,
+                "total_pence": sum(p.amount_pence for p in check.payments),
+                "payments": [
+                    {
+                        "method": p.method,
+                        "amount_pence": p.amount_pence,
+                        "tendered_pence": p.tendered_pence,
+                    }
+                    for p in sorted(check.payments, key=lambda p: p.created_at)
+                ],
+                "items": [
+                    {
+                        "name": i.name_snapshot,
+                        "qty": i.qty,
+                        "options": list(i.options_snapshot or []),
+                        "total_pence": i.unit_price_pence * i.qty,
+                    }
+                    for i in sorted(live, key=lambda i: i.created_at)
+                ],
+                # Отменённое до оплаты — то, ради чего этот список и открывают,
+                # когда сумма не та, которую гость помнит.
+                "cancelled": [
+                    {"name": i.name_snapshot, "qty": i.qty, "reason": i.cancel_reason}
+                    for i in check.items
+                    if i.status == ITEM_CANCELLED
+                ],
+            }
+        )
+
+    return {
+        "since": since.isoformat(),
+        "hours": hours,
+        "checks": len(rows),
+        "cash_pence": sum(
+            p["amount_pence"] for r in rows for p in r["payments"] if p["method"] == PAY_CASH
+        ),
+        "card_pence": sum(
+            p["amount_pence"] for r in rows for p in r["payments"] if p["method"] == PAY_CARD
+        ),
+        "discount_pence": sum(r["discount_pence"] for r in rows),
+        "rows": rows,
     }
 
 

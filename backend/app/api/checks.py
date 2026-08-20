@@ -311,6 +311,9 @@ def discount(
         raise HTTPException(status_code=422, detail="скидка больше суммы чека")
     before = check.discount_pence
     check.discount_pence = body.discount_pence
+    # Скидка без причины — это просто минус в кассе. Причина хранится на чеке
+    # и видна в списке оплат рядом с суммой.
+    check.discount_reason = (body.reason or "").strip() or None
     record.write(
         db,
         venue_id=venue.id,

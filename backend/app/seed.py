@@ -14,10 +14,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import hash_secret
 from app.db import SessionLocal
 from app.models import MenuItem, Table, User, Venue
 from app.models.user import ROLE_OWNER
+from app.services.auth import issue_pin
 
 log = logging.getLogger("seed")
 
@@ -109,9 +109,13 @@ def _admin(db: Session, venue: Venue) -> User | None:
         venue_id=venue.id,
         name=settings.seed_admin_name,
         role=ROLE_OWNER,
-        pin_hash=hash_secret(settings.seed_admin_pin),
     )
     db.add(user)
+    db.flush()
+    # PIN ставится тем же путём, что и всем: у владельца он шестизначный, и
+    # проверка длины должна сработать здесь, а не при первом входе в пустое
+    # заведение.
+    issue_pin(db, user, settings.seed_admin_pin)
     return user
 
 

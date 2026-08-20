@@ -64,7 +64,7 @@ def main() -> None:
         admin_ctx = browser.new_context(viewport=TABLET)
         admin = admin_ctx.new_page()
         admin.goto(BASE + "/admin/", wait_until="networkidle")
-        pin(admin, "1234")
+        pin(admin, "123456")
         admin.get_by_role("button", name="Станции").click()
         admin.wait_for_timeout(900)
         row = admin.locator("tr", has_text="Бар").first

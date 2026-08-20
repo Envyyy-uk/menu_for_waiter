@@ -26,6 +26,7 @@ try {
   <span class="netdot" id="link" title="связь с сервером"></span>
   <h1>Админка</h1>
   <span class="who" id="who"></span>
+  <a class="btn" id="hall" href="/" hidden>Зал</a>
   <button class="btn" id="theme" type="button">Ночь</button>
   <button class="btn" id="out" type="button">Выйти</button>
 </header>
@@ -42,6 +43,10 @@ try {
 <script src="/assets/admin.js"></script>
 <script src="/assets/pwa.js"></script>
 <script>
+/* У админки свой PIN и он длиннее: отсюда правят цены, роли, склад и видно
+   все оплаты. Четыре цифры — десять тысяч вариантов, шесть — миллион. */
+Auth.length = 6;
+Auth.title = 'PIN администратора';
 Auth.start(me => {
   document.getElementById('bar').hidden = false;
   document.getElementById('tabs').hidden = false;

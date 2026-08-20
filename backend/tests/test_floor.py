@@ -28,7 +28,7 @@ def hall(client, db, venue, make_user):
     make_user("Аня", role="waiter", pin="1111")
     make_user("Игорь", role="bar", pin="2222")
     make_user("Пётр", role="kitchen", pin="3333")
-    make_user("Марина", role="manager", pin="4444")
+    make_user("Марина", role="manager", pin="444444")
     return {
         "table": table_id(db, venue),
         "mojito": menu_id(db, "mojito"),

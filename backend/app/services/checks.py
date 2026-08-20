@@ -385,6 +385,7 @@ def check_payload(check: Check, table_label: str | None = None, waiter_name: str
         "closed_at": check.closed_at.isoformat() if check.closed_at else None,
         "subtotal_pence": subtotal(check),
         "discount_pence": check.discount_pence or 0,
+        "discount_reason": check.discount_reason,
         "total_pence": total(check),
         "paid_pence": paid(check),
         "due_pence": due(check),

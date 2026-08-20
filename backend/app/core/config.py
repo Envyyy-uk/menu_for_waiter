@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # Первый вход — владелец, и стартовые столы. PIN печатается в лог один раз.
     seed_admin_name: str = "Владелец"
-    seed_admin_pin: str = "1234"
+    seed_admin_pin: str = "123456"
     seed_tables: int = 12
 
     public_base_url: str = "http://localhost:8000"

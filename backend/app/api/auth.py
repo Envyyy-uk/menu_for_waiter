@@ -10,6 +10,7 @@ from app.db import get_db
 from app.models import ROLE_HOME, ROLE_NAMES, Session, User, Venue
 from app.services.audit import record
 from app.services.auth import (
+    ADMIN_PIN_LENGTH,
     DEVICE_COOKIE,
     PIN_LENGTH,
     SESSION_COOKIE,
@@ -19,6 +20,7 @@ from app.services.auth import (
     ensure_device,
     login_with_pin,
     open_session,
+    pin_length,
     session_lifetime,
 )
 
@@ -30,7 +32,9 @@ DEVICE_COOKIE_DAYS = 365
 
 
 class PinIn(BaseModel):
-    pin: str = Field(min_length=PIN_LENGTH, max_length=PIN_LENGTH)
+    # Вход один на всех, а длина PIN зависит от роли: в зале четыре цифры,
+    # в админке шесть. Кто именно вошёл, выясняется по самому PIN.
+    pin: str = Field(min_length=PIN_LENGTH, max_length=ADMIN_PIN_LENGTH)
 
 
 def _cookie(response: Response, name: str, value: str, seconds: int) -> None:
@@ -53,6 +57,9 @@ def me_payload(user: User) -> dict:
         "role_name": ROLE_NAMES.get(user.role, user.role),
         "colour": user.colour,
         "home": ROLE_HOME.get(user.role, "/"),
+        # Сколько цифр набирать этому человеку: экран смены своего PIN
+        # должен спрашивать столько же, сколько принимает вход.
+        "pin_length": pin_length(user.role),
         # Интерфейс прячет кнопки по этому списку. Это удобство, не защита:
         # каждый эндпойнт всё равно проверяет право сам.
         "permissions": sorted(p for p in PERMISSIONS if can(user.role, p)),
@@ -112,8 +119,8 @@ def me(identity: tuple[User, Session] = Depends(current_identity)) -> dict:
 
 
 class ChangePinIn(BaseModel):
-    old: str = Field(min_length=PIN_LENGTH, max_length=PIN_LENGTH)
-    new: str = Field(min_length=PIN_LENGTH, max_length=PIN_LENGTH)
+    old: str = Field(min_length=PIN_LENGTH, max_length=ADMIN_PIN_LENGTH)
+    new: str = Field(min_length=PIN_LENGTH, max_length=ADMIN_PIN_LENGTH)
 
 
 @router.post("/pin/change")

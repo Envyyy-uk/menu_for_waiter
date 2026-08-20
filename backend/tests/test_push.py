@@ -25,7 +25,7 @@ def test_subscription_follows_the_person_not_the_phone(client, db, venue, hall):
     login(client, "1111")
     assert client.post("/api/push/subscribe", json=SUB).status_code == 200
 
-    login(client, "4444")
+    login(client, "444444")
     assert client.post("/api/push/subscribe", json=SUB).status_code == 200
 
     rows = db.scalars(select(PushSubscription)).all()

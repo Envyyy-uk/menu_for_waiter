@@ -239,10 +239,10 @@ def test_admin_can_pull_the_menu_now(client, hall, monkeypatch):
 
     login(client, "1111")
     assert client.post("/api/admin/menu/sync").status_code == 403
-    login(client, "4444")   # менеджер меню не правит — это цены
+    login(client, "444444")   # менеджер меню не правит — это цены
     assert client.post("/api/admin/menu/sync").status_code == 403
 
-    login(client, "1234")
+    login(client, "123456")
     body = client.post("/api/admin/menu/sync").json()
     assert body["status"] == "ok"
     assert "Espresso Martini" in body["report"]["added"]
@@ -254,7 +254,7 @@ def test_admin_can_pull_the_menu_now(client, hall, monkeypatch):
 
 
 def test_sync_status_is_visible(client, hall):
-    login(client, "1234")
+    login(client, "123456")
     state = client.get("/api/admin/menu/sync").json()
     assert "enabled" in state
     assert "every_minutes" in state

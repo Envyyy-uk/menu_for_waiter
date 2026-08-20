@@ -14,8 +14,14 @@ const Auth = {
   onReady: null,
   pin: '',
   busy: false,
-  // Ровно четыре цифры: набрал — и уже вошёл, без кнопки «войти».
+  // Сколько цифр набирать на этом экране. В зале четыре: набрал — и уже
+  // вошёл, без кнопки «войти», а лишнее нажатие в зале стоит дороже, чем
+  // кажется. Админка ставит себе шесть (см. admin/index.html): оттуда правят
+  // цены, роли и склад, и подобрать четыре цифры там слишком дёшево.
+  //
+  // Длина фиксирована на экране, поэтому вход везде остаётся без кнопки.
   length: 4,
+  title: 'Введите личный PIN',
 
   async start(onReady) {
     this.onReady = onReady;
@@ -52,11 +58,19 @@ const Auth = {
 
     const gate = el('div', 'gate');
     gate.id = 'gate';
+    // Ссылка на соседний вход: у админки свой PIN и своя длина, и человек,
+    // открывший не то приложение, должен уходить по ссылке, а не набирать
+    // чужой длины PIN до блокировки.
+    const other = this.length > 4
+      ? { href: '/', text: 'Вход для зала' }
+      : { href: '/admin/', text: 'Вход в админку' };
+
     gate.innerHTML = `
-      <h1>Введите личный PIN</h1>
+      <h1>${esc(this.title)}</h1>
       <div class="dots" id="pin-dots"></div>
       <p class="msg" id="pin-msg"></p>
-      <div class="pad" id="pin-pad"></div>`;
+      <div class="pad" id="pin-pad"></div>
+      <a class="elsewhere" href="${other.href}">${esc(other.text)}</a>`;
     document.body.appendChild(gate);
 
     const pad = gate.querySelector('#pin-pad');
@@ -95,8 +109,8 @@ const Auth = {
     buzz();
     this.paint();
 
-    // Набрал четыре — отправляем сами. Лишняя кнопка «войти» в зале это
-    // лишнее нажатие пятьдесят раз за смену.
+    // Набрал сколько нужно — отправляем сами. Лишняя кнопка «войти» это
+    // лишнее нажатие на каждый вход.
     if (this.pin.length === this.length) this.submit();
   },
 

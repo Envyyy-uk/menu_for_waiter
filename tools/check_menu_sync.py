@@ -65,7 +65,7 @@ def main() -> None:
     )
     try:
         time.sleep(1.5)
-        _, jar = api("/api/auth/pin", "POST", body={"pin": "1234"})
+        _, jar = api("/api/auth/pin", "POST", body={"pin": "123456"})
 
         state, _ = api("/api/admin/menu/sync", cookies=jar)
         if str(PORT) not in (state.get("url") or ""):

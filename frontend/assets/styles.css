@@ -202,6 +202,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 .gate .msg { min-height: 22px; font-size: 14px; text-align: center; color: var(--danger); }
 
+/* Соседний вход. Тихая ссылка, а не кнопка: она нужна раз в жизни — когда
+   администратор открыл приложение зала и увидел четыре точки вместо шести. */
+.gate .elsewhere {
+  font-size: 12px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 2px;
+}
+.gate .elsewhere:active { color: var(--gold); }
+
 .pad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -819,6 +832,16 @@ table.grid th { text-align: left; padding: 8px 10px; border-bottom: 1px solid va
 table.grid td { padding: 11px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; }
 table.grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.grid tr.off { opacity: .5; }
+/* Строка оплаты открывается целиком: попадать в маленькую кнопку «подробнее»
+   пальцем на планшете — отдельное упражнение. */
+table.grid tr.clickable { cursor: pointer; }
+table.grid tr.clickable:hover td { background: var(--paper-edge); }
+.row-actions .field.slim {
+  min-height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+  width: auto;
+}
 
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
 .row-actions .btn { min-height: 36px; padding: 0 12px; font-size: 13px; }
