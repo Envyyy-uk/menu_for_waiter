@@ -30,7 +30,11 @@ const App = {
       toast('Меню не загрузилось', 'bad');
     }
 
+    this.station = Auth.can('tickets.view');
+
     Live.on('check.changed', () => this.refresh())
+        .on('ticket.new', () => { if (this.station) { Sound.arrived(); this.refresh(); } })
+        .on('ticket.changed', () => { if (this.station) this.refresh(); })
         .on('ticket.ready', d => this.onReady(d))
         .on('menu.state', () => this.reloadMenu())
         .on('menu.changed', () => this.reloadMenu())
@@ -48,10 +52,14 @@ const App = {
   async refresh(full) {
     try {
       const jobs = [API.get('/api/tables'), API.get('/api/station/waiting')];
-      if (this.check) jobs.push(API.get('/api/checks/' + this.check.id));
-      const [tables, waiting, check] = await Promise.all(jobs);
+      jobs.push(this.check ? API.get('/api/checks/' + this.check.id) : Promise.resolve(null));
+      // Бармен пробивает за стойкой и тут же готовит: марки нужны ему в том же
+      // приложении, а не на планшете в другом конце бара.
+      jobs.push(this.station ? API.get('/api/station/queue') : Promise.resolve(null));
+      const [tables, waiting, check, queue] = await Promise.all(jobs);
       this.tables = tables;
       this.waiting = waiting;
+      if (queue) this.queue = queue;
       // Сигнал держится на состоянии, а не на событии: событие можно
       // пропустить, а список ждущих марок врать не умеет.
       Sound.pending(waiting.length);
@@ -81,6 +89,7 @@ const App = {
   back() {
     if (this.view === 'menu') this.go('check');
     else if (this.view === 'check') { this.check = null; this.go('tables'); }
+    else if (this.view === 'station') this.go('tables');
   },
 
   /* ---------------------------------------------------------- отрисовка - */
@@ -90,6 +99,9 @@ const App = {
     back.hidden = this.view === 'tables';
 
     if (this.view === 'tables') title.textContent = 'Столы';
+    else if (this.view === 'station') {
+      title.textContent = this.queue ? this.queue.station_name : 'Марки';
+    }
     else if (this.view === 'check' && this.check) {
       title.textContent = `Стол ${this.check.table} · чек ${this.check.number}`;
     } else if (this.view === 'menu') title.textContent = 'Меню';
@@ -98,6 +110,7 @@ const App = {
     root.innerHTML = '';
     root.appendChild(this.readyBar());
     if (this.view === 'tables') root.appendChild(this.tablesView());
+    else if (this.view === 'station') root.appendChild(this.stationView());
     else if (this.view === 'check') root.appendChild(this.checkView());
     else if (this.view === 'menu') root.appendChild(this.menuView());
     this.dock();
@@ -207,6 +220,10 @@ const App = {
     test.addEventListener('click', () => { Sound.unlock(); Sound.alert(); });
     row.appendChild(test);
 
+    const pin = el('button', 'btn ghost', 'Сменить PIN');
+    pin.addEventListener('click', () => this.changePin());
+    row.appendChild(pin);
+
     if (Push.offer()) {
       const ask = el('button', 'btn', 'Включить уведомления');
       ask.addEventListener('click', async () => {
@@ -217,6 +234,106 @@ const App = {
       row.appendChild(ask);
     }
     return row;
+  },
+
+  /* Свой PIN человек меняет сам, зная старый. Забыл — это к менеджеру:
+     сброс чужого PIN пишется в журнал, потому что это доступ к деньгам. */
+  changePin() {
+    Sheet.show('Смена PIN', 'Четыре цифры. Старый нужен обязательно.', body => {
+      const old = el('input', 'field');
+      old.type = 'password';
+      old.inputMode = 'numeric';
+      old.maxLength = 4;
+      old.placeholder = 'Старый PIN';
+      const fresh = el('input', 'field');
+      fresh.type = 'password';
+      fresh.inputMode = 'numeric';
+      fresh.maxLength = 4;
+      fresh.placeholder = 'Новый PIN';
+      body.append(old, el('div', '', '<div style="height:8px"></div>'), fresh,
+                  el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Сохранить');
+      save.addEventListener('click', async () => {
+        if (old.value.length !== 4 || fresh.value.length !== 4) {
+          return toast('PIN — ровно четыре цифры', 'bad');
+        }
+        try {
+          await API.post('/api/auth/pin/change', { old: old.value, new: fresh.value });
+          Sheet.hide();
+          toast('PIN изменён', 'good');
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(save);
+    });
+  },
+
+  /* ------------------------------------------------------------ марки --- */
+  /* Бармен видит очередь своей станции там же, где пробивает: бегать к
+     планшету в другой конец бара за каждой маркой он не станет. */
+  stationView() {
+    const wrap = el('div', 'screen');
+    const data = this.queue;
+    if (!data || !data.tickets.length) {
+      wrap.appendChild(el('p', 'faint', 'Пусто. Новые заказы появятся сами.'));
+      return wrap;
+    }
+    const board = el('div', 'board inline');
+    data.tickets.forEach(t => board.appendChild(this.mark(t)));
+    wrap.appendChild(board);
+    return wrap;
+  },
+
+  mark(ticket) {
+    const node = el('div', `mark ${ticket.status}${ticket.late ? ' late' : ''}`);
+    const head = el('div', 'mark-head');
+    head.innerHTML = `<span class="table">${esc(ticket.table || '—')}</span>
+      <span class="meta">чек №${ticket.check_number} · подача ${ticket.order_number}
+        ${ticket.waiter ? '· ' + esc(ticket.waiter) : ''}</span>
+      <span class="waited">${esc(since(ticket.sent_at))}</span>`;
+    node.appendChild(head);
+
+    const items = el('div', 'mark-items');
+    ticket.items.forEach(i => {
+      const row = el('div', 'mark-item');
+      row.innerHTML = `<span class="n">${i.qty}×</span>
+        <span class="what"><b>${esc(i.name)}</b>
+          ${i.options.length ? `<span class="opts">${esc(i.options.join(' · '))}</span>` : ''}
+          ${i.note ? `<span class="note">${esc(i.note)}</span>` : ''}</span>`;
+      items.appendChild(row);
+    });
+    ticket.cancelled.forEach(i => {
+      const row = el('div', 'mark-item gone');
+      row.innerHTML = `<span class="n">${i.qty}×</span>
+        <span class="what"><b>${esc(i.name)}</b><span class="why">отменено</span></span>`;
+      items.appendChild(row);
+    });
+    node.appendChild(items);
+
+    const foot = el('div', 'mark-foot');
+    if (ticket.status === 'new') {
+      foot.appendChild(this.markButton('Принял', 'accepted', ticket));
+      foot.appendChild(this.markButton('Готово', 'ready', ticket, 'ok'));
+    } else if (ticket.status === 'accepted') {
+      foot.appendChild(this.markButton('Готово', 'ready', ticket, 'ok'));
+    } else {
+      foot.appendChild(el('div', 'muted', 'Ждёт официанта'));
+    }
+    node.appendChild(foot);
+    return node;
+  },
+
+  markButton(text, target, ticket, kind) {
+    const b = el('button', 'btn big ' + (kind || ''), text);
+    b.addEventListener('click', async () => {
+      b.disabled = true;          // мокрый палец жмёт дважды
+      buzz(20);
+      try {
+        await API.post(`/api/station/tickets/${ticket.id}/${target}`);
+        await this.refresh();
+      } catch (e) { toast(e.message, 'bad'); b.disabled = false; }
+    });
+    return b;
   },
 
   tile(table) {
@@ -527,7 +644,22 @@ const App = {
   /* ---------------------------------------------------------- панель ---- */
   dock() {
     document.querySelectorAll('.dock').forEach(n => n.remove());
-    if (this.view === 'tables') return;
+
+    // У бармена внизу переключатель: зал и его марки. У официанта марок нет,
+    // и лишней кнопки тоже.
+    if (this.view === 'tables' || this.view === 'station') {
+      if (!this.station) return;
+      const dock = el('div', 'dock');
+      const hall = el('button', 'btn big' + (this.view === 'tables' ? ' primary' : ''), 'Столы');
+      hall.addEventListener('click', () => this.go('tables'));
+      const count = this.queue ? this.queue.tickets.length : 0;
+      const marks = el('button', 'btn big' + (this.view === 'station' ? ' primary' : ''),
+        'Марки' + (count ? ' · ' + count : ''));
+      marks.addEventListener('click', () => this.go('station'));
+      dock.append(hall, marks);
+      document.body.appendChild(dock);
+      return;
+    }
 
     const dock = el('div', 'dock');
     if (this.view === 'menu') {

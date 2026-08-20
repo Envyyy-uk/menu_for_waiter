@@ -40,14 +40,11 @@ def test_pin_is_never_shown_again(client, hall):
 
 def test_nobody_hands_out_a_role_above_their_own(client, hall):
     login(client, "1234")
-    users = client.get("/api/admin/users").json()
-    admin = next(u for u in users if u["role"] == "admin")
-    # Администратор может завести второго администратора — заведение с одним
-    # админом умирает вместе с его PIN.
+    # Владелец может завести второго владельца — заведение с одним владельцем
+    # умирает вместе с его PIN.
     assert client.post(
-        "/api/admin/users", json={"name": "Второй", "role": "admin", "pin": "9911"}
+        "/api/admin/users", json={"name": "Второй", "role": "owner", "pin": "9911"}
     ).status_code == 201
-    assert admin["role"] == "admin"
 
 
 def test_admin_cannot_lock_himself_out(client, hall):
@@ -91,7 +88,7 @@ def test_price_change_is_written_down(client, hall):
     entry = next(r for r in journal if r["action"] == "item.edit")
     assert entry["before"]["price_pence"] == 1600
     assert entry["after"]["price_pence"] == 1800
-    assert entry["who"] == "Администратор"
+    assert entry["who"] == "Владелец"
 
 
 def test_shift_report_adds_up(client, hall):

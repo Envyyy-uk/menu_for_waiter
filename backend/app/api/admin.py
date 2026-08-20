@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 
 from app.core.deps import get_venue, require
-from app.core.permissions import can_assign_role
+from app.core.permissions import can_assign_role, can_touch_user
 from app.db import get_db
 from app.models import (
     CHECK_CLOSED,
@@ -62,13 +62,13 @@ def user_payload(user: User) -> dict:
 
 
 @router.get("/roles")
-def roles(actor: User = Depends(require("users.manage"))) -> list[dict]:
+def roles(actor: User = Depends(require("users.view"))) -> list[dict]:
     return [{"key": r, "name": ROLE_NAMES[r]} for r in ROLES]
 
 
 @router.get("/users")
 def users(
-    actor: User = Depends(require("users.manage")),
+    actor: User = Depends(require("users.view")),
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> list[dict]:
@@ -136,6 +136,8 @@ def edit_user(
     user = db.get(User, user_id)
     if user is None or user.venue_id != venue.id:
         raise HTTPException(status_code=404, detail="сотрудник не найден")
+    if not can_touch_user(actor.role, user.role):
+        raise HTTPException(status_code=403, detail="нельзя трогать роль выше своей")
     if body.role is not None and not can_assign_role(actor.role, body.role):
         raise HTTPException(status_code=403, detail="нельзя выдать роль выше своей")
     if body.active is False and user.id == actor.id:
@@ -172,13 +174,21 @@ class PinIn(BaseModel):
 def reset_pin(
     user_id: uuid.UUID,
     body: PinIn,
-    actor: User = Depends(require("users.manage")),
+    actor: User = Depends(require("users.pin")),
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> dict:
+    """Сброс чужого PIN — по просьбе или когда забыли.
+
+    Умеет и менеджер: официант, оставшийся без входа посреди смены, не должен
+    ждать администратора. Но выше себя не трогает никто — иначе менеджер
+    сбрасывает PIN владельцу и заходит вместо него.
+    """
     user = db.get(User, user_id)
     if user is None or user.venue_id != venue.id:
         raise HTTPException(status_code=404, detail="сотрудник не найден")
+    if not can_touch_user(actor.role, user.role):
+        raise HTTPException(status_code=403, detail="нельзя трогать роль выше своей")
     try:
         pin = issue_pin(db, user, body.pin)
     except AuthError as exc:

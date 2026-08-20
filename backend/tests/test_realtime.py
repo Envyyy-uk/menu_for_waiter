@@ -25,22 +25,23 @@ def test_channels_are_addressed():
 
 def test_station_wakes_up_when_the_waiter_sends(client, hall):
     """Пока сигнал не дошёл, заказ существует только в телефоне официанта."""
-    login(client, "2222")  # бармен — его сессия уйдёт в рукопожатие сокета
+    login(client, "3333")  # кухня — её сессия уйдёт в рукопожатие сокета
     with client.websocket_connect("/ws") as socket:
         assert socket.receive_json()["type"] == "hello"
 
         login(client, "1111")  # официант перехватывает cookie сессии
         check = open_check(client, hall)
         add(client, check["id"], hall["mojito"])
+        add(client, check["id"], hall["pizza"])
         client.post(f"/api/checks/{check['id']}/send")
 
         # Мимо ping-ов: тишина тоже сообщение, но нам нужно событие.
-        for _ in range(10):
+        for _ in range(12):
             event = socket.receive_json()
-            if event["type"] != "ping":
+            if event["type"] == "ticket.new":
                 break
         assert event["type"] == "ticket.new"
-        assert event["station"] == "bar"
+        assert event["station"] == "kitchen"
         assert event["table"] == "1"
 
 
@@ -79,8 +80,12 @@ def test_socket_without_pin_is_closed(client):
 
 
 def test_station_is_not_woken_by_every_check_in_the_hall(client, hall):
-    """Планшет бара не должен перерисовываться на каждую набранную позицию."""
-    login(client, "2222")
+    """Планшет кухни не должен перерисовываться на каждую набранную позицию.
+
+    Бармен здесь не годится: он и сам работает в зале, поэтому события зала
+    ему нужны. Чистая станция — это кухня.
+    """
+    login(client, "3333")
     with client.websocket_connect("/ws") as socket:
         assert socket.receive_json()["type"] == "hello"
 

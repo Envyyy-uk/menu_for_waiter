@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, Timestamped, UUIDPk
 
+ROLE_OWNER = "owner"
 ROLE_ADMIN = "admin"
 ROLE_MANAGER = "manager"
 ROLE_WAITER = "waiter"
@@ -16,27 +17,34 @@ ROLE_KITCHEN = "kitchen"
 # Порядок важен: никто не выдаёт роль выше или равную своей.
 ROLE_RANK = {
     ROLE_KITCHEN: 1,
-    ROLE_BAR: 1,
     ROLE_WAITER: 1,
-    ROLE_MANAGER: 2,
-    ROLE_ADMIN: 3,
+    ROLE_BAR: 2,       # бар пробивает сам, поэтому стоит выше официанта
+    ROLE_MANAGER: 3,
+    ROLE_ADMIN: 4,
+    ROLE_OWNER: 5,
 }
-ROLES = (ROLE_ADMIN, ROLE_MANAGER, ROLE_WAITER, ROLE_BAR, ROLE_KITCHEN)
+ROLES = (ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_BAR, ROLE_WAITER, ROLE_KITCHEN)
 
 ROLE_NAMES = {
+    ROLE_OWNER: "Владелец",
     ROLE_ADMIN: "Администратор",
     ROLE_MANAGER: "Менеджер",
+    ROLE_BAR: "Бармен",
     ROLE_WAITER: "Официант",
-    ROLE_BAR: "Бар",
     ROLE_KITCHEN: "Кухня",
 }
 
 # Куда отправить человека после ввода PIN.
+#
+# Бармен попадает в зал, а не на планшет станции: за стойкой сидят гости, и
+# заказ у них принимает он сам. Марки своей станции он видит там же, отдельной
+# вкладкой — а планшет с одними марками живёт своей жизнью и своим PIN.
 ROLE_HOME = {
+    ROLE_OWNER: "/admin/",
     ROLE_ADMIN: "/admin/",
     ROLE_MANAGER: "/admin/",
+    ROLE_BAR: "/",
     ROLE_WAITER: "/",
-    ROLE_BAR: "/station/",
     ROLE_KITCHEN: "/station/",
 }
 

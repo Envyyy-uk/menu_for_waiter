@@ -14,7 +14,7 @@ const Admin = {
 
   TABS: [
     { key: 'report', name: 'Смена', need: 'reports' },
-    { key: 'users', name: 'Персонал', need: 'users.manage' },
+    { key: 'users', name: 'Персонал', need: 'users.view' },
     { key: 'tables', name: 'Столы', need: 'tables.manage' },
     { key: 'menu', name: 'Меню', need: 'items.edit' },
     { key: 'audit', name: 'Журнал', need: 'audit.view' }
@@ -127,16 +127,34 @@ const Admin = {
     const wrap = el('div', 'panel');
     wrap.appendChild(el('h2', '', 'Персонал'));
     wrap.appendChild(el('p', 'hint',
-      'Вход только по личному PIN из четырёх цифр. PIN показывается один раз — '
-      + 'дальше в базе только хеш, и подсмотреть его нельзя даже отсюда.'));
+      'Вход только по личному PIN из четырёх цифр. Свой PIN каждый меняет сам '
+      + 'в приложении; здесь его сбрасывают, когда забыли. PIN показывается '
+      + 'один раз — дальше в базе только хеш, и подсмотреть его нельзя даже '
+      + 'отсюда.'));
+
+    // Менеджеру список нужен ради одного: найти того, кто забыл PIN. Заводить
+    // людей и менять роли он не может, поэтому формы просто нет.
+    if (!Auth.can('users.manage')) {
+      wrap.appendChild(this.table(
+        ['Имя', 'Роль', 'PIN', ''],
+        this.data.users.map(u => [
+          esc(u.name), esc(u.role_name),
+          u.has_pin ? 'задан' : '<span style="color:var(--danger)">нет</span>',
+          { actions: this.userActions(u) }
+        ]),
+        this.data.users.map(u => (u.active ? '' : 'off'))
+      ));
+      return wrap;
+    }
 
     const form = el('div', 'form');
     const fields = el('div', 'line-fields');
     const name = el('input', 'field');
     name.placeholder = 'Имя';
     const role = el('select', 'field');
-    [['waiter', 'Официант'], ['bar', 'Бар'], ['kitchen', 'Кухня'],
-     ['manager', 'Менеджер'], ['admin', 'Администратор']].forEach(([k, n]) => {
+    [['waiter', 'Официант'], ['bar', 'Бармен'], ['kitchen', 'Кухня'],
+     ['manager', 'Менеджер'], ['admin', 'Администратор'],
+     ['owner', 'Владелец']].forEach(([k, n]) => {
       const o = el('option', '', esc(n));
       o.value = k;
       role.appendChild(o);
@@ -186,6 +204,8 @@ const Admin = {
       } catch (e) { toast(e.message, 'bad'); }
     });
     box.appendChild(reset);
+
+    if (!Auth.can('users.manage')) return box;
 
     const toggle = el('button', 'btn ' + (user.active ? 'danger' : ''),
       user.active ? 'Отключить' : 'Включить');

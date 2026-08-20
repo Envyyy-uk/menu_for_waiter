@@ -190,6 +190,19 @@ def _register_failed_pin(db: DbSession, venue_id, device: Device, ip: str | None
         )
 
 
+def change_own_pin(db: DbSession, user: User, old: str, new: str) -> None:
+    """Смена своего PIN. Старый спрашивается обязательно.
+
+    Без него любой, кто подошёл к незапертому планшету, менял бы чужой PIN на
+    свой — и с этой минуты работал бы под чужим именем.
+    """
+    if not verify_secret(user.pin_hash, old):
+        raise AuthError("Старый PIN не подходит", status=403)
+    if old == new:
+        raise AuthError("Новый PIN совпадает со старым", status=422)
+    issue_pin(db, user, new)
+
+
 def issue_pin(db: DbSession, user: User, pin: str | None = None) -> str:
     """Ставит PIN сотруднику. Без аргумента — придумывает свободный.
 

@@ -14,8 +14,8 @@ class Settings(BaseSettings):
 
     secret_key: str = "dev-secret-change-me-in-production"
 
-    # Первый администратор и стартовые столы. PIN печатается в лог один раз.
-    seed_admin_name: str = "Администратор"
+    # Первый вход — владелец, и стартовые столы. PIN печатается в лог один раз.
+    seed_admin_name: str = "Владелец"
     seed_admin_pin: str = "1234"
     seed_tables: int = 12
 

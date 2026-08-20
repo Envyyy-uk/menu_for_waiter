@@ -232,15 +232,17 @@ def test_sync_is_off_without_a_url(db, venue, monkeypatch):
 
 
 # ------------------------------------------------------------ по API ------
-def test_manager_can_pull_the_menu_now(client, hall, monkeypatch):
+def test_admin_can_pull_the_menu_now(client, hall, monkeypatch):
     monkeypatch.setattr(menu_sync.settings, "menu_source_url", "https://example.invalid/menu.json")
     monkeypatch.setattr(menu_sync.settings, "menu_labels_url", "")
     monkeypatch.setattr(menu_sync, "fetch", lambda url, etag=None: (catalogue(), "v1"))
 
     login(client, "1111")
     assert client.post("/api/admin/menu/sync").status_code == 403
+    login(client, "4444")   # менеджер меню не правит — это цены
+    assert client.post("/api/admin/menu/sync").status_code == 403
 
-    login(client, "4444")
+    login(client, "1234")
     body = client.post("/api/admin/menu/sync").json()
     assert body["status"] == "ok"
     assert "Espresso Martini" in body["report"]["added"]
@@ -252,7 +254,7 @@ def test_manager_can_pull_the_menu_now(client, hall, monkeypatch):
 
 
 def test_sync_status_is_visible(client, hall):
-    login(client, "4444")
+    login(client, "1234")
     state = client.get("/api/admin/menu/sync").json()
     assert "enabled" in state
     assert "every_minutes" in state

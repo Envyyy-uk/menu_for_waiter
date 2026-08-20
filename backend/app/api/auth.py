@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DbSession
@@ -8,11 +8,13 @@ from app.core.deps import current_identity, get_venue
 from app.core.permissions import PERMISSIONS, can
 from app.db import get_db
 from app.models import ROLE_HOME, ROLE_NAMES, Session, User, Venue
+from app.services.audit import record
 from app.services.auth import (
     DEVICE_COOKIE,
     PIN_LENGTH,
     SESSION_COOKIE,
     AuthError,
+    change_own_pin,
     close_session,
     ensure_device,
     login_with_pin,
@@ -107,3 +109,39 @@ def logout(request: Request, response: Response, db: DbSession = Depends(get_db)
 @router.get("/me")
 def me(identity: tuple[User, Session] = Depends(current_identity)) -> dict:
     return me_payload(identity[0])
+
+
+class ChangePinIn(BaseModel):
+    old: str = Field(min_length=PIN_LENGTH, max_length=PIN_LENGTH)
+    new: str = Field(min_length=PIN_LENGTH, max_length=PIN_LENGTH)
+
+
+@router.post("/pin/change")
+def change_pin(
+    body: ChangePinIn,
+    identity: tuple[User, Session] = Depends(current_identity),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Свой PIN человек меняет сам — знать старый обязательно.
+
+    Забыл — это уже к менеджеру: сброс чужого PIN пишется в журнал, потому
+    что это доступ к деньгам.
+    """
+    user = identity[0]
+    try:
+        change_own_pin(db, user, body.old, body.new)
+    except AuthError as exc:
+        db.rollback()
+        raise HTTPException(status_code=exc.status, detail=exc.message) from None
+
+    record.write(
+        db,
+        venue_id=venue.id,
+        user_id=user.id,
+        action="user.pin_self",
+        entity=f"user:{user.id}",
+        after={"name": user.name},
+    )
+    db.commit()
+    return {"status": "ok"}

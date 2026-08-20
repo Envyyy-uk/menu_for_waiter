@@ -57,9 +57,9 @@ def main() -> None:
         bar_errors: list[str] = []
         bar.on("pageerror", lambda e: bar_errors.append(str(e)))
         bar.goto(BASE + "/station/", wait_until="networkidle")
-        pin(bar, "2222")
-        check("бармен попадает на свою станцию",
-              bar.locator("#title").inner_text().strip().lower() == "бар",
+        pin(bar, "3333")
+        check("станция открывается своей очередью",
+              bar.locator("#title").inner_text().strip().lower() == "кухня",
               bar.locator("#title").inner_text())
 
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
@@ -73,7 +73,7 @@ def main() -> None:
         waiter.wait_for_timeout(400)
         waiter.get_by_role("button", name="Открыть стол").click()
         waiter.wait_for_timeout(900)
-        waiter.locator(".search input").fill("мохито")
+        waiter.locator(".search input").fill("пельмени")
         waiter.wait_for_timeout(400)
         waiter.locator(".dish").first.click()
         waiter.wait_for_timeout(500)
@@ -87,7 +87,7 @@ def main() -> None:
 
         mark = bar.locator(".mark").last
         check("на марке видно стол", mark.locator(".table").inner_text().strip() != "")
-        check("на марке видно позицию", "Mojito" in mark.inner_text(), mark.inner_text()[:120])
+        check("на марке видно позицию", "Pelmeni" in mark.inner_text(), mark.inner_text()[:120])
         check("есть обе кнопки",
               mark.get_by_role("button", name="Принял").count() == 1
               and mark.get_by_role("button", name="Готово").count() == 1)

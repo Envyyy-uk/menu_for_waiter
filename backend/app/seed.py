@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.security import hash_secret
 from app.db import SessionLocal
 from app.models import MenuItem, Table, User, Venue
-from app.models.user import ROLE_ADMIN
+from app.models.user import ROLE_OWNER
 
 log = logging.getLogger("seed")
 
@@ -96,14 +96,19 @@ def _tables(db: Session, venue: Venue, count: int) -> int:
 
 
 def _admin(db: Session, venue: Venue) -> User | None:
-    """Первый администратор. Если сотрудники уже есть — не трогаем ничего:
-    сидер не должен подсовывать известный PIN в работающее заведение."""
+    """Первый вход — владелец, а не администратор.
+
+    Заведение заводит тот, кому оно принадлежит: он единственный, кого нельзя
+    выключить чужими руками, и он же раздаёт остальные роли. Если сотрудники
+    уже есть — не трогаем ничего: сидер не должен подсовывать известный PIN в
+    работающее заведение.
+    """
     if db.scalars(select(User).where(User.venue_id == venue.id)).first() is not None:
         return None
     user = User(
         venue_id=venue.id,
         name=settings.seed_admin_name,
-        role=ROLE_ADMIN,
+        role=ROLE_OWNER,
         pin_hash=hash_secret(settings.seed_admin_pin),
     )
     db.add(user)
@@ -121,7 +126,7 @@ def seed(db: Session) -> Venue:
     log.info("меню: %s позиций, столов добавлено: %s", items, tables)
     if admin is not None:
         log.warning(
-            "создан администратор «%s», PIN — %s. Смените его в админке.",
+            "создан владелец «%s», PIN — %s. Смените его в первый же вход.",
             admin.name,
             settings.seed_admin_pin,
         )

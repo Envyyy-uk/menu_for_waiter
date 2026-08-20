@@ -18,13 +18,26 @@ def test_pin_opens_own_app(client, make_user):
     assert "users.manage" not in body["permissions"]
 
 
-def test_bar_lands_on_station(client, make_user):
+def test_bar_lands_in_the_hall(client, make_user):
+    """За стойкой сидят гости, и заказ у них принимает бармен сам.
+
+    Планшет с одними марками живёт отдельно и открывается своим PIN станции,
+    поэтому бармена сюда не отправляем.
+    """
     make_user("Игорь", role="bar", pin="3579")
     body = login(client, "3579").json()
+    assert body["home"] == "/"
+    assert {"tickets.status", "checks.edit", "checks.close"} <= set(body["permissions"])
+    # Но скидка и склад — не его.
+    assert "checks.discount" not in body["permissions"]
+    assert "stock.view" not in body["permissions"]
+
+
+def test_kitchen_lands_on_the_station(client, make_user):
+    make_user("Пётр", role="kitchen", pin="3580")
+    body = login(client, "3580").json()
     assert body["home"] == "/station/"
-    assert "tickets.status" in body["permissions"]
-    # Бар не закрывает чеки — деньги за PIN не прячутся.
-    assert "checks.close" not in body["permissions"]
+    assert "checks.edit" not in body["permissions"]
 
 
 def test_wrong_pin_is_rejected(client, make_user):

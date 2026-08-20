@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 from app.models import MenuItem, Table, User
-from app.models.user import ROLE_ADMIN
+from app.models.user import ROLE_OWNER
 
 
 def test_menu_loaded(db, venue):
@@ -12,16 +12,17 @@ def test_menu_loaded(db, venue):
     assert venue.categories["hookah"] == "Кальяны"
 
 
-def test_tables_and_admin(db, venue):
+def test_tables_and_owner(db, venue):
     tables = db.scalars(select(Table).where(Table.venue_id == venue.id)).all()
     assert len(tables) == 12
     # Токен стола — непрозрачная строка, а не номер: иначе сосед заказывает
     # на чужой стол.
     assert all(t.token and t.token != t.label for t in tables)
 
-    admin = db.scalars(select(User).where(User.venue_id == venue.id)).first()
-    assert admin.role == ROLE_ADMIN
-    assert admin.pin_hash and "1234" not in admin.pin_hash
+    # Заведение заводит тот, кому оно принадлежит.
+    owner = db.scalars(select(User).where(User.venue_id == venue.id)).first()
+    assert owner.role == ROLE_OWNER
+    assert owner.pin_hash and "1234" not in owner.pin_hash
 
 
 def test_seed_keeps_stop_list(db, venue):
