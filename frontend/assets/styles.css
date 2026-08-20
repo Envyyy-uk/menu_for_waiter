@@ -202,8 +202,18 @@ button {
   background: var(--bg-2);
   border-bottom: 1px solid var(--line);
 }
-.topbar h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; }
-.topbar .who { font-size: 13px; color: var(--ink-soft); }
+.topbar h1 { margin: 0; font-size: 17px; font-weight: 600; flex: 1; min-width: 0; }
+.topbar .who { font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+
+/* В шапке кнопки мелкие: сюда не целятся на ходу, а место нужно названию —
+   иначе «Стол 9 · чек №10» переносится на вторую строку. */
+.topbar .btn {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
 
 /* Точка связи. Зелёная — сервер отвечает, красная — нет. */
 .netdot {
@@ -219,7 +229,9 @@ button {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(20px + var(--safe-b));
+  /* Выше нижней панели: сообщение, закрывающее кнопку «Оплата», — это
+     сообщение, из-за которого нажимают мимо. */
+  bottom: calc(88px + var(--safe-b));
   transform: translateX(-50%);
   z-index: 80;
   max-width: min(440px, calc(100vw - 32px));
@@ -229,6 +241,272 @@ button {
   border: 1px solid var(--line);
   box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
   font-size: 15px;
+  /* Сквозное для нажатий: сообщение, перехватившее палец, — это промах по
+     кнопке, за который никто не поблагодарит. */
+  pointer-events: none;
 }
 .toast.bad { background: var(--danger-bg); border-color: #52201d; color: var(--ink); }
 .toast.good { background: var(--ok-bg); border-color: #1d4630; }
+
+/* ==========================================================================
+   Приложение официанта
+   ========================================================================== */
+
+.screen { padding: 12px 12px calc(96px + var(--safe-b)); }
+
+.zone-title {
+  margin: 18px 4px 10px;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.zone-title:first-child { margin-top: 6px; }
+
+/* Сетка столов. Плитка крупная: по ней попадают на ходу. */
+.tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 104px;
+  padding: 10px;
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.tile .num { font-size: 26px; font-weight: 700; line-height: 1; }
+.tile .sum { margin-top: auto; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .meta { font-size: 12px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.tile.busy { border-color: var(--accent); background: #241a12; }
+.tile.mine { border-color: var(--accent); }
+.tile.other { border-color: #3a3a52; background: #191922; }
+.tile .flags { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+.flag { width: 9px; height: 9px; border-radius: 50%; }
+.flag.new     { background: var(--ink-faint); }
+.flag.accepted{ background: var(--warn); }
+.flag.ready   { background: var(--ok); }
+.flag.draft   { background: var(--accent); }
+
+/* --------------------------------------------------------------- чек ---- */
+.lines { display: flex; flex-direction: column; gap: 8px; }
+.line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.line .qty {
+  min-width: 34px;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.line .body { flex: 1; min-width: 0; }
+.line .name { font-weight: 600; overflow-wrap: anywhere; }
+.line .opts { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.line .note { font-size: 13px; color: var(--warn); }
+.line .price { font-weight: 600; font-variant-numeric: tabular-nums; }
+.line.draft { border-color: var(--accent); border-style: dashed; }
+.line.cancelled { opacity: .5; }
+.line.cancelled .name { text-decoration: line-through; }
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-3);
+  color: var(--ink-soft);
+}
+.pill.new      { background: #2a2722; }
+.pill.accepted { background: var(--warn-bg); color: var(--warn); }
+.pill.ready    { background: var(--ok-bg);   color: var(--ok); }
+.pill.draft    { background: #33230f;        color: var(--accent); }
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.totals .row { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.totals .row.big { font-size: 22px; font-weight: 700; }
+.totals .row.off { color: var(--ok); }
+
+/* Нижняя панель действий. Всегда на месте — до неё дотягивается большой палец. */
+.dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px calc(10px + var(--safe-b));
+  background: linear-gradient(to top, var(--bg) 68%, transparent);
+}
+.dock .btn { flex: 1; }
+
+/* ------------------------------------------------------------- меню ----- */
+.search {
+  position: sticky;
+  top: 56px;
+  z-index: 15;
+  padding: 8px 0;
+  background: var(--bg);
+}
+.search input {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+}
+.search input::placeholder { color: var(--ink-faint); }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.chip.on { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+
+.dish {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.dish .body { flex: 1; min-width: 0; }
+/* Оба — блоки. Многоточие не работает на строчном элементе, и описание
+   коктейля в одну строку растягивало всю страницу вширь: на телефоне это
+   выглядело как съехавшая вёрстка и уезжающие за край кнопки. */
+.dish .name { display: block; font-weight: 600; overflow-wrap: anywhere; }
+.dish .desc {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dish .price { font-weight: 700; font-variant-numeric: tabular-nums; }
+.dish.off { opacity: .45; }
+.dish.off .price::after { content: ' · стоп'; font-size: 12px; color: var(--danger); }
+
+/* --------------------------------------------------------------- лист --- */
+/* Шторка снизу: выбор вариантов, оплата, всё, что перекрывает экран. */
+.sheet-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, .6);
+}
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 16px 14px calc(16px + var(--safe-b));
+  border-radius: 20px 20px 0 0;
+  background: var(--bg-2);
+  border-top: 1px solid var(--line);
+}
+.sheet h2 { margin: 0 0 4px; font-size: 19px; }
+.sheet .sub { margin: 0 0 14px; color: var(--ink-soft); font-size: 14px; }
+.sheet .group { margin-bottom: 16px; }
+.sheet .group h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.opt {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  font-size: 15px;
+}
+.opt.on { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+.opt .add { font-size: 12px; opacity: .75; }
+
+.stepper { display: flex; align-items: center; gap: 14px; }
+.stepper button {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  font-size: 24px;
+}
+.stepper .n { min-width: 44px; text-align: center; font-size: 22px; font-weight: 700; }
+
+.field {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* ------------------------------------------------------- готово к выдаче - */
+/* Полоса «готово» липнет к верху: её нельзя пролистать мимо. */
+.ready-bar {
+  position: sticky;
+  top: 56px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.ready-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--ok-bg);
+  border: 1px solid #2b6045;
+}
+.ready-item .body { flex: 1; }
+.ready-item .what { font-weight: 700; }
+.ready-item .where { font-size: 13px; color: var(--ink-soft); }

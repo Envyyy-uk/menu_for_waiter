@@ -34,3 +34,23 @@
 
   document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 })();
+
+/* --------------------------------------------------------------------------
+   Регистрация service worker.
+
+   Он нужен, чтобы приложение ставилось на домашний экран и открывалось при
+   моргнувшей сети. Путь берётся из атрибута на теге <script>, потому что у
+   зала и станции разные области видимости.
+   -------------------------------------------------------------------------- */
+(function registerWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  const tag = document.querySelector('script[data-sw]');
+  if (!tag) return;
+  const path = tag.getAttribute('data-sw');
+  const scope = tag.getAttribute('data-scope') || '/';
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(path, { scope }).catch(() => {
+      /* без него приложение работает, просто не ставится на экран */
+    });
+  });
+})();

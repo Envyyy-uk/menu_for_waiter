@@ -6,6 +6,9 @@
 <title>Зал</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#100f0d">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/assets/icons/waiter-192.png">
+<link rel="apple-touch-icon" href="/assets/icons/waiter-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Зал">
@@ -14,25 +17,26 @@
 <body>
 
 <header class="topbar" hidden id="bar">
-  <span class="netdot on" id="link"></span>
-  <h1>Зал</h1>
+  <button class="btn ghost" id="back" type="button" hidden>←</button>
+  <span class="netdot" id="link" title="связь с сервером"></span>
+  <h1 id="title">Столы</h1>
   <span class="who" id="who"></span>
   <button class="btn ghost" id="out" type="button">Выйти</button>
 </header>
 
-<main id="app" hidden style="padding:20px"></main>
+<main id="app"></main>
 
 <script src="/assets/api.js"></script>
 <script src="/assets/auth.js"></script>
-<script src="/assets/pwa.js"></script>
+<script src="/assets/live.js"></script>
+<script src="/assets/sound.js"></script>
+<script src="/assets/sheets.js"></script>
+<script src="/assets/waiter.js"></script>
+<script src="/assets/pwa.js" data-sw="/sw.js" data-scope="/"></script>
 <script>
 Auth.start(me => {
   document.getElementById('bar').hidden = false;
-  document.getElementById('app').hidden = false;
-  document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
-  document.getElementById('out').addEventListener('click', () => Auth.logout());
-  document.getElementById('app').innerHTML =
-    '<p class="muted">Официант. Экран собирается в следующем спринте.</p>';
+  App.start(me);
 });
 </script>
 </body>
