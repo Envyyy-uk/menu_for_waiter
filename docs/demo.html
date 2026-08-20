@@ -1,4 +1,23 @@
 <title>Смена в зале</title>
+<script>
+/* Ширина экрана.
+
+   Без этого телефон верстает страницу как настольную — 980 пикселей — и
+   ужимает её целиком: подписи в три колонки шириной в одно слово, устройства
+   размером с ноготь. Нажать в такое нельзя, а любое касание уводит страницу
+   не туда. Медиазапросы при этом просто не срабатывают: браузер уверен, что
+   экран широкий.
+
+   Тег ставится из кода, потому что <head> у страницы свой; если он там уже
+   есть, второй не добавляем. */
+(function () {
+  if (document.querySelector('meta[name="viewport"]')) return;
+  var m = document.createElement('meta');
+  m.name = 'viewport';
+  m.content = 'width=device-width, initial-scale=1';
+  document.head.appendChild(m);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap">
@@ -164,6 +183,23 @@ h1 {
 .step.on .no { color: var(--gold); }
 .step.done .no::after { content: ' ·'; color: var(--ok); }
 .step small { display: block; color: var(--faint); font-size: 12.5px; }
+
+/* Узкий экран.
+
+   Липкий список ложился поверх устройств: колонки больше нет, и «прилипать»
+   ему не к чему. А восемь шагов подряд отодвигают телефон на экран вниз —
+   до того, ради чего страницу открыли, приходится долистывать.
+
+   Поэтому на телефоне остаётся один шаг, тот, который сейчас, и счётчик
+   рядом с заголовком. Правило идёт после общего: при равной силе побеждает
+   то, что ниже. */
+.steps h2 .count { display: none; margin-left: 8px; color: var(--gold); }
+@media (max-width: 900px) {
+  .steps { position: static; margin-bottom: 16px; }
+  .steps h2 .count { display: inline; }
+  .step { display: none; }
+  .step.on { display: grid; }
+}
 
 /* --------------------------------------------------------- устройства --- */
 .stage {
@@ -663,6 +699,18 @@ h1 {
   font-size: 13px;
   font-weight: 600;
 }
+/* Итог по смене — не тревога: скидки бывают, и красным их красить незачем. */
+.tally {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--app-rule);
+  border-radius: 4px;
+  background: var(--app-card);
+  font-size: 13px;
+  color: var(--app-soft);
+}
+.tally b { color: var(--app-ink); }
+
 .sublabel {
   margin: 20px 2px 8px;
   font-family: var(--sans);
@@ -759,9 +807,9 @@ h1 {
     <p class="eyebrow">POS для зала · демо</p>
     <h1>Смена в зале</h1>
     <p class="lede">
-      Слева телефон официанта, справа планшет бара. Это не картинки —
-      нажимайте: заказ, отправленный на телефоне, <b>появляется на планшете
-      сразу</b>, а «Готово» на планшете возвращается официанту сигналом.
+      Телефон официанта и планшет бара — рядом. Это не картинки, нажимайте:
+      заказ, отправленный на телефоне, <b>появляется на планшете сразу</b>,
+      а «Готово» на планшете возвращается официанту сигналом.
       Столов можно занять несколько, у каждого свой чек. Планшет открывается
       своим PIN станции, а проданное само уходит со склада.
     </p>
@@ -791,6 +839,7 @@ h1 {
           <b id="right-name">Планшет бара</b>
           <span class="switch" id="right-switch">
             <button type="button" data-right="station" class="on">Станция</button>
+            <button type="button" data-right="paid">Оплаты</button>
             <button type="button" data-right="stock">Склад</button>
             <button type="button" data-right="admin">Админка</button>
           </span>
@@ -816,8 +865,9 @@ h1 {
         сигнал идёт по медиаканалу — его слышно при выключенном звонке — и
         повторяется каждые четыре секунды, пока официант не нажал «Забрал».</p>
       <p>Нет push при свёрнутом приложении, отчёта по выручке и журнала
-        действий. Склад здесь показывает списание, но приход и инвентаризацию
-        в него не заводят — в рабочей версии заводят.</p>
+        действий. Склад показывает списание, но приход и инвентаризацию в него
+        не заводят; оплаты показаны за одну эту смену. В рабочей версии есть
+        и то, и другое.</p>
     </div>
     <div class="note">
       <h3>Что стоит попробовать</h3>
@@ -827,6 +877,9 @@ h1 {
       <p>Наберите водку с миксом и загляните в <b>Склад</b>: с бутылки ушло
         ровно налитое, а банка колы списалась отдельно. Закройте смену на
         планшете — он спросит PIN и скажет, сколько марок прошло.</p>
+      <p>Перед оплатой нажмите <b>Скидка</b> и впишите причину — а потом
+        откройте <b>Оплаты</b>: там видно, за что именно взяли деньги. В
+        рабочей версии скидку даёт менеджер, официант такой кнопки не видит.</p>
       <p>Переключитесь на <b>Админку</b> и перетащите стол: телефон официанта
         тут же покажет зал по-новому. Кнопка <b>Заново</b> сбрасывает смену.</p>
     </div>
@@ -963,7 +1016,8 @@ function fresh(keepPlan) {
     night: S ? S.night : false,
     seq: 41,
     tables: plan,
-    checks: [],          // {id, n, table, guests, items: [], order}
+    checks: [],          // {id, n, table, guests, items: [], order, discount, why}
+    paid: [],            // закрытые чеки — то, что видно в «Оплатах»
     openId: null,        // какой чек сейчас открыт
     tickets: [],         // {id, checkId, station, status, order, table, check, items, at}
     filter: { text: '', cat: null },
@@ -987,7 +1041,10 @@ const plural = (n, a, b, c) => {
 /* ------------------------------------------------------------- выборки -- */
 const openCheck = () => S.checks.find(c => c.id === S.openId) || null;
 const checksAt = id => S.checks.filter(c => c.table === id);
-const totalOf = c => c.items.reduce((n, i) => n + i.price * i.qty, 0);
+const subOf = c => c.items.reduce((n, i) => n + i.price * i.qty, 0);
+/* Скидку даёт менеджер до оплаты. После закрытия чек уже документ, и
+   править в нём нечего. */
+const totalOf = c => Math.max(0, subOf(c) - (c.discount || 0));
 const ticketsOf = c => S.tickets.filter(t => t.checkId === c.id);
 const waiting = () => S.tickets.filter(t => t.status === 'ready');
 const live = () => S.tickets.filter(t => t.status !== 'served');
@@ -1046,6 +1103,10 @@ function step() {
 function paintSteps() {
   const box = document.getElementById('steps');
   const now = step();
+  // На телефоне виден только текущий шаг, поэтому номер выносится в
+  // заголовок: без него непонятно, сколько ещё осталось.
+  box.querySelector('h2').innerHTML =
+    `Как идёт смена <span class="count">${now} из ${STEPS.length}</span>`;
   box.querySelectorAll('.step').forEach(n => n.remove());
   STEPS.forEach(([name, hint], i) => {
     const n = i + 1;
@@ -1140,7 +1201,9 @@ function phoneHTML() {
     ${c.items.length ? c.items.map(lineHTML).join('')
       : '<p class="meta">Пусто. Нажмите «Меню» и наберите заказ.</p>'}
     <div class="sums">
-      <div class="row"><span style="color:var(--app-soft)">Позиции</span><span>${money(totalOf(c))}</span></div>
+      <div class="row"><span style="color:var(--app-soft)">Позиции</span><span>${money(subOf(c))}</span></div>
+      ${c.discount ? `<div class="row"><span style="color:var(--app-bad)">Скидка${
+        c.why ? ' · ' + esc(c.why) : ''}</span><span style="color:var(--app-bad)">−${money(c.discount)}</span></div>` : ''}
       <div class="row big"><span>Итого</span><span>${money(totalOf(c))}</span></div>
     </div>
     <div style="height:60px"></div>
@@ -1205,6 +1268,7 @@ function readyHTML() {
 /* ---------------------------------------------------------- планшет ----- */
 function tabletHTML() {
   if (S.right === 'admin') return adminHTML();
+  if (S.right === 'paid') return paidHTML();
   if (S.right === 'stock') return stockHTML();
   if (!S.shift.open || S.shift.closing) return shiftHTML();
 
@@ -1267,6 +1331,38 @@ function shiftHTML() {
       </div>
       <p class="hint">${S.shift.why ? esc(S.shift.why) : 'Подсказка: 2468'}</p>
     </div></div>`;
+}
+
+/* Оплаты: отчёт отвечает «сколько всего», этот список — «за что именно».
+   Его открывают, когда касса не сошлась или гость вернулся со словами «мне
+   посчитали лишнее». */
+function paidHTML() {
+  const cash = S.paid.filter(p => p.method === 'cash').reduce((n, p) => n + p.total, 0);
+  const card = S.paid.filter(p => p.method === 'card').reduce((n, p) => n + p.total, 0);
+  const off = S.paid.reduce((n, p) => n + p.discount, 0);
+
+  const rows = S.paid.map(p => `<tr>
+      <td class="when">${esc(p.when)}</td>
+      <td>Стол ${p.table} · чек ${p.n}
+        <span class="o">${p.method === 'cash' ? 'наличные' : 'карта'}${
+          p.discount ? ' · скидка −' + money(p.discount) + (p.why ? ' · ' + esc(p.why) : '') : ''}</span>
+        <span class="o">${p.items.map(i => esc(i.qty + '× ' + i.name)).join(' · ')}</span></td>
+      <td class="q">${money(p.total)}</td>
+    </tr>`).join('');
+
+  return `<div class="bar">
+      <span class="dot"></span><h3>Оплаты</h3>
+      <span class="who">${S.paid.length
+        ? `наличными ${money(cash)} · картой ${money(card)}` : 'только владелец и администратор'}</span>
+    </div>
+    <div class="view">
+      ${off ? `<p class="tally">Скидок за смену: <b>${money(off)}</b></p>` : ''}
+      ${rows ? `<table class="rows">${rows}</table>`
+        : '<p class="hintline">Пока пусто. Закройте чек — он появится здесь со всем, что было внутри.</p>'}
+      <p class="hintline">В рабочей версии этот список открывается за сутки, три
+        дня или неделю, а строка разворачивается в полный чек: позиции,
+        скидка с причиной, сдача и то, что отменили до оплаты.</p>
+    </div>`;
 }
 
 /* Склад виден владельцу и администратору. Менеджер, который сбрасывает
@@ -1477,6 +1573,17 @@ function take(id) {
 function closeCheck(method, change) {
   const check = openCheck();
   if (!check) return;
+  // Закрытый чек не исчезает: он уходит в «Оплаты», где видно, за что
+  // именно взяли деньги.
+  const now = new Date();
+  S.paid.unshift({
+    n: check.n, table: check.table, guests: check.guests, method,
+    when: now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0'),
+    sub: subOf(check), discount: check.discount || 0, why: check.why || '',
+    total: totalOf(check), change: change || 0,
+    items: check.items.map(i => ({ name: i.name, qty: i.qty, opts: i.opts,
+                                   sum: i.price * i.qty }))
+  });
   S.tickets = S.tickets.filter(t => t.checkId !== check.id);
   S.checks = S.checks.filter(c => c.id !== check.id);
   S.openId = null;
@@ -1559,12 +1666,41 @@ function sheetHTML() {
     const sum = totalOf(check);
     return wrapSheet('Оплата', `Стол ${check.table} · чек ${check.n}`, `
       <div class="sums" style="margin-top:0;border-top:0;padding-top:0">
+        ${check.discount ? `<div class="row"><span style="color:var(--app-soft)">Позиции</span>
+          <span>${money(subOf(check))}</span></div>
+          <div class="row"><span style="color:var(--app-bad)">Скидка</span>
+          <span style="color:var(--app-bad)">−${money(check.discount)}</span></div>` : ''}
         <div class="row big"><span>К оплате</span><span>${money(sum)}</span></div>
       </div>
       <div style="height:12px"></div>
       <button type="button" class="btn gold wide" data-close="card">Карта · ${money(sum)}</button>
       <div style="height:8px"></div>
-      <button type="button" class="btn wide" data-cash="1">Наличные · ${money(sum)}</button>`);
+      <button type="button" class="btn wide" data-cash="1">Наличные · ${money(sum)}</button>
+      <div style="height:8px"></div>
+      <button type="button" class="btn wide" data-disc="1">${check.discount
+        ? 'Скидка · −' + money(check.discount) : 'Скидка'}</button>`);
+  }
+
+  /* Скидку даёт менеджер и не молча: причина остаётся на чеке и видна потом
+     в оплатах. Скидка без причины — просто минус в кассе, и разбираться с
+     ней через неделю будет некому. */
+  if (s.kind === 'disc' && check) {
+    const base = subOf(check);
+    const value = s.value || 0;
+    return wrapSheet('Скидка', `Позиции ${money(base)}`, `
+      <div class="opts">${[5, 10, 15, 20].map(pc =>
+        `<button type="button" class="opt${value === Math.round(base * pc / 100) ? ' on' : ''}"
+          data-pc="${pc}">${pc}%</button>`).join('')}</div>
+      <p class="sub" style="margin:12px 0">${value
+        ? `Скидка <b style="color:var(--app-bad)">−${money(value)}</b> · к оплате
+           <b>${money(Math.max(0, base - value))}</b>`
+        : 'Скидки нет'}</p>
+      <input class="find" id="why" placeholder="Причина: постоянный гость, ждали долго…"
+        value="${esc(s.why || '')}">
+      <div style="height:12px"></div>
+      <button type="button" class="btn gold wide" data-setdisc="1">Применить</button>
+      ${check.discount ? `<div style="height:8px"></div>
+        <button type="button" class="btn wide" data-setdisc="0">Убрать скидку</button>` : ''}`);
   }
 
   if (s.kind === 'cash' && check) {
@@ -1591,8 +1727,45 @@ function wrapSheet(title, sub, body) {
 }
 
 /* -------------------------------------------------------------- вывод --- */
+/* Прокрутка переживает перерисовку.
+
+   Экран собирается заново на каждое нажатие, и без этого список меню
+   отскакивал наверх от каждой добавленной позиции, а страница целиком
+   прыгала к заголовку: браузер теряет опору, когда под ним меняется разметка.
+   Проверить что-нибудь в таком демо невозможно — оно всё время убегает.
+
+   Позиция запоминается вместе с ключом экрана: перешли из меню в чек —
+   начинаем сверху, это уже другой список. */
+function scrollNow() {
+  const key = S.screen + '|' + S.right + '|' + (S.shift.open ? 'on' : 'off');
+  const box = node => (node ? node.querySelector('.view') : null);
+  return {
+    key,
+    page: window.pageYOffset,
+    phone: (box(document.getElementById('phone')) || {}).scrollTop || 0,
+    tablet: (box(document.getElementById('tablet')) || {}).scrollTop || 0
+  };
+}
+
+function scrollBack(was) {
+  if (!was) return;
+  const now = scrollNow();
+  if (was.key === now.key) {
+    const put = (id, top) => {
+      const v = document.getElementById(id).querySelector('.view');
+      if (v && top) v.scrollTop = top;
+    };
+    put('phone', was.phone);
+    put('tablet', was.tablet);
+  }
+  // Страницу возвращаем всегда: экран сменился или нет, читатель никуда не
+  // уезжал и уж точно не просил вернуть его к заголовку.
+  if (Math.abs(window.pageYOffset - was.page) > 1) window.scrollTo(0, was.page);
+}
+
 function render() {
   const typing = document.activeElement && document.activeElement.id === 'find';
+  const was = scrollNow();
 
   const phone = document.getElementById('phone');
   phone.className = 'screen' + (S.night ? ' night' : '');
@@ -1604,7 +1777,7 @@ function render() {
   tablet.innerHTML = tabletHTML() + (S.tip ? `<div class="toast">${esc(S.tip)}</div>` : '');
 
   document.getElementById('right-name').textContent =
-    S.right === 'admin' ? 'Админка' : S.right === 'stock' ? 'Склад' : 'Планшет бара';
+    { admin: 'Админка', stock: 'Склад', paid: 'Оплаты' }[S.right] || 'Планшет бара';
   document.getElementById('theme-phone').textContent = S.night ? 'День' : 'Ночь';
   paintSteps();
 
@@ -1618,6 +1791,8 @@ function render() {
       find.setSelectionRange(find.value.length, find.value.length);
     }
   }
+
+  scrollBack(was);
 }
 
 /* ------------------------------------------------------------ нажатия --- */
@@ -1626,7 +1801,7 @@ document.addEventListener('click', e => {
     + '[data-cat],[data-send],[data-mark],[data-take],[data-pay],[data-guests],[data-open],'
     + '[data-pick],[data-choice],[data-qty],[data-confirm],[data-close],[data-cash],'
     + '[data-given],[data-veil],[data-right],[data-check],[data-new],[data-split],'
-    + '[data-skey],[data-shift]');
+    + '[data-skey],[data-shift],[data-disc],[data-pc],[data-setdisc]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1721,6 +1896,22 @@ document.addEventListener('click', e => {
   if (d.take) take(d.take);
 
   if (d.pay) S.sheet = { kind: 'pay' };
+  if (d.disc) {
+    const c = openCheck();
+    S.sheet = { kind: 'disc', value: c ? (c.discount || 0) : 0, why: c ? c.why : '' };
+  }
+  if (d.pc) {
+    const c = openCheck();
+    S.sheet.value = Math.round(subOf(c) * Number(d.pc) / 100);
+  }
+  if (d.setdisc) {
+    const c = openCheck();
+    const on = d.setdisc === '1';
+    c.discount = on ? Math.min(S.sheet.value || 0, subOf(c)) : 0;
+    c.why = on ? (S.sheet.why || '').trim() : '';
+    S.sheet = { kind: 'pay' };
+    flash(c.discount ? 'Скидка применена' : 'Скидка убрана');
+  }
   if (d.cash) S.sheet = { kind: 'cash', given: 0 };
   if (d.given) S.sheet.given = Number(d.given);
   if (d.close) closeCheck(d.close, Number(d.change || 0));
@@ -1731,6 +1922,8 @@ document.addEventListener('click', e => {
 
 document.addEventListener('input', e => {
   if (e.target.id === 'find') { S.filter.text = e.target.value; render(); }
+  // Причина скидки живёт в шторке и не должна пропадать от перерисовки.
+  if (e.target.id === 'why' && S.sheet) S.sheet.why = e.target.value;
 });
 
 document.getElementById('theme-phone').addEventListener('click', () => {

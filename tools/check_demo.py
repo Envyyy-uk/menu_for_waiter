@@ -173,8 +173,21 @@ with sync_playwright() as pw:
     p.screenshot(path=str(OUT/"demo-6.png"))
     p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
 
-    # ---- оплата ------------------------------------------------------------
+    # ---- скидка перед оплатой -----------------------------------------------
+    # Скидку дают до того, как назвали сумму: после закрытия чек уже документ.
     p.locator("#phone [data-pay]").click(); p.wait_for_timeout(300)
+    p.locator("#phone [data-disc]").click(); p.wait_for_timeout(300)
+    p.locator("#phone .sheet .opt[data-pc='10']").click(); p.wait_for_timeout(300)
+    check("процент посчитан от позиций",
+          "£3.20" in p.locator("#phone .sheet").inner_text(),
+          p.locator("#phone .sheet").inner_text().replace("\n", " ")[:140])
+    p.locator("#phone #why").fill("ждали долго"); p.wait_for_timeout(200)
+    p.locator("#phone [data-setdisc='1']").click(); p.wait_for_timeout(500)
+    check("к оплате уменьшилось",
+          "£28.80" in p.locator("#phone .sheet").inner_text(),
+          p.locator("#phone .sheet").inner_text().replace("\n", " ")[:140])
+
+    # ---- оплата ------------------------------------------------------------
     p.locator("#phone [data-cash]").click(); p.wait_for_timeout(300)
     p.locator("#phone .sheet .opt").nth(1).click(); p.wait_for_timeout(300)
     check("сдача посчиталась", "Сдача" in p.locator("#phone .sheet").inner_text())
@@ -185,6 +198,17 @@ with sync_playwright() as pw:
     check("второй стол цел",
           p.locator("#phone .spot[data-table='9'] .sum").inner_text() == "£16.00",
           p.locator("#phone .spot[data-table='9'] .sum").inner_text())
+
+    # ---- оплаты: за что именно взяли деньги ---------------------------------
+    p.locator("[data-right='paid']").click(); p.wait_for_timeout(400)
+    paid = p.locator("#tablet .view").inner_text()
+    check("закрытый чек попал в оплаты", "наличные" in paid, paid.replace("\n", " ")[:160])
+    check("скидка видна с причиной",
+          "−£3.20" in paid and "ждали долго" in paid, paid.replace("\n", " ")[:200])
+    check("видно, что было внутри", "Margherita" in paid, paid.replace("\n", " ")[:200])
+    check("итог сходится", "£28.80" in paid, paid.replace("\n", " ")[:200])
+    p.screenshot(path=str(OUT/"demo-7.png"))
+    p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
 
     # ---- два чека на одном столе -------------------------------------------
     # Компания делится, и второй чек нужен прямо из первого: занятый стол в
@@ -265,6 +289,53 @@ with sync_playwright() as pw:
     p.locator("#theme-phone").click(); p.wait_for_timeout(300)
     check("ночной режим включился", "night" in (p.locator("#phone").get_attribute("class") or ""))
     p.screenshot(path=str(OUT/"demo-5.png"))
+
+    # ---- демо не убегает из-под пальца ---------------------------------------
+    # Экран собирается заново на каждое нажатие. Если при этом теряется
+    # прокрутка, страница прыгает к заголовку, а список меню — к первой
+    # позиции; проверить в таком демо нельзя ничего.
+    phone = ctx2 = None
+    small = b.new_context(viewport={"width": 390, "height": 844}, has_touch=True, is_mobile=True)
+    phone = small.new_page()
+    phone.goto(BASE, wait_until="networkidle")
+    phone.wait_for_timeout(500)
+    for d in "1111":
+        phone.locator(f"#phone .pad button[data-key='{d}']").click()
+    phone.wait_for_timeout(400)
+    for d in "2468":
+        phone.locator(f"#tablet .pad button[data-skey='{d}']").click()
+    phone.wait_for_timeout(400)
+
+    phone.evaluate("() => document.querySelector('#phone .spot').click()")
+    phone.wait_for_timeout(300)
+    phone.evaluate("() => document.querySelector('#phone [data-open]').click()")
+    phone.wait_for_timeout(500)
+
+    # Список меню длинный: прокручиваем и добавляем позицию.
+    phone.evaluate("() => document.querySelector('#phone .view').scrollTop = 260")
+    phone.wait_for_timeout(200)
+    before_list = phone.evaluate("() => document.querySelector('#phone .view').scrollTop")
+    # Нажимаем через DOM: playwright сам подкручивает элемент в вид, а
+    # проверяем мы здесь как раз прокрутку.
+    phone.evaluate("() => document.querySelector(\"#phone .dish[data-add='margh']\").click()")
+    phone.wait_for_timeout(500)
+    after_list = phone.evaluate("() => document.querySelector('#phone .view').scrollTop")
+    check("список меню остаётся на месте после добавления",
+          before_list > 100 and abs(after_list - before_list) < 30,
+          f"{before_list} → {after_list}")
+
+    # Страница целиком: уехали к планшету, нажали — остались там же.
+    phone.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+    phone.wait_for_timeout(300)
+    before_page = phone.evaluate("() => window.pageYOffset")
+    phone.evaluate("() => document.querySelector(\"#phone [data-go='check']\").click()")
+    phone.wait_for_timeout(500)
+    after_page = phone.evaluate("() => window.pageYOffset")
+    check("страница не прыгает к заголовку",
+          before_page > 200 and abs(after_page - before_page) < 30,
+          f"{before_page} → {after_page}")
+    phone.screenshot(path=str(OUT/"demo-phone.png"), full_page=False)
+    small.close()
 
     check("ошибок в консоли нет", not errs, "; ".join(errs[:3]))
     b.close()
