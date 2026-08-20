@@ -286,6 +286,51 @@ with sync_playwright() as pw:
           p.locator("#tablet .toast").inner_text())
     check("после закрытия планшет снова просит PIN", p.locator("#tablet .gate").count() == 1)
 
+    # ---- личная смена официанта ---------------------------------------------
+    # Табель: пришёл — открыл, ушёл — закрыл. Часы идут сами.
+    back_to_tables(p)
+    p.locator("#phone [data-work='open']").click(); p.wait_for_timeout(1600)
+    closer = p.locator("#phone [data-work='close']")
+    check("смена официанта открылась и считает время", closer.count() == 1,
+          p.locator("#phone .worker").inner_text())
+    check("время идёт", "мин" in closer.inner_text(), closer.inner_text())
+
+    # На столе 3 остался чек — с ним домой не уходят.
+    closer.click(); p.wait_for_timeout(400)
+    check("с открытым чеком смена не закрывается",
+          "стол 3" in p.locator("#phone .toast").inner_text().lower(),
+          p.locator("#phone .toast").inner_text())
+
+    p.locator("#phone .spot[data-table='3']").click(); p.wait_for_timeout(500)
+    p.locator("#phone [data-pay]").click(); p.wait_for_timeout(300)
+    p.locator("#phone [data-close='card']").click(); p.wait_for_timeout(800)
+    p.locator("#phone [data-work='close']").click(); p.wait_for_timeout(500)
+    sheet = p.locator("#phone .sheet").inner_text()
+    check("после закрытия показан итог смены",
+          "смена закрыта" in sheet.lower() and "Отработано" in sheet,
+          sheet.replace("\n", " ")[:140])
+    check("в итоге есть выручка и чеки",
+          "Выручка" in sheet and "Чеков" in sheet, sheet.replace("\n", " ")[:200])
+    p.screenshot(path=str(OUT/"demo-work.png"))
+    p.locator("#phone [data-veil]").last.click(); p.wait_for_timeout(400)
+    check("смена закрыта — кнопка снова «открыть»",
+          p.locator("#phone [data-work='open']").count() == 1)
+
+    # ---- столы пачкой --------------------------------------------------------
+    p.locator("[data-right='admin']").click(); p.wait_for_timeout(400)
+    was = p.locator("#tablet .plan.edit .spot").count()
+    p.locator("#tablet [data-tables='4']").click(); p.wait_for_timeout(600)
+    check("четыре стола встали одной кнопкой",
+          p.locator("#tablet .plan.edit .spot").count() == was + 4,
+          str(p.locator("#tablet .plan.edit .spot").count()))
+    check("телефон увидел новые столы сразу",
+          p.locator("#phone .spot").count() == was + 4,
+          str(p.locator("#phone .spot").count()))
+    p.locator("#tablet [data-tables='-1']").click(); p.wait_for_timeout(500)
+    check("и убираются обратно",
+          p.locator("#tablet .plan.edit .spot").count() == was + 3)
+    p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
+
     p.locator("#theme-phone").click(); p.wait_for_timeout(300)
     check("ночной режим включился", "night" in (p.locator("#phone").get_attribute("class") or ""))
     p.screenshot(path=str(OUT/"demo-5.png"))

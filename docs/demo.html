@@ -688,6 +688,17 @@ h1 {
 .tabs { display: flex; gap: 6px; padding: 10px 12px 0; }
 .hintline { margin: 10px 2px; font-size: 12px; color: var(--app-soft); }
 
+/* ------------------------------------------------------- личная смена -- */
+.worker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+}
+.worker .btn { min-height: 38px; padding: 0 12px; font-size: 13px; }
+.worker .meta { margin-left: auto; font-size: 12px; color: var(--app-faint); }
+
 /* -------------------------------------------------------------- склад -- */
 .alarm {
   margin: 0 0 12px;
@@ -864,6 +875,9 @@ h1 {
       <p><b>Звук</b> здесь короткий и играет только по нажатию. В приложении
         сигнал идёт по медиаканалу — его слышно при выключенном звонке — и
         повторяется каждые четыре секунды, пока официант не нажал «Забрал».</p>
+      <p><b>Часы личной смены</b> здесь идут ускоренно: секунда стоит за
+        минуту, иначе смотреть пришлось бы на «0 мин» весь вечер. В рабочей
+        версии их считает сервер, а табель хранится год.</p>
       <p>Нет push при свёрнутом приложении, отчёта по выручке и журнала
         действий. Склад показывает списание, но приход и инвентаризацию в него
         не заводят; оплаты показаны за одну эту смену. В рабочей версии есть
@@ -880,8 +894,12 @@ h1 {
       <p>Перед оплатой нажмите <b>Скидка</b> и впишите причину — а потом
         откройте <b>Оплаты</b>: там видно, за что именно взяли деньги. В
         рабочей версии скидку даёт менеджер, официант такой кнопки не видит.</p>
-      <p>Переключитесь на <b>Админку</b> и перетащите стол: телефон официанта
-        тут же покажет зал по-новому. Кнопка <b>Заново</b> сбрасывает смену.</p>
+      <p>Нажмите <b>Открыть смену</b> на телефоне — пойдут часы. Закрыть её с
+        открытым чеком система не даст, а после закрытия покажет итог вечера:
+        сколько отработано, чеков, наличными и картой.</p>
+      <p>Переключитесь на <b>Админку</b>: стол перетаскивается мышью, а
+        кнопкой <b>+ 4 стола</b> зал ставится пачкой — телефон официанта
+        покажет новую расстановку сразу. Кнопка <b>Заново</b> сбрасывает всё.</p>
     </div>
   </section>
 
@@ -1010,6 +1028,8 @@ function fresh(keepPlan) {
     screen: 'pin',
     pin: '',
     shift: { open: false, closing: false, pin: '', done: 0, why: null },
+    // Личная смена официанта: табель считает часы, а не выручку.
+    work: { open: false, from: 0, report: null },
     stock: STOCK.map(x => ({ ...x })),
     moves: [],
     right: S ? S.right : 'station',
@@ -1072,6 +1092,19 @@ function beep() {
       o.start(at); o.stop(at + .2);
     });
   } catch (e) { /* без звука демо всё равно понятно */ }
+}
+
+/* -------------------------------------------------- личная смена ------- */
+/* В рабочей версии часы идут по-настоящему и считаются на сервере: телефон
+   можно перезагрузить, часовой пояс подкрутить, а время смены останется тем
+   же. В демо секунда стоит за минуту — иначе смотреть пришлось бы на «0 мин»
+   весь вечер. */
+const workMinutes = () => (S.work.open ? Math.floor((Date.now() - S.work.from) / 1000) : 0);
+
+function workText(minutes) {
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  if (!h) return m + ' мин';
+  return m ? `${h} ч ${m} мин` : `${h} ч`;
 }
 
 /* -------------------------------------------------------------- шаги ---- */
@@ -1151,8 +1184,14 @@ function phoneHTML() {
       </button>`;
     }).join('');
 
+    // Смену открывает сам человек: пришёл — открыл, ушёл — закрыл.
+    const work = S.work.open
+      ? `<button type="button" class="btn" data-work="close">Закрыть смену · ${workText(workMinutes())}</button>`
+      : `<button type="button" class="btn gold" data-work="open">Открыть смену</button>`;
+
     return bar('Столы', false) + `<div class="view">
       ${readyHTML()}
+      <div class="worker">${work}</div>
       <div class="zone">Зал</div>
       <div class="plan">${spots}</div>
       ${S.checks.length ? `<p class="meta" style="margin-top:12px">Открыто
@@ -1418,8 +1457,17 @@ function adminHTML() {
       <p class="hintline">Перетащите стол так, как он стоит в зале. Телефон
         официанта покажет новую расстановку сразу — план и зал это одна картинка.</p>
       <div class="plan edit">${spots}</div>
-      <p class="hintline">Номер стола и число мест меняются нажатием на стол —
-        в рабочей версии. Здесь оставлено только перетаскивание.</p>
+      <div class="worker">
+        <button type="button" class="btn" data-tables="1">+ 1 стол</button>
+        <button type="button" class="btn" data-tables="4">+ 4 стола</button>
+        <button type="button" class="btn" data-tables="-1">Убрать последний</button>
+        <span class="meta">${S.tables.length}
+          ${plural(S.tables.length, 'стол', 'стола', 'столов')} ·
+          ${S.tables.length * 4} мест</span>
+      </div>
+      <p class="hintline">Зал ставят один раз и целиком, поэтому столы
+        заводятся пачкой: номера продолжаются с последнего. Стол, по которому
+        открыт чек, убрать нельзя — чек повиснет в никуда.</p>
     </div>`;
 }
 
@@ -1553,6 +1601,54 @@ function moveStock(key, delta, why, who) {
   });
 }
 
+/* Уйти домой с открытым чеком — значит оставить деньги на столе. Рабочая
+   версия отвечает тем же и называет столы поимённо. */
+function closeWork() {
+  if (S.checks.length) {
+    const where = [...new Set(S.checks.map(c => c.table))].sort((a, b) => a - b);
+    return flash('Сначала закройте чеки: ' + where.map(t => 'стол ' + t).join(', '), 3200);
+  }
+  const minutes = workMinutes();
+  const paid = S.paid || [];
+  S.work = {
+    open: false,
+    from: 0,
+    report: {
+      minutes,
+      checks: paid.length,
+      guests: paid.reduce((n, p) => n + (p.guests || 0), 0),
+      cash: paid.filter(p => p.method === 'cash').reduce((n, p) => n + p.total, 0),
+      card: paid.filter(p => p.method === 'card').reduce((n, p) => n + p.total, 0),
+      discount: paid.reduce((n, p) => n + (p.discount || 0), 0)
+    }
+  };
+  S.sheet = { kind: 'work' };
+}
+
+/* Столы заводятся пачкой: двадцать столов по одному — это двадцать
+   одинаковых форм подряд. */
+function addTables(n) {
+  if (n < 0) {
+    const last = S.tables[S.tables.length - 1];
+    if (!last) return flash('Столов не осталось');
+    if (checksAt(last.id).length) return flash('По этому столу открыт чек');
+    S.tables.pop();
+    return flash('Стол убран');
+  }
+  // Сетка на пять в ряд и с переносом: план не резиновый, и новый стол не
+  // должен уехать за нижний край, где его не видно и не подвинуть.
+  for (let i = 0; i < n; i++) {
+    const id = S.tables.reduce((m, t) => Math.max(m, t.id), 0) + 1;
+    const at = S.tables.length;
+    S.tables.push({
+      id,
+      x: 12 + (at % 5) * 19,
+      y: 14 + (Math.floor(at / 5) % 4) * 21
+    });
+  }
+  flash(n === 1 ? 'Стол поставлен' : `Столов добавлено: ${n}`);
+}
+
 function moveMark(id, to) {
   const t = S.tickets.find(x => x.id === id);
   if (!t) return;
@@ -1662,6 +1758,27 @@ function sheetHTML() {
   }
 
   const check = openCheck();
+  /* Итог вечера показывается один раз — сразу после закрытия смены. Дальше
+     он живёт в табеле, и достать его может менеджер. */
+  if (s.kind === 'work') {
+    const r = S.work.report || {};
+    return wrapSheet('Смена закрыта', 'Записано в табель', `
+      <div class="sums" style="margin-top:0;border-top:0;padding-top:0">
+        <div class="row big"><span>Отработано</span><span>${esc(workText(r.minutes || 0))}</span></div>
+        <div class="row"><span style="color:var(--app-soft)">Чеков</span><span>${r.checks || 0}</span></div>
+        <div class="row"><span style="color:var(--app-soft)">Гостей</span><span>${r.guests || 0}</span></div>
+        <div class="row"><span style="color:var(--app-soft)">Наличными</span><span>${money(r.cash || 0)}</span></div>
+        <div class="row"><span style="color:var(--app-soft)">Картой</span><span>${money(r.card || 0)}</span></div>
+        ${r.discount ? `<div class="row"><span style="color:var(--app-bad)">Скидки</span>
+          <span style="color:var(--app-bad)">−${money(r.discount)}</span></div>` : ''}
+        <div class="row big"><span>Выручка</span><span>${money((r.cash || 0) + (r.card || 0))}</span></div>
+      </div>
+      <p class="hintline">Табель хранится год — по нему сверяют часы. Считает
+        их сервер: телефон можно перезагрузить, время смены останется тем же.</p>
+      <div style="height:8px"></div>
+      <button type="button" class="btn gold wide" data-veil="1">Понятно</button>`);
+  }
+
   if (s.kind === 'pay' && check) {
     const sum = totalOf(check);
     return wrapSheet('Оплата', `Стол ${check.table} · чек ${check.n}`, `
@@ -1801,7 +1918,8 @@ document.addEventListener('click', e => {
     + '[data-cat],[data-send],[data-mark],[data-take],[data-pay],[data-guests],[data-open],'
     + '[data-pick],[data-choice],[data-qty],[data-confirm],[data-close],[data-cash],'
     + '[data-given],[data-veil],[data-right],[data-check],[data-new],[data-split],'
-    + '[data-skey],[data-shift],[data-disc],[data-pc],[data-setdisc]');
+    + '[data-skey],[data-shift],[data-disc],[data-pc],[data-setdisc],'
+    + '[data-work],[data-tables]');
   if (!t) return;
   const d = t.dataset;
 
@@ -1846,6 +1964,13 @@ document.addEventListener('click', e => {
       }
     }
   }
+
+  if (d.work === 'open') {
+    S.work = { open: true, from: Date.now(), report: null };
+    flash('Смена открыта — время пошло');
+  }
+  if (d.work === 'close') closeWork();
+  if (d.tables) addTables(Number(d.tables));
 
   if (d.table) tapTable(Number(d.table));
   if (d.check) { S.openId = d.check; S.sheet = null; S.screen = 'check'; }
@@ -1970,7 +2095,8 @@ document.addEventListener('pointerdown', e => {
 
 /* Часы на марках идут сами: «2:14» должно означать две минуты, а не то,
    сколько было в момент прихода заказа. */
-setInterval(() => { if (live().length) render(); }, 1000);
+// Часы идут: время на марках и время личной смены.
+setInterval(() => { if (live().length || S.work.open) render(); }, 1000);
 
 render();
 </script>
