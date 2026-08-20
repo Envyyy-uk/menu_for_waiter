@@ -1,0 +1,1424 @@
+<title>Смена в зале</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap">
+
+<style>
+/* ==========================================================================
+   Стенд: два устройства рядом и подпись, что нажимать.
+
+   Палитра и шрифты не выдуманы — они взяты из печатного меню заведения, того
+   же, что лежит на столе у гостя. Бумага, чернила, золото, антиква.
+   ========================================================================== */
+
+:root {
+  --paper:  #f7f3ea;
+  --card:   #fffdf8;
+  --edge:   #e6dfd1;
+  --ink:    #1d1a16;
+  --soft:   #6d6455;
+  --faint:  #8d8474;
+  --gold:   #a8843f;
+  --rule:   rgba(168, 132, 63, .28);
+  --hair:   rgba(29, 26, 22, .12);
+  --ok:     #2f6b4a;
+  --ok-bg:  #e2ecdf;
+  --warn:   #8f6412;
+  --warn-bg:#f3e9d2;
+  --bad:    #a3322c;
+  --bad-bg: #f4e2df;
+  --shadow: 0 24px 60px rgba(29, 26, 22, .18);
+
+  --serif: "Cormorant Garamond", "Didot", "Bodoni MT", "Times New Roman", Georgia, serif;
+  --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:  #14110e;
+    --card:   #1c1813;
+    --edge:   #0d0b09;
+    --ink:    #f2ece0;
+    --soft:   #b5aa96;
+    --faint:  #8a8071;
+    --gold:   #cbb083;
+    --rule:   rgba(203, 176, 131, .26);
+    --hair:   rgba(242, 236, 224, .12);
+    --ok:     #7cc39a;
+    --ok-bg:  #17301f;
+    --warn:   #d9ac53;
+    --warn-bg:#322708;
+    --bad:    #e0837c;
+    --bad-bg: #331714;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:  #14110e;
+  --card:   #1c1813;
+  --edge:   #0d0b09;
+  --ink:    #f2ece0;
+  --soft:   #b5aa96;
+  --faint:  #8a8071;
+  --gold:   #cbb083;
+  --rule:   rgba(203, 176, 131, .26);
+  --hair:   rgba(242, 236, 224, .12);
+  --ok:     #7cc39a;
+  --ok-bg:  #17301f;
+  --warn:   #d9ac53;
+  --warn-bg:#322708;
+  --bad:    #e0837c;
+  --bad-bg: #331714;
+  --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--edge);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding: 40px 20px 72px; }
+
+/* ------------------------------------------------------------- шапка ---- */
+.masthead { max-width: 62ch; margin-bottom: 34px; }
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+h1 {
+  margin: 0 0 10px;
+  font-family: var(--serif);
+  font-size: clamp(34px, 5vw, 52px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -.01em;
+  text-wrap: balance;
+}
+.lede { margin: 0; color: var(--soft); font-size: 17px; text-wrap: pretty; }
+.lede b { color: var(--ink); font-weight: 600; }
+
+/* --------------------------------------------------------- композиция --- */
+.board {
+  display: grid;
+  grid-template-columns: minmax(230px, 280px) 1fr;
+  gap: 30px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .board { grid-template-columns: 1fr; }
+}
+
+/* Шаги смены — настоящая последовательность, поэтому и пронумерованы. */
+.steps { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 2px; }
+.steps h2 {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.step {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 9px 10px;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  color: var(--soft);
+  font-size: 14.5px;
+  transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+.step .no {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--faint);
+}
+.step.on {
+  background: var(--card);
+  border-left-color: var(--gold);
+  color: var(--ink);
+}
+.step.on .no { color: var(--gold); }
+.step.done .no::after { content: ' ·'; color: var(--ok); }
+.step small { display: block; color: var(--faint); font-size: 12.5px; }
+
+/* --------------------------------------------------------- устройства --- */
+.stage {
+  display: grid;
+  grid-template-columns: 344px 1fr;
+  gap: 26px;
+  align-items: start;
+}
+@media (max-width: 1080px) { .stage { grid-template-columns: 1fr; justify-items: center; } }
+
+.device { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.device .cap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.device .cap b { color: var(--ink); font-weight: 600; }
+.device .cap .switch { margin-left: auto; display: flex; gap: 4px; }
+.device .cap .switch button {
+  padding: 4px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--soft);
+}
+.device .cap .switch button.on { background: var(--gold); border-color: var(--gold); color: #1d1a16; }
+
+/* Рамка устройства. Экран внутри живёт своей палитрой: у приложения есть
+   ночной режим, и его тут можно включить кнопкой, не трогая страницу. */
+.screen {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  background: var(--app-paper, var(--paper));
+  box-shadow: var(--shadow);
+
+  --app-paper: #f7f3ea;
+  --app-card:  #fffdf8;
+  --app-edge:  #e6dfd1;
+  --app-ink:   #1d1a16;
+  --app-soft:  #6d6455;
+  --app-faint: #8d8474;
+  --app-gold:  #a8843f;
+  --app-rule:  rgba(168, 132, 63, .28);
+  --app-hair:  rgba(29, 26, 22, .12);
+  --app-ok:    #2f6b4a;
+  --app-ok-bg: #e2ecdf;
+  --app-warn:  #8f6412;
+  --app-warn-bg: #f3e9d2;
+  --app-bad:   #a3322c;
+  --app-bad-bg:#f4e2df;
+  color: var(--app-ink);
+}
+.screen.night {
+  --app-paper: #16130f;
+  --app-card:  #201c16;
+  --app-edge:  #0f0d0a;
+  --app-ink:   #f2ece0;
+  --app-soft:  #b5aa96;
+  --app-faint: #8a8071;
+  --app-gold:  #cbb083;
+  --app-rule:  rgba(203, 176, 131, .26);
+  --app-hair:  rgba(242, 236, 224, .12);
+  --app-ok:    #7cc39a;
+  --app-ok-bg: #17301f;
+  --app-warn:  #d9ac53;
+  --app-warn-bg: #322708;
+  --app-bad:   #e0837c;
+  --app-bad-bg:#331714;
+}
+
+.phone .screen { height: 632px; }
+.tablet .screen { height: 632px; }
+
+/* Шапка приложения — всегда цвета чернил, как прикреплённая панель в меню. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 12px;
+  background: #1d1a16;
+  color: #f7f3ea;
+}
+.screen.night .bar { background: #201c16; }
+.bar h3 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #cbb083;
+}
+.bar .dot { width: 8px; height: 8px; border-radius: 50%; background: #6ea882; flex: none; }
+.bar .who { font-size: 11px; color: rgba(247, 243, 234, .65); white-space: nowrap; }
+.bar button {
+  padding: 5px 9px;
+  border: 1px solid rgba(203, 176, 131, .35);
+  border-radius: 2px;
+  color: rgba(247, 243, 234, .8);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .1em;
+}
+.bar button.back { padding: 5px 10px; }
+
+.view { height: calc(100% - 42px); overflow-y: auto; padding: 14px; }
+.view.pad0 { padding: 0; }
+
+/* ------------------------------------------------------------- ввод ----- */
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  height: 100%;
+  padding: 20px;
+}
+.gate p {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.dots { display: flex; gap: 14px; }
+.dots i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid var(--app-gold);
+  transition: background .12s ease;
+}
+.dots i.on { background: var(--app-gold); }
+.pad { display: grid; grid-template-columns: repeat(3, 64px); gap: 12px; }
+.pad button {
+  height: 64px;
+  border: 1px solid var(--app-rule);
+  border-radius: 50%;
+  background: var(--app-card);
+  font-family: var(--serif);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+.pad button:active { background: var(--app-edge); }
+.pad button.act { font-family: var(--sans); font-size: 13px; color: var(--app-soft); }
+.gate .hint { color: var(--app-gold); letter-spacing: .1em; }
+
+/* ------------------------------------------------------------- план ---- */
+.zone {
+  margin: 4px 2px 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--app-rule);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.plan {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--app-rule);
+  border-radius: 4px;
+  background:
+    linear-gradient(var(--app-hair) 1px, transparent 1px) 0 0 / 100% 10%,
+    linear-gradient(90deg, var(--app-hair) 1px, transparent 1px) 0 0 / 10% 100%,
+    var(--app-card);
+  touch-action: none;
+}
+.spot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 50px;
+  margin: -25px 0 0 -31px;
+  border: 1px solid var(--app-rule);
+  border-radius: 26px;
+  background: var(--app-paper);
+  color: var(--app-ink);
+  line-height: 1.1;
+  text-align: center;
+}
+.spot .n { font-family: var(--serif); font-size: 17px; font-weight: 700; }
+.spot .s { font-size: 9px; color: var(--app-faint); }
+.spot .sum {
+  font-family: var(--serif);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-gold);
+}
+.spot.busy { border-color: var(--app-gold); border-width: 2px; }
+.spot .flags { display: flex; gap: 3px; margin-top: 1px; }
+.spot .flags i { width: 6px; height: 6px; border-radius: 50%; }
+.flag-draft { background: var(--app-gold); }
+.flag-new { background: var(--app-faint); }
+.flag-accepted { background: var(--app-warn); }
+.flag-ready { background: var(--app-ok); }
+.plan.edit .spot { cursor: grab; }
+.plan.edit .spot:active { cursor: grabbing; }
+.spot.drag { box-shadow: 0 8px 20px rgba(29, 26, 22, .3); z-index: 4; }
+
+/* ------------------------------------------------------------- меню ---- */
+.find {
+  width: 100%;
+  padding: 9px 2px;
+  margin-bottom: 4px;
+  border: 0;
+  border-bottom: 1px solid var(--app-rule);
+  background: transparent;
+  color: var(--app-ink);
+  font-family: var(--serif);
+  font-size: 17px;
+}
+.find::placeholder { color: var(--app-faint); }
+.find:focus { outline: none; border-bottom-color: var(--app-gold); }
+
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 10px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  padding: 6px 11px;
+  border: 1px solid var(--app-rule);
+  border-radius: 2px;
+  color: var(--app-soft);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chip.on { background: var(--app-gold); border-color: var(--app-gold); color: #1d1a16; }
+
+.dish {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 10px 2px;
+  text-align: left;
+  border-bottom: 1px solid var(--app-hair);
+}
+.dish .b { flex: 1; min-width: 0; }
+.dish .nm { display: block; font-family: var(--serif); font-size: 17px; font-weight: 600; }
+.dish .ds {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--app-soft);
+}
+.dish .pr {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-gold);
+}
+
+/* -------------------------------------------------------------- чек ---- */
+.meta { margin: 0 0 10px; font-size: 12.5px; color: var(--app-soft); }
+.line { display: flex; gap: 9px; padding: 10px 2px; border-bottom: 1px solid var(--app-hair); }
+.line .q {
+  min-width: 26px;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--app-soft);
+}
+.line .b { flex: 1; min-width: 0; }
+.line .nm { font-family: var(--serif); font-size: 16px; font-weight: 600; }
+.line .op { font-size: 11.5px; color: var(--app-soft); }
+.line .pr { font-family: var(--serif); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.line.draft { border-left: 2px solid var(--app-gold); padding-left: 7px; }
+
+.tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: 2px;
+  background: var(--app-edge);
+  color: var(--app-soft);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.tag.draft { background: transparent; border: 1px solid var(--app-rule); color: var(--app-gold); }
+.tag.accepted { background: var(--app-warn-bg); color: var(--app-warn); }
+.tag.ready { background: var(--app-ok-bg); color: var(--app-ok); }
+
+.sums { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--app-rule); }
+.sums .row { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.sums .row.big { font-family: var(--serif); font-size: 23px; font-weight: 700; }
+
+/* ------------------------------------------------------------ кнопки --- */
+.dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(to top, var(--app-paper) 70%, transparent);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--app-rule);
+  border-radius: 4px;
+  background: var(--app-card);
+  color: var(--app-ink);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform .06s ease;
+}
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+.btn.gold { background: var(--app-gold); border-color: var(--app-gold); color: #1d1a16; }
+.btn.ok   { background: var(--app-ok); border-color: var(--app-ok); color: var(--app-paper); }
+.btn.bad  { background: var(--app-bad-bg); border-color: var(--app-bad); color: var(--app-bad); }
+.btn.wide { width: 100%; }
+.dock .btn { flex: 1; }
+
+/* ------------------------------------------------------------ шторка --- */
+.veil { position: absolute; inset: 0; background: rgba(29, 26, 22, .5); z-index: 8; }
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  max-height: 82%;
+  overflow-y: auto;
+  padding: 16px 14px;
+  border-top: 2px solid var(--app-gold);
+  border-radius: 10px 10px 0 0;
+  background: var(--app-paper);
+}
+.sheet h4 { margin: 0 0 2px; font-family: var(--serif); font-size: 21px; font-weight: 700; }
+.sheet .sub { margin: 0 0 14px; font-size: 12.5px; color: var(--app-soft); }
+.sheet .grp { margin-bottom: 14px; }
+.sheet .grp h5 {
+  margin: 0 0 7px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--app-rule);
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--app-faint);
+}
+.opts { display: flex; flex-wrap: wrap; gap: 7px; }
+.opt {
+  padding: 9px 12px;
+  border: 1px solid var(--app-rule);
+  border-radius: 2px;
+  background: var(--app-card);
+  color: var(--app-ink);
+  font-size: 13.5px;
+}
+.opt.on { background: var(--app-gold); border-color: var(--app-gold); color: #1d1a16; }
+.opt .add { font-size: 11px; opacity: .8; }
+.step-n { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.step-n button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--app-rule);
+  border-radius: 50%;
+  background: var(--app-card);
+  font-size: 20px;
+}
+.step-n span { font-family: var(--serif); font-size: 22px; font-weight: 700; min-width: 34px; text-align: center; }
+.field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--app-rule);
+  border-radius: 4px;
+  background: var(--app-card);
+  color: var(--app-ink);
+  font: inherit;
+}
+
+/* ----------------------------------------------------------- «готово» -- */
+.ready-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-ok);
+  border-radius: 4px;
+  background: var(--app-ok-bg);
+}
+.ready-row .b { flex: 1; }
+.ready-row .t { font-family: var(--serif); font-size: 17px; font-weight: 700; }
+.ready-row .w { font-size: 11.5px; color: var(--app-soft); }
+@keyframes ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 107, 74, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(47, 107, 74, .18); }
+}
+.ready-row.new { animation: ring 1.1s ease-in-out 3; }
+
+/* ----------------------------------------------------------- станция --- */
+.board-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.mark {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--app-hair);
+  border-top: 3px solid var(--app-faint);
+  border-radius: 4px;
+  background: var(--app-card);
+  overflow: hidden;
+}
+.mark.accepted { border-top-color: var(--app-warn); }
+.mark.ready { border-top-color: var(--app-ok); }
+.mark .h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--app-rule);
+}
+.mark .h .t { font-family: var(--serif); font-size: 24px; font-weight: 700; line-height: 1; }
+.mark .h .m { flex: 1; font-size: 11px; color: var(--app-soft); }
+.mark .h .w { font-family: var(--serif); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mark .items { flex: 1; padding: 10px 11px; display: flex; flex-direction: column; gap: 8px; }
+.mark .it { display: flex; gap: 9px; align-items: baseline; }
+.mark .it .n { min-width: 26px; font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--app-soft); }
+.mark .it b { font-family: var(--serif); font-size: 17px; font-weight: 700; }
+.mark .it .o { display: block; font-size: 13px; font-weight: 600; color: var(--app-gold); }
+.mark .f { display: flex; gap: 8px; padding: 10px 11px; border-top: 1px solid var(--app-rule); }
+.mark .f .btn { flex: 1; min-height: 50px; }
+.mark .f .wait {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--app-soft);
+}
+.empty { grid-column: 1 / -1; padding: 60px 16px; text-align: center; color: var(--app-faint); font-family: var(--serif); font-size: 20px; }
+
+/* ------------------------------------------------------------ админка -- */
+.tabs { display: flex; gap: 6px; padding: 10px 12px 0; }
+.hintline { margin: 10px 2px; font-size: 12px; color: var(--app-soft); }
+
+/* --------------------------------------------------------- всплывашка -- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 12;
+  max-width: 86%;
+  padding: 9px 14px;
+  border: 1px solid var(--app-ok);
+  border-radius: 4px;
+  background: var(--app-ok-bg);
+  color: var(--app-ink);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------- сноска -- */
+.notes {
+  margin-top: 44px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 26px;
+}
+.note h3 {
+  margin: 0 0 6px;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.note p { margin: 0 0 8px; font-size: 14px; color: var(--soft); text-wrap: pretty; }
+.note p b { color: var(--ink); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">POS для зала · демо</p>
+    <h1>Смена в зале</h1>
+    <p class="lede">
+      Слева телефон официанта, справа планшет бара. Это не картинки —
+      нажимайте: заказ, отправленный на телефоне, <b>появляется на планшете
+      сразу</b>, а «Готово» на планшете возвращается официанту сигналом.
+      Оформление взято из печатного меню заведения: бумага, золото, антиква.
+    </p>
+  </header>
+
+  <div class="board">
+
+    <nav class="steps" id="steps">
+      <h2>Как идёт смена</h2>
+    </nav>
+
+    <div class="stage">
+
+      <div class="device phone">
+        <div class="cap">
+          <b>Телефон</b> официанта
+          <span class="switch">
+            <button type="button" id="theme-phone">Ночь</button>
+          </span>
+        </div>
+        <div class="screen" id="phone"></div>
+      </div>
+
+      <div class="device tablet">
+        <div class="cap">
+          <b id="right-name">Планшет</b> бара
+          <span class="switch" id="right-switch">
+            <button type="button" data-right="station" class="on">Станция</button>
+            <button type="button" data-right="admin">Админка</button>
+          </span>
+        </div>
+        <div class="screen" id="tablet"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <section class="notes">
+    <div class="note">
+      <h3>Что здесь настоящее</h3>
+      <p>Цены, названия и варианты — из того же каталога, что печатается в
+        гостевом меню. Кальян со сменой листа, два микса к водке одной строкой,
+        разделение бара и кухни — всё как в рабочей версии.</p>
+      <p>В зале это работает на сервере заведения: чек живёт в базе, планшет и
+        телефон видят одно и то же состояние, а не свои копии.</p>
+    </div>
+    <div class="note">
+      <h3>Чего в демо нет</h3>
+      <p><b>Звук</b> здесь короткий и играет только по нажатию. В приложении
+        сигнал идёт по медиаканалу — его слышно при выключенном звонке — и
+        повторяется каждые четыре секунды, пока официант не нажал «Забрал».</p>
+      <p>Нет входа по личному PIN каждого сотрудника, push при свёрнутом
+        приложении, отчёта по смене и журнала. Всё это есть в рабочей версии.</p>
+    </div>
+    <div class="note">
+      <h3>Попробуйте сломать</h3>
+      <p>Отправьте заказ и нажмите «Готово» только на баре — кухня останется в
+        работе, и стол это покажет. Переключитесь на <b>Админку</b> и перетащите
+        стол: телефон официанта тут же покажет зал по-новому.</p>
+      <p>Нажмите «Ночь» на телефоне — то же оформление при другом свете.</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ==========================================================================
+   Демо. Состояние одно на оба экрана — как и в рабочей версии, где источник
+   правды один: сервер. Здесь его роль играет объект `S`.
+   ========================================================================== */
+
+const MENU = [
+  { k: 'mojito',    n: 'Mojito',            p: 1600, c: 'Коктейли', st: 'bar',
+    d: 'Ром, сахар, лайм, мята — освежающий', find: 'мохито' },
+  { k: 'aperol',    n: 'Aperol Spritz',     p: 1600, c: 'Коктейли', st: 'bar',
+    d: 'Апероль, просекко, содовая, долька апельсина', find: 'апероль шприц' },
+  { k: 'negroni',   n: 'Negroni',           p: 1600, c: 'Коктейли', st: 'bar',
+    d: 'Джин, красный вермут, красный биттер', find: 'негрони' },
+  { k: 'vodka',     n: 'Absolut, Stoli',    p: 1300, c: 'Крепкое',  st: 'bar',
+    d: 'Водка · Микс к крепкому — £3', find: 'водка',
+    o: [
+      { k: 'size', l: 'Объём', req: true, ch: [
+        { k: 'ml50', n: '50 мл', p: 1300 }, { k: 'ml100', n: '100 мл', p: 2600 },
+        { k: 'ml150', n: '150 мл', p: 3900 }, { k: 'bottle', n: 'Бутылка', p: 23000 } ] },
+      { k: 'kind', l: 'Вид', req: true, ch: [
+        { k: 'absolut', n: 'Absolut' }, { k: 'stoli', n: 'Stoli' } ] },
+      { k: 'mixer', l: 'Микс', req: false, many: true, max: 4, ch: [
+        { k: 'mixer', n: 'Микс', add: 300 } ] }
+    ] },
+  { k: 'hookah',    n: 'Hookah',            p: 5000, c: 'Кальяны',  st: 'bar',
+    d: 'Цена одинаковая на любой кальян', find: 'кальян шиша',
+    o: [
+      { k: 'leaf', l: 'Лист', req: true, ch: [
+        { k: 'dark', n: 'Дарк-лиф' }, { k: 'cigar', n: 'Сигарный лист' } ] },
+      { k: 'dark', l: 'Дарк-лиф', req: true, dep: { g: 'leaf', v: 'dark' }, ch: [
+        { k: 'musthave', n: 'MustHave' }, { k: 'darkside', n: 'Darkside' },
+        { k: 'blackburn', n: 'Blackburn' } ] },
+      { k: 'cigar', l: 'Сигарный лист', req: true, dep: { g: 'leaf', v: 'cigar' }, ch: [
+        { k: 'bonche', n: 'Bonche' }, { k: 'kraken', n: 'Kraken' } ] },
+      { k: 'fruit', l: 'Фруктовая чаша', req: false, add: 1000, ch: [
+        { k: 'apple', n: 'Яблоко' }, { k: 'lemon', n: 'Лимон' },
+        { k: 'grape', n: 'Грейпфрут' } ] }
+    ] },
+  { k: 'tea',       n: 'Tea Pot',           p: 1000, c: 'Горячее',  st: 'bar',
+    d: 'Чайник чая', find: 'чай',
+    o: [ { k: 'kind', l: 'Вид', req: true, ch: [
+      { k: 'green', n: 'Зелёный' }, { k: 'black', n: 'Чёрный' },
+      { k: 'camo', n: 'Ромашковый' } ] } ] },
+  { k: 'margh',     n: 'Margherita Pizza',  p: 1300, c: 'Пицца',    st: 'kitchen',
+    d: 'Томатный соус и моцарелла', find: 'маргарита пицца' },
+  { k: 'pepperoni', n: 'Pepperoni Pizza',   p: 1600, c: 'Пицца',    st: 'kitchen',
+    d: 'Томатный соус, моцарелла и пепперони', find: 'пепперони пицца' },
+  { k: 'pelmeni',   n: 'Pelmeni',           p: 1500, c: 'Кухня',    st: 'kitchen',
+    d: 'Говядина и свинина, подаются со сметаной', find: 'пельмени' },
+  { k: 'fruit',     n: 'Fruit Plate',       p: 2000, c: 'Кухня',    st: 'kitchen',
+    d: 'Свежие сезонные фрукты', find: 'фрукты тарелка' },
+  { k: 'cheese',    n: 'Classic Cheesecake', p: 900, c: 'Кухня',    st: 'kitchen',
+    d: 'Классический сливочный чизкейк', find: 'чизкейк' }
+];
+
+const STATION = { bar: 'Бар', kitchen: 'Кухня' };
+
+const S = {
+  screen: 'pin',
+  pin: '',
+  right: 'station',
+  night: false,
+  seq: 41,
+  order: 0,
+  tables: [
+    { id: 1, x: 14, y: 16 }, { id: 2, x: 38, y: 16 }, { id: 3, x: 62, y: 16 }, { id: 4, x: 86, y: 16 },
+    { id: 5, x: 14, y: 44 }, { id: 6, x: 38, y: 44 }, { id: 7, x: 62, y: 44 }, { id: 8, x: 86, y: 44 },
+    { id: 9, x: 14, y: 74 }, { id: 10, x: 38, y: 74 }, { id: 11, x: 62, y: 74 }, { id: 12, x: 86, y: 74 }
+  ],
+  check: null,        // { n, table, guests, items: [] }
+  tickets: [],        // { id, station, status, order, table, check, items, at }
+  waiting: [],        // марки, готовые к выдаче
+  filter: { text: '', cat: null },
+  sheet: null,
+  toast: null,
+  step: 1
+};
+
+const money = p => '£' + (p / 100).toFixed(2);
+const esc = s => String(s == null ? '' : s)
+  .replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const plural = (n, a, b, c) => {
+  const x = Math.abs(n) % 100, y = x % 10;
+  if (x > 10 && x < 20) return c;
+  if (y > 1 && y < 5) return b;
+  return y === 1 ? a : c;
+};
+
+/* --------------------------------------------------------------- звук --- */
+/* Три восходящих тона — тот же рисунок, что в приложении. Контекст
+   создаётся по первому нажатию: раньше браузер звук не разрешает. */
+let audio = null;
+function beep() {
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === 'suspended') audio.resume();
+    [[784, 0], [988, .16], [1319, .32]].forEach(([hz, t]) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      const at = audio.currentTime + t;
+      o.type = 'sine';
+      o.frequency.value = hz;
+      g.gain.setValueAtTime(.0001, at);
+      g.gain.exponentialRampToValueAtTime(.32, at + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, at + .17);
+      o.connect(g).connect(audio.destination);
+      o.start(at); o.stop(at + .2);
+    });
+  } catch (e) { /* без звука демо всё равно понятно */ }
+}
+
+/* -------------------------------------------------------------- шаги ---- */
+const STEPS = [
+  ['Вход по PIN', 'Наберите 1111'],
+  ['Открыть стол', 'Нажмите свободный стол на плане'],
+  ['Набрать заказ', 'Добавьте что-нибудь из меню'],
+  ['Отправить', 'Заказ уходит на бар и кухню'],
+  ['Принял и готово', 'Кнопки на планшете справа'],
+  ['Забрать', 'Официант слышит сигнал'],
+  ['Закрыть чек', 'Карта или наличные']
+];
+
+function paintSteps() {
+  const box = document.getElementById('steps');
+  box.querySelectorAll('.step').forEach(n => n.remove());
+  STEPS.forEach(([name, hint], i) => {
+    const n = i + 1;
+    const node = document.createElement('div');
+    node.className = 'step' + (n === S.step ? ' on' : n < S.step ? ' done' : '');
+    node.innerHTML = `<span class="no">${n}</span>
+      <span>${esc(name)}${n === S.step ? `<small>${esc(hint)}</small>` : ''}</span>`;
+    box.appendChild(node);
+  });
+}
+
+/* ---------------------------------------------------------- телефон ----- */
+function phoneHTML() {
+  if (S.screen === 'pin') {
+    return bar('Зал', false) + `<div class="view pad0">
+      <div class="gate">
+        <p>Введите личный PIN</p>
+        <div class="dots">${[0, 1, 2, 3].map(i =>
+          `<i class="${i < S.pin.length ? 'on' : ''}"></i>`).join('')}</div>
+        <div class="pad">
+          ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(d =>
+            `<button type="button" data-key="${d}">${d}</button>`).join('')}
+          <button type="button" class="act" data-key="c">Сброс</button>
+          <button type="button" data-key="0">0</button>
+          <button type="button" class="act" data-key="b">←</button>
+        </div>
+        <p class="hint">Подсказка: 1111</p>
+      </div></div>`;
+  }
+
+  if (S.screen === 'tables') {
+    const spots = S.tables.map(t => {
+      const busy = S.check && S.check.table === t.id;
+      const sum = busy ? total(S.check) : 0;
+      const flags = busy ? marksFor(t.id) : [];
+      return `<button type="button" class="spot${busy ? ' busy' : ''}" data-table="${t.id}"
+        style="left:${t.x}%;top:${t.y}%">
+        <span class="n">${t.id}</span>
+        ${busy
+          ? `<span class="sum">${money(sum)}</span>`
+          : '<span class="s">4 места</span>'}
+        ${flags.length ? `<span class="flags">${flags.map(f =>
+          `<i class="flag-${f}"></i>`).join('')}</span>` : ''}
+      </button>`;
+    }).join('');
+
+    return bar('Столы', false) + `<div class="view">
+      ${readyHTML()}
+      <div class="zone">Зал</div>
+      <div class="plan">${spots}</div>
+    </div>`;
+  }
+
+  if (S.screen === 'menu') {
+    const cats = [...new Set(MENU.map(i => i.c))];
+    const text = S.filter.text.trim().toLowerCase();
+    const list = MENU.filter(i =>
+      (!S.filter.cat || i.c === S.filter.cat) &&
+      (!text || i.n.toLowerCase().includes(text) || (i.find || '').includes(text) ||
+       i.d.toLowerCase().includes(text)));
+
+    return bar('Меню', true) + `<div class="view">
+      <input class="find" id="find" placeholder="Найти позицию" value="${esc(S.filter.text)}">
+      <div class="chips">
+        <button type="button" class="chip${S.filter.cat ? '' : ' on'}" data-cat="">Всё</button>
+        ${cats.map(c => `<button type="button" class="chip${S.filter.cat === c ? ' on' : ''}"
+          data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+      </div>
+      ${list.length ? list.map(i => `<button type="button" class="dish" data-add="${i.k}">
+        <span class="b"><span class="nm">${esc(i.n)}</span>
+        <span class="ds">${esc(i.d)}</span></span>
+        <span class="pr">${money(i.p)}</span></button>`).join('')
+        : '<p class="meta">Ничего не нашлось</p>'}
+      <div style="height:56px"></div>
+    </div>
+    <div class="dock"><button type="button" class="btn gold wide" data-go="check">К чеку</button></div>`;
+  }
+
+  // чек
+  const c = S.check;
+  const draft = c.items.some(i => i.status === 'draft');
+  return bar(`Стол ${c.table} · чек ${c.n}`, true) + `<div class="view">
+    ${readyHTML()}
+    <p class="meta">${c.guests} ${plural(c.guests, 'гость', 'гостя', 'гостей')} · открыт только что · Аня</p>
+    ${c.items.length ? c.items.map(lineHTML).join('')
+      : '<p class="meta">Пусто. Нажмите «Меню» и наберите заказ.</p>'}
+    <div class="sums">
+      <div class="row"><span style="color:var(--app-soft)">Позиции</span><span>${money(total(c))}</span></div>
+      <div class="row big"><span>Итого</span><span>${money(total(c))}</span></div>
+    </div>
+    <div style="height:60px"></div>
+  </div>
+  <div class="dock">
+    <button type="button" class="btn" data-go="menu">Меню</button>
+    ${draft
+      ? '<button type="button" class="btn gold" data-send="1">Отправить</button>'
+      : c.items.length
+        ? '<button type="button" class="btn ok" data-pay="1">Оплата</button>'
+        : ''}
+  </div>`;
+}
+
+function bar(title, back) {
+  return `<div class="bar">
+    ${back ? '<button type="button" class="back" data-back="1">←</button>' : ''}
+    <span class="dot"></span>
+    <h3>${esc(title)}</h3>
+    <span class="who">Аня</span>
+  </div>`;
+}
+
+function lineHTML(i) {
+  const ticket = S.tickets.find(t => t.id === i.ticket);
+  const state = i.status === 'draft'
+    ? '<span class="tag draft">черновик</span>'
+    : ticket && ticket.status === 'ready' ? '<span class="tag ready">готово</span>'
+    : ticket && ticket.status === 'accepted' ? '<span class="tag accepted">готовят</span>'
+    : ticket && ticket.status === 'served' ? '<span class="tag">подано</span>'
+    : '<span class="tag">отправлено</span>';
+  return `<div class="line${i.status === 'draft' ? ' draft' : ''}">
+    <span class="q">${i.qty}×</span>
+    <span class="b"><span class="nm">${esc(i.name)}</span> ${state}
+      ${i.opts.length ? `<div class="op">${esc(i.opts.join(' · '))}</div>` : ''}</span>
+    <span class="pr">${money(i.price * i.qty)}</span></div>`;
+}
+
+function readyHTML() {
+  if (!S.waiting.length) return '';
+  return S.waiting.map(t => `<div class="ready-row${t.fresh ? ' new' : ''}">
+    <div class="b"><div class="t">Готово · ${esc(STATION[t.station])}</div>
+      <div class="w">Стол ${t.table} · ${t.items.length} поз.</div></div>
+    <button type="button" class="btn ok" data-take="${t.id}">Забрал</button>
+  </div>`).join('');
+}
+
+/* ---------------------------------------------------------- планшет ----- */
+function tabletHTML() {
+  if (S.right === 'admin') return adminHTML();
+
+  const live = S.tickets.filter(t => t.status !== 'served');
+  const news = live.filter(t => t.status === 'new').length;
+  return `<div class="bar">
+      <span class="dot"></span><h3>Бар и кухня</h3>
+      <span class="who">${news ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : live.length + ' в работе'}</span>
+    </div>
+    <div class="view"><div class="board-grid">
+      ${live.length ? live.map(markHTML).join('')
+        : '<p class="empty">Пусто. Новые заказы появятся сами.</p>'}
+    </div></div>`;
+}
+
+function markHTML(t) {
+  return `<div class="mark ${t.status}">
+    <div class="h">
+      <span class="t">${t.table}</span>
+      <span class="m">чек ${t.check} · ${esc(STATION[t.station])} · подача ${t.order}</span>
+      <span class="w">${clock(t)}</span>
+    </div>
+    <div class="items">${t.items.map(i => `<div class="it">
+      <span class="n">${i.qty}×</span>
+      <span><b>${esc(i.name)}</b>
+        ${i.opts.length ? `<span class="o">${esc(i.opts.join(' · '))}</span>` : ''}</span>
+    </div>`).join('')}</div>
+    <div class="f">
+      ${t.status === 'new'
+        ? `<button type="button" class="btn" data-mark="${t.id}" data-to="accepted">Принял</button>
+           <button type="button" class="btn ok" data-mark="${t.id}" data-to="ready">Готово</button>`
+        : t.status === 'accepted'
+          ? `<button type="button" class="btn ok" data-mark="${t.id}" data-to="ready">Готово</button>`
+          : '<span class="wait">Ждёт официанта</span>'}
+    </div>
+  </div>`;
+}
+
+function clock(t) {
+  const s = Math.floor((Date.now() - t.at) / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function adminHTML() {
+  const spots = S.tables.map(t => `<button type="button" class="spot" data-move="${t.id}"
+    style="left:${t.x}%;top:${t.y}%"><span class="n">${t.id}</span>
+    <span class="s">4 места</span></button>`).join('');
+  return `<div class="bar"><span class="dot"></span><h3>Расстановка столов</h3>
+      <span class="who">${S.tables.length} столов</span></div>
+    <div class="view">
+      <p class="hintline">Перетащите стол так, как он стоит в зале. Телефон
+        официанта покажет новую расстановку сразу — план и зал это одна картинка.</p>
+      <div class="plan edit">${spots}</div>
+      <p class="hintline">Номер стола и число мест меняются нажатием на стол —
+        в рабочей версии. Здесь оставлено только перетаскивание.</p>
+    </div>`;
+}
+
+/* -------------------------------------------------------------- логика -- */
+function total(c) {
+  return c.items.reduce((n, i) => n + i.price * i.qty, 0);
+}
+
+function marksFor(table) {
+  const out = [];
+  if (S.check && S.check.table === table && S.check.items.some(i => i.status === 'draft')) {
+    out.push('draft');
+  }
+  S.tickets.filter(t => t.table === table && t.status !== 'served')
+    .forEach(t => { if (!out.includes(t.status)) out.push(t.status); });
+  return out;
+}
+
+function openTable(id) {
+  if (S.check) { S.screen = 'check'; return; }
+  S.sheet = { kind: 'guests', table: id, guests: 2 };
+}
+
+function addItem(key, opts, qty) {
+  const item = MENU.find(i => i.k === key);
+  const { price, names } = priceOf(item, opts || {});
+  S.check.items.push({
+    key, name: item.n, station: item.st, price, qty: qty || 1,
+    opts: names, status: 'draft', ticket: null
+  });
+  S.toast = `${item.n} · ${qty || 1}×`;
+  setTimeout(() => { S.toast = null; render(); }, 1800);
+}
+
+/* Цена считается по тем же правилам, что на сервере: выбор с ценой заменяет
+   цену позиции, надбавка прибавляется, группа с условием не спрашивается зря. */
+function priceOf(item, chosen) {
+  let price = item.p, add = 0;
+  const names = [];
+  (item.o || []).forEach(g => {
+    if (g.dep && chosen[g.dep.g] !== g.dep.v) return;
+    const picked = chosen[g.k];
+    if (g.many) {
+      const list = picked || [];
+      if (!list.length) return;
+      const c = g.ch[0];
+      add += (c.add || 0) * list.length;
+      names.push(list.length > 1 ? `${c.n} ×${list.length}` : c.n);
+      return;
+    }
+    if (!picked) return;
+    const c = g.ch.find(x => x.k === picked);
+    if (!c) return;
+    if (c.p !== undefined) price = c.p;
+    add += (c.add || 0) + (g.add || 0);
+    names.push(c.n);
+  });
+  return { price: price + add, names };
+}
+
+function missing(item, chosen) {
+  return (item.o || []).filter(g =>
+    g.req && !(g.dep && chosen[g.dep.g] !== g.dep.v) && !chosen[g.k]
+  ).map(g => g.l);
+}
+
+function send() {
+  const drafts = S.check.items.filter(i => i.status === 'draft');
+  if (!drafts.length) return;
+  S.order += 1;
+  [...new Set(drafts.map(i => i.station))].forEach(station => {
+    const id = 't' + Date.now() + station;
+    const mine = drafts.filter(i => i.station === station);
+    mine.forEach(i => { i.status = 'sent'; i.ticket = id; });
+    S.tickets.push({
+      id, station, status: 'new', order: S.order,
+      table: S.check.table, check: S.check.n, at: Date.now(),
+      items: mine.map(i => ({ name: i.name, qty: i.qty, opts: i.opts }))
+    });
+  });
+  S.step = 5;
+  S.toast = 'Отправлено на станции';
+  setTimeout(() => { S.toast = null; render(); }, 1800);
+}
+
+function moveMark(id, to) {
+  const t = S.tickets.find(x => x.id === id);
+  if (!t) return;
+  t.status = to;
+  if (to === 'ready') {
+    t.fresh = true;
+    S.waiting.push(t);
+    S.step = 6;
+    beep();
+    setTimeout(() => { t.fresh = false; render(); }, 3400);
+  }
+}
+
+function take(id) {
+  const t = S.tickets.find(x => x.id === id);
+  if (t) t.status = 'served';
+  S.waiting = S.waiting.filter(x => x.id !== id);
+  const left = S.tickets.some(x => x.status !== 'served');
+  if (!left) S.step = 7;
+}
+
+function close(method, tendered) {
+  S.sheet = null;
+  S.check = null;
+  S.tickets = [];
+  S.waiting = [];
+  S.order = 0;
+  S.screen = 'tables';
+  S.step = 2;
+  S.toast = method === 'cash' && tendered
+    ? `Чек закрыт наличными · сдача ${money(tendered)}`
+    : 'Чек закрыт';
+  setTimeout(() => { S.toast = null; render(); }, 2400);
+}
+
+/* -------------------------------------------------------------- шторки -- */
+function sheetHTML() {
+  const s = S.sheet;
+  if (!s) return '';
+
+  if (s.kind === 'guests') {
+    return wrapSheet(`Стол ${s.table}`, 'Сколько гостей', `
+      <div class="step-n">
+        <button type="button" data-guests="-1">−</button>
+        <span>${s.guests}</span>
+        <button type="button" data-guests="1">+</button>
+      </div>
+      <button type="button" class="btn gold wide" data-open="1">Открыть стол</button>`);
+  }
+
+  if (s.kind === 'options') {
+    const item = MENU.find(i => i.k === s.key);
+    const { price } = priceOf(item, s.chosen);
+    const need = missing(item, s.chosen);
+    const groups = (item.o || []).filter(g => !g.dep || s.chosen[g.dep.g] === g.dep.v);
+    return wrapSheet(item.n, item.d, groups.map(g => `
+      <div class="grp"><h5>${esc(g.l)}${g.req ? '' : ' — по желанию'}</h5>
+        <div class="opts">${g.ch.map(c => {
+          const on = g.many
+            ? (s.chosen[g.k] || []).includes(c.k)
+            : s.chosen[g.k] === c.k;
+          const count = g.many ? (s.chosen[g.k] || []).filter(x => x === c.k).length : 0;
+          const extra = (c.add || 0) + (g.add || 0);
+          return `<button type="button" class="opt${on ? ' on' : ''}"
+            data-pick="${g.k}" data-choice="${c.k}">${esc(c.n)}${count > 1 ? ' ×' + count : ''}
+            ${c.p !== undefined ? `<span class="add">${money(c.p)}</span>`
+              : extra ? `<span class="add">+${money(extra)}</span>` : ''}</button>`;
+        }).join('')}</div></div>`).join('') + `
+      <div class="step-n">
+        <button type="button" data-qty="-1">−</button>
+        <span>${s.qty}</span>
+        <button type="button" data-qty="1">+</button>
+      </div>
+      <button type="button" class="btn gold wide" data-confirm="1" ${need.length ? 'disabled' : ''}>
+        ${need.length ? 'Выберите: ' + esc(need.join(', ')) : 'Добавить · ' + money(price * s.qty)}
+      </button>`);
+  }
+
+  if (s.kind === 'pay') {
+    const sum = total(S.check);
+    return wrapSheet('Оплата', `Стол ${S.check.table} · чек ${S.check.n}`, `
+      <div class="sums" style="margin-top:0;border-top:0;padding-top:0">
+        <div class="row big"><span>К оплате</span><span>${money(sum)}</span></div>
+      </div>
+      <div style="height:12px"></div>
+      <button type="button" class="btn gold wide" data-close="card">Карта · ${money(sum)}</button>
+      <div style="height:8px"></div>
+      <button type="button" class="btn wide" data-cash="1">Наличные · ${money(sum)}</button>`);
+  }
+
+  if (s.kind === 'cash') {
+    const sum = total(S.check);
+    const given = s.given;
+    return wrapSheet('Наличные', `К оплате ${money(sum)}`, `
+      <div class="opts">${[sum, Math.ceil(sum / 1000) * 1000, Math.ceil(sum / 2000) * 2000,
+        Math.ceil(sum / 5000) * 5000].filter((v, i, a) => a.indexOf(v) === i).map(v =>
+        `<button type="button" class="opt${given === v ? ' on' : ''}" data-given="${v}">${money(v)}</button>`).join('')}</div>
+      <p class="sub" style="margin:12px 0">${given >= sum
+        ? `Сдача: <b style="color:var(--app-ok)">${money(given - sum)}</b>`
+        : 'Сколько дали — сдачу посчитает касса'}</p>
+      <button type="button" class="btn ok wide" data-close="cash" data-tendered="${given}">
+        Принял ${money(sum)}</button>`);
+  }
+  return '';
+}
+
+function wrapSheet(title, sub, body) {
+  return `<div class="veil" data-veil="1"></div>
+    <div class="sheet"><h4>${esc(title)}</h4>
+    ${sub ? `<p class="sub">${esc(sub)}</p>` : ''}${body}</div>`;
+}
+
+/* -------------------------------------------------------------- вывод --- */
+function render() {
+  const typing = document.activeElement && document.activeElement.id === 'find';
+  const phone = document.getElementById('phone');
+  phone.className = 'screen' + (S.night ? ' night' : '');
+  phone.innerHTML = phoneHTML() + sheetHTML()
+    + (S.toast ? `<div class="toast">${esc(S.toast)}</div>` : '');
+
+  const tablet = document.getElementById('tablet');
+  tablet.className = 'screen' + (S.night ? ' night' : '');
+  tablet.innerHTML = tabletHTML();
+
+  document.getElementById('right-name').textContent =
+    S.right === 'admin' ? 'Админка' : 'Планшет';
+  document.getElementById('theme-phone').textContent = S.night ? 'День' : 'Ночь';
+  paintSteps();
+
+  // Поле поиска перерисовывается вместе с экраном, поэтому фокус в него
+  // возвращается — но только если он там и был: иначе на телефоне клавиатура
+  // выскакивает от каждого нажатия на блюдо.
+  if (typing) {
+    const find = document.getElementById('find');
+    if (find) {
+      find.focus();
+      find.setSelectionRange(find.value.length, find.value.length);
+    }
+  }
+}
+
+/* ------------------------------------------------------------ нажатия --- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-key],[data-table],[data-add],[data-go],[data-back],'
+    + '[data-cat],[data-send],[data-mark],[data-take],[data-pay],[data-guests],[data-open],'
+    + '[data-pick],[data-choice],[data-qty],[data-confirm],[data-close],[data-cash],'
+    + '[data-given],[data-veil],[data-right]');
+  if (!t) return;
+  const d = t.dataset;
+
+  if (d.right) { S.right = d.right; document.querySelectorAll('#right-switch button')
+    .forEach(b => b.classList.toggle('on', b.dataset.right === d.right)); }
+
+  if (d.key) {
+    if (d.key === 'c') S.pin = '';
+    else if (d.key === 'b') S.pin = S.pin.slice(0, -1);
+    else if (S.pin.length < 4) S.pin += d.key;
+    if (S.pin.length === 4) {
+      S.pin = '';
+      S.screen = 'tables';
+      S.step = 2;
+    }
+  }
+
+  if (d.table) openTable(Number(d.table));
+  if (d.guests) S.sheet.guests = Math.max(1, Math.min(20, S.sheet.guests + Number(d.guests)));
+  if (d.open) {
+    S.seq += 1;
+    S.check = { n: S.seq, table: S.sheet.table, guests: S.sheet.guests, items: [] };
+    S.sheet = null;
+    S.screen = 'menu';
+    S.step = 3;
+  }
+
+  if (d.go) S.screen = d.go;
+  if (d.back) S.screen = S.screen === 'menu' ? 'check' : 'tables';
+  if (d.cat !== undefined) S.filter.cat = d.cat || null;
+
+  if (d.add) {
+    const item = MENU.find(i => i.k === d.add);
+    if (item.o) S.sheet = { kind: 'options', key: item.k, chosen: {}, qty: 1 };
+    else { addItem(item.k, {}, 1); S.step = 4; }
+  }
+
+  if (d.pick) {
+    const item = MENU.find(i => i.k === S.sheet.key);
+    const g = item.o.find(x => x.k === d.pick);
+    if (g.many) {
+      const list = S.sheet.chosen[g.k] || [];
+      const have = list.filter(x => x === d.choice).length;
+      const next = have >= (g.ch[0].max || g.max || 4) ? 0 : have + 1;
+      S.sheet.chosen[g.k] = Array(next).fill(d.choice);
+      if (!next) delete S.sheet.chosen[g.k];
+    } else {
+      S.sheet.chosen[g.k] = S.sheet.chosen[g.k] === d.choice ? undefined : d.choice;
+      if (!S.sheet.chosen[g.k]) delete S.sheet.chosen[g.k];
+    }
+  }
+  if (d.qty) S.sheet.qty = Math.max(1, Math.min(20, S.sheet.qty + Number(d.qty)));
+  if (d.confirm) {
+    addItem(S.sheet.key, S.sheet.chosen, S.sheet.qty);
+    S.sheet = null;
+    S.step = 4;
+  }
+
+  if (d.send) send();
+  if (d.mark) moveMark(d.mark, d.to);
+  if (d.take) take(d.take);
+
+  if (d.pay) S.sheet = { kind: 'pay' };
+  if (d.cash) S.sheet = { kind: 'cash', given: 0 };
+  if (d.given) S.sheet.given = Number(d.given);
+  if (d.close) close(d.close, Number(d.tendered || 0) - total(S.check));
+  if (d.veil) S.sheet = null;
+
+  render();
+});
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'find') { S.filter.text = e.target.value; render(); }
+});
+
+document.getElementById('theme-phone').addEventListener('click', () => {
+  S.night = !S.night;
+  render();
+});
+
+/* ------------------------------------------------- перетаскивание стола - */
+/* Живёт на планшете и только в админке: стол, случайно сдвинутый на бегу,
+   это чужая расстановка на весь вечер. */
+document.addEventListener('pointerdown', e => {
+  const node = e.target.closest('.plan.edit .spot');
+  if (!node) return;
+  e.preventDefault();
+  const field = node.closest('.plan');
+  const id = Number(node.dataset.move);
+  node.setPointerCapture(e.pointerId);
+  node.classList.add('drag');
+
+  const move = ev => {
+    const box = field.getBoundingClientRect();
+    const x = Math.max(6, Math.min(94, ((ev.clientX - box.left) / box.width) * 100));
+    const y = Math.max(8, Math.min(92, ((ev.clientY - box.top) / box.height) * 100));
+    node.style.left = Math.round(x / 2) * 2 + '%';
+    node.style.top = Math.round(y / 2) * 2 + '%';
+  };
+  const up = () => {
+    node.classList.remove('drag');
+    node.removeEventListener('pointermove', move);
+    node.removeEventListener('pointerup', up);
+    const table = S.tables.find(t => t.id === id);
+    table.x = parseFloat(node.style.left);
+    table.y = parseFloat(node.style.top);
+    render();          // телефон официанта показывает новую расстановку сразу
+  };
+  node.addEventListener('pointermove', move);
+  node.addEventListener('pointerup', up);
+});
+
+/* Часы на марках идут сами: «2:14» должно означать две минуты, а не то,
+   сколько было в момент прихода заказа. */
+setInterval(() => { if (S.tickets.some(t => t.status !== 'served')) render(); }, 1000);
+
+render();
+</script>
