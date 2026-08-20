@@ -5,12 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Админка</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#100f0d">
+<meta name="theme-color" content="#1d1a16">
 <link rel="manifest" href="/admin/manifest.json">
 <link rel="icon" href="/assets/icons/admin-192.png">
 <link rel="apple-touch-icon" href="/assets/icons/admin-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Админка">
+<script>
+/* Режим ставится до первого кадра, иначе ночью экран мигает белым. */
+try {
+  var m = localStorage.getItem('pos-theme');
+  if (m === 'night') document.documentElement.dataset.theme = 'night';
+} catch (e) {}
+</script>
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
@@ -19,12 +26,14 @@
   <span class="netdot" id="link" title="связь с сервером"></span>
   <h1>Админка</h1>
   <span class="who" id="who"></span>
-  <button class="btn ghost" id="out" type="button">Выйти</button>
+  <button class="btn" id="theme" type="button">Ночь</button>
+  <button class="btn" id="out" type="button">Выйти</button>
 </header>
 
 <nav class="tabs" id="tabs" hidden></nav>
 <main id="app"></main>
 
+<script src="/assets/theme.js"></script>
 <script src="/assets/api.js"></script>
 <script src="/assets/auth.js"></script>
 <script src="/assets/live.js"></script>
@@ -35,6 +44,7 @@
 Auth.start(me => {
   document.getElementById('bar').hidden = false;
   document.getElementById('tabs').hidden = false;
+  Theme.start();
   Admin.start(me);
 });
 </script>

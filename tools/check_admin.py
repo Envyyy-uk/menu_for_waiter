@@ -36,7 +36,8 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 def pin(page, code: str) -> None:
     for digit in code:
         page.get_by_role("button", name=digit, exact=True).click()
-    page.wait_for_timeout(1000)
+    page.wait_for_function("() => !Auth.busy", timeout=10000)
+    page.wait_for_timeout(700)
 
 
 def main() -> None:
@@ -55,7 +56,10 @@ def main() -> None:
         pin(page, "1234")
         check("администратор видит все разделы",
               page.locator(".tab").count() == 5, str(page.locator(".tab").count()))
-        check("смена открывается первой", "Выручка" in page.locator(".panel").inner_text())
+        # Подписи набраны капителью средствами оформления — сравниваем без
+        # учёта регистра, иначе проверка ломается от смены шрифта.
+        check("смена открывается первой",
+              "выручка" in page.locator(".panel").inner_text().lower())
 
         # Сотрудник заводится из окна, а не из консоли.
         page.get_by_role("button", name="Персонал").click()

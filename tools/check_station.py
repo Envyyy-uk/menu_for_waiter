@@ -35,7 +35,10 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 def pin(page, code: str) -> None:
     for digit in code:
         page.get_by_role("button", name=digit, exact=True).click()
-    page.wait_for_timeout(1000)
+    # Экран не принимает нажатия, пока сервер проверяет PIN, — ждём ответа,
+    # а не отмеренной паузы.
+    page.wait_for_function("() => !Auth.busy", timeout=10000)
+    page.wait_for_timeout(700)
 
 
 def main() -> None:
@@ -49,7 +52,7 @@ def main() -> None:
         bar.goto(BASE + "/station/", wait_until="networkidle")
         pin(bar, "2222")
         check("бармен попадает на свою станцию",
-              bar.locator("#title").inner_text() == "Бар",
+              bar.locator("#title").inner_text().strip().lower() == "бар",
               bar.locator("#title").inner_text())
 
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
@@ -93,7 +96,9 @@ def main() -> None:
         mark.get_by_role("button", name="Готово").click()
         bar.wait_for_timeout(900)
         mark = bar.locator(".mark").last
-        check("готовое ждёт официанта", "Ждёт официанта" in mark.inner_text())
+        check("готовое ждёт официанта",
+              "ждёт официанта" in mark.inner_text().lower(),
+              mark.inner_text()[:120])
 
         # Официант слышит и забирает.
         waiter.wait_for_selector(".ready-item", timeout=6000)

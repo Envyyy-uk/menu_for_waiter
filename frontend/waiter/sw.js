@@ -7,12 +7,14 @@
    а он врёт.
    ========================================================================== */
 
-const VERSION = 'zal-1';
+const VERSION = 'zal-2';
 const SHELL = [
   '/',
   '/assets/styles.css',
+  '/assets/theme.js',
   '/assets/api.js',
   '/assets/auth.js',
+  '/assets/push.js',
   '/assets/live.js',
   '/assets/sound.js',
   '/assets/sheets.js',

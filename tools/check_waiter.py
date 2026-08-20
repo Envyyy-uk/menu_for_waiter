@@ -34,7 +34,8 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 def pin(page, code: str) -> None:
     for digit in code:
         page.get_by_role("button", name=digit, exact=True).click()
-    page.wait_for_timeout(900)
+    page.wait_for_function("() => !Auth.busy", timeout=10000)
+    page.wait_for_timeout(700)
 
 
 def main() -> None:

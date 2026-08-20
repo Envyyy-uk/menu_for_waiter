@@ -89,7 +89,7 @@ const App = {
 
     if (this.view === 'tables') title.textContent = 'Столы';
     else if (this.view === 'check' && this.check) {
-      title.textContent = `Стол ${this.check.table} · чек №${this.check.number}`;
+      title.textContent = `Стол ${this.check.table} · чек ${this.check.number}`;
     } else if (this.view === 'menu') title.textContent = 'Меню';
 
     const root = document.getElementById('app');

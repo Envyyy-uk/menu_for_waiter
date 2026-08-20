@@ -7,10 +7,11 @@
    а он врёт.
    ========================================================================== */
 
-const VERSION = 'stanciya-1';
+const VERSION = 'stanciya-2';
 const SHELL = [
   '/station/',
   '/assets/styles.css',
+  '/assets/theme.js',
   '/assets/api.js',
   '/assets/auth.js',
   '/assets/live.js',

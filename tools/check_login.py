@@ -37,8 +37,20 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 
 
 def type_pin(page, pin: str) -> None:
+    """Набрать PIN и дождаться ответа.
+
+    Ждать фиксированные полсекунды нельзя: пока сервер проверяет PIN, экран
+    намеренно не принимает нажатия — иначе одно касание уходило бы дважды.
+    Тест, который этого не ждёт, набирает следующий PIN в пустоту.
+    """
     for digit in pin:
         page.get_by_role("button", name=digit, exact=True).click()
+    page.wait_for_function(
+        "() => !Auth.busy && (!document.getElementById('pin-msg')"
+        " || document.getElementById('pin-msg').textContent !== ''"
+        " || !document.getElementById('gate'))",
+        timeout=10000,
+    )
 
 
 def main() -> None:
@@ -52,7 +64,6 @@ def main() -> None:
         check("цифры PIN не показываются", page.locator("#pin-dots i").count() >= 4)
 
         type_pin(page, "0000")
-        page.wait_for_timeout(600)
         check(
             "неверный PIN показывает ошибку",
             "PIN" in (page.locator("#pin-msg").inner_text() or ""),
@@ -60,7 +71,8 @@ def main() -> None:
         )
 
         type_pin(page, "1234")
-        page.wait_for_timeout(900)
+        page.wait_for_url("**/admin/**", timeout=10000)
+        page.wait_for_timeout(500)
         check("админ уходит на свой экран", "/admin" in page.url, page.url)
         check("имя видно в шапке", "Администратор" in page.locator("#who").inner_text())
 
