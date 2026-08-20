@@ -38,6 +38,29 @@ const Sound = {
     });
   },
 
+  /** Новая марка на станции — короткий двойной сигнал. */
+  arrived() {
+    this.unlock();
+    buzz([60, 50, 60]);
+    this.beep(660, 0);
+    this.beep(660, 0.18);
+  },
+
+  beep(hz, offset) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime + offset;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = hz;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+  },
+
   stop() { /* повтор сигнала появится в спринте 6 */ }
 };
 

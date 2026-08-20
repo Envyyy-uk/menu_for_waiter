@@ -510,3 +510,91 @@ button {
 .ready-item .body { flex: 1; }
 .ready-item .what { font-weight: 700; }
 .ready-item .where { font-size: 13px; color: var(--ink-soft); }
+
+/* ==========================================================================
+   Планшет станции: бар и кухня
+
+   Экран стоит на полке в двух метрах от человека и читается боковым зрением.
+   Поэтому всё крупнее, чем в зале, а цвет несёт смысл: серое — не взяли,
+   жёлтое — делают, зелёное — готово.
+   ========================================================================== */
+
+body.station { background: #0b0a09; }
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+  align-content: start;
+  padding: 14px;
+  padding-bottom: calc(14px + var(--safe-b));
+}
+
+.board .empty {
+  grid-column: 1 / -1;
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: 20px;
+}
+
+.mark {
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: var(--bg-2);
+  border: 2px solid var(--line);
+  overflow: hidden;
+}
+.mark.accepted { border-color: var(--warn); }
+.mark.ready    { border-color: var(--ok); }
+
+/* Просрочка кричит и не перестаёт, пока марку не взяли. */
+.mark.late { border-color: var(--danger); }
+.mark.late .mark-head { background: var(--danger-bg); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+.mark.late .waited { animation: pulse 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mark.late .waited { animation: none; } }
+
+.mark-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-3);
+  border-bottom: 1px solid var(--line);
+}
+.mark-head .table { font-size: 26px; font-weight: 800; line-height: 1; }
+.mark-head .meta { flex: 1; font-size: 13px; color: var(--ink-soft); }
+.mark-head .waited { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.mark-items { flex: 1; padding: 10px 14px; display: flex; flex-direction: column; gap: 10px; }
+.mark-item { display: flex; gap: 12px; align-items: baseline; }
+.mark-item .n { min-width: 40px; font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.mark-item .what { flex: 1; }
+.mark-item .what b { font-size: 20px; font-weight: 700; }
+.mark-item .opts { display: block; font-size: 16px; color: var(--accent); }
+.mark-item .note { display: block; font-size: 15px; color: var(--warn); }
+.mark-item.gone { opacity: .5; }
+.mark-item.gone .what b { text-decoration: line-through; }
+.mark-item.gone .why { display: block; font-size: 14px; color: var(--danger); }
+
+.mark-note {
+  margin: 0 14px 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 15px;
+}
+
+.mark-foot { display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); }
+.mark-foot .btn { flex: 1; min-height: 64px; font-size: 19px; }
+
+.station-state {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  font-size: 14px;
+  color: var(--ink-soft);
+}

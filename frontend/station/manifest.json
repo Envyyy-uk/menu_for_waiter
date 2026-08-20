@@ -1,0 +1,18 @@
+{
+  "id": "/station/",
+  "name": "Станция — бар и кухня",
+  "short_name": "Станция",
+  "description": "Марки бара и кухни",
+  "start_url": "/station/",
+  "scope": "/station/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0a09",
+  "theme_color": "#0b0a09",
+  "lang": "ru",
+  "icons": [
+    { "src": "/assets/icons/station-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/station-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/station-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

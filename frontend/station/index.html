@@ -5,34 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Станция</title>
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#100f0d">
+<meta name="theme-color" content="#0b0a09">
+<link rel="manifest" href="/station/manifest.json">
+<link rel="icon" href="/assets/icons/station-192.png">
+<link rel="apple-touch-icon" href="/assets/icons/station-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Станция">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
-<body>
+<body class="station">
+
+<!-- Баннер потери связи перекрывает всё намеренно: тихий устаревший список
+     хуже ошибки — по нему готовят то, что уже отменили. -->
+<div id="offline" class="offline" hidden>
+  <p class="head">Нет связи</p>
+  <p class="body">Список на экране устарел. Не готовьте по нему — ждём сервер.</p>
+</div>
 
 <header class="topbar" hidden id="bar">
-  <span class="netdot on" id="link"></span>
-  <h1>Станция</h1>
+  <span class="netdot" id="link" title="связь с сервером"></span>
+  <h1 id="title">Станция</h1>
+  <span class="station-state" id="state"></span>
   <span class="who" id="who"></span>
   <button class="btn ghost" id="out" type="button">Выйти</button>
 </header>
 
-<main id="app" hidden style="padding:20px"></main>
+<main id="board" class="board"></main>
 
 <script src="/assets/api.js"></script>
 <script src="/assets/auth.js"></script>
-<script src="/assets/pwa.js"></script>
+<script src="/assets/live.js"></script>
+<script src="/assets/sound.js"></script>
+<script src="/assets/station.js"></script>
+<script src="/assets/pwa.js" data-sw="/station/sw.js" data-scope="/station/"></script>
 <script>
 Auth.start(me => {
   document.getElementById('bar').hidden = false;
-  document.getElementById('app').hidden = false;
-  document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
-  document.getElementById('out').addEventListener('click', () => Auth.logout());
-  document.getElementById('app').innerHTML =
-    '<p class="muted">Бар и кухня. Экран собирается в следующем спринте.</p>';
+  Board.start(me);
 });
 </script>
 </body>
