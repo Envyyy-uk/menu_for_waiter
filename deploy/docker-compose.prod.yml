@@ -1,0 +1,72 @@
+# Боевой запуск: база, сервер, и Caddy перед ними ради HTTPS.
+#
+# Отличия от локального compose ровно три, и все три важны:
+#   · пароль базы берётся из .env, а не зашит в файл;
+#   · всё перезапускается само после падения и после перезагрузки сервера;
+#   · снаружи открыт только Caddy, база наружу не смотрит вовсе.
+#
+# `--env-file .env` обязателен и не для красоты: сам файл лежит в deploy/, и
+# без этого ключа compose ищет .env рядом с собой, а не в корне — пароль базы
+# просто не подставится, и запуск остановится с невнятной ошибкой.
+#
+#   docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d --build
+
+name: pos
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?задайте POSTGRES_PASSWORD в .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pos} -d ${POSTGRES_DB:-pos}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Портов наружу нет намеренно: до базы дотягивается только сервер.
+
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pos}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pos}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # Домен читается отсюда: Caddy сам возьмёт сертификат Let's Encrypt.
+      # Без HTTPS не работают push-уведомления и установка на домашний экран.
+      POS_DOMAIN: ${POS_DOMAIN:?задайте POS_DOMAIN в .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddydata:
+  caddyconfig:

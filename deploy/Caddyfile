@@ -1,0 +1,29 @@
+# HTTPS без единой ручной настройки: Caddy сам получает и продлевает
+# сертификат Let's Encrypt для домена из POS_DOMAIN.
+#
+# Он нужен не для красоты. Без HTTPS браузер не даёт ни push-уведомлений при
+# свёрнутом приложении, ни установки на домашний экран, ни доступа к экрану,
+# который не должен гаснуть.
+
+{$POS_DOMAIN} {
+	encode zstd gzip
+
+	# Сокет реалтайма и обычные запросы идут одним маршрутом: Caddy проксирует
+	# WebSocket без дополнительных строк.
+	reverse_proxy api:8000
+
+	header {
+		# Приложение открыто только своим и в рамку чужого сайта не встраивается.
+		X-Frame-Options DENY
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		-Server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+	}
+}
