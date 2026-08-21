@@ -6,7 +6,7 @@ from app.models.user import ROLE_OWNER
 
 def test_menu_loaded(db, venue):
     items = db.scalars(select(MenuItem).where(MenuItem.venue_id == venue.id)).all()
-    assert len(items) == 45
+    assert len(items) == 63
     assert {i.station for i in items} == {"bar", "kitchen"}
     # Категории показываются по-русски — интерфейс полностью русский.
     assert venue.categories["hookah"] == "Кальяны"

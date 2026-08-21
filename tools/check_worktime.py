@@ -51,12 +51,18 @@ def pin(page, code: str) -> None:
 
 # Подписи набраны капителью средствами оформления — сравниваем без учёта
 # регистра, иначе проверка ломается от смены шрифта, а не от кода.
-def shift_button(page):
-    return page.locator(".signal .btn").first
+def shift_line(page) -> str:
+    box = page.locator(".on-shift")
+    return box.inner_text().strip().lower() if box.count() else ""
 
 
-def shift_text(page) -> str:
-    return shift_button(page).inner_text().strip().lower()
+def exit_and_close(page, code: str) -> None:
+    """«Выйти» закрывает смену и спрашивает свой PIN."""
+    page.locator("#out").click()
+    page.wait_for_timeout(600)
+    for digit in code:
+        page.locator(".sheet .pad button", has_text=digit).first.click()
+    page.wait_for_timeout(1200)
 
 
 def main() -> None:
@@ -92,14 +98,11 @@ def main() -> None:
         page.goto(BASE, wait_until="networkidle")
         pin(page, code)
 
-        # --- смена начинается -------------------------------------------
-        check("на столах есть кнопка смены", "открыть смену" in shift_text(page),
-              shift_text(page))
-        shift_button(page).click()
-        page.wait_for_timeout(900)
-        check("смена пошла и показывает время", "закрыть смену" in shift_text(page),
-              shift_text(page))
-        check("время считается с открытия", "0 мин" in shift_text(page), shift_text(page))
+        # --- смена начинается со входа ------------------------------------
+        # Отдельная кнопка «открыть» означала, что однажды её забудут нажать.
+        check("смена открылась сама при входе", "смена с" in shift_line(page),
+              shift_line(page))
+        check("время считается с открытия", "0 мин" in shift_line(page), shift_line(page))
 
         # --- открытый чек домой не отпускает ------------------------------
         page.locator(FREE_TABLE).first.click()
@@ -115,12 +118,14 @@ def main() -> None:
         page.get_by_role("button", name="←").click()
         page.wait_for_timeout(800)
 
-        shift_button(page).click()
-        page.wait_for_timeout(900)
-        toast = page.locator(".toast").inner_text()
+        exit_and_close(page, code)
+        message = page.locator(".sheet .msg").inner_text()
         check("с открытым чеком смена не закрывается",
-              "чек" in toast.lower() and "стол" in toast.lower(), toast)
-        check("смена всё ещё идёт", "закрыть смену" in shift_text(page), shift_text(page))
+              "чек" in message.lower() and "стол" in message.lower(), message)
+        page.locator(".sheet .btn.ghost").click()   # выйти, не закрывая
+        page.wait_for_timeout(900)
+        pin(page, code)
+        check("смена всё ещё идёт", "смена с" in shift_line(page), shift_line(page))
 
         # --- закрыли чек, теперь можно и смену ----------------------------
         page.locator(":is(.spot, .tile).busy").first.click()
@@ -130,8 +135,7 @@ def main() -> None:
         page.locator(".sheet .btn.primary").first.click()      # карта
         page.wait_for_timeout(1500)
 
-        shift_button(page).click()
-        page.wait_for_timeout(1500)
+        exit_and_close(page, code)
         sheet = page.locator(".sheet").inner_text()
         check("после закрытия показан итог вечера",
               "смена закрыта" in sheet.lower(), sheet.replace("\n", " ")[:120])
@@ -141,9 +145,9 @@ def main() -> None:
         check("выручка та, что закрыл сам", "£13.00" in sheet,
               sheet.replace("\n", " ")[:200])
         page.locator(".sheet .btn.primary").last.click()
-        page.wait_for_timeout(700)
-        check("смена закрыта — кнопка снова «открыть»",
-              "открыть смену" in shift_text(page), shift_text(page))
+        page.wait_for_timeout(1200)
+        check("после закрытия смены — экран входа",
+              page.locator("#gate").count() == 1, page.url)
 
         # --- часы попали в табель ------------------------------------------
         admin.reload(wait_until="networkidle")

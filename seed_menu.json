@@ -253,14 +253,14 @@
    "warning": null
   },
   {
-   "key": "vodka-house",
-   "name": "Absolut, Stoli",
+   "key": "absolut",
+   "name": "Absolut",
    "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
    "price_pence": 1300,
    "position": 12,
-   "state": "off",
+   "state": "on",
    "options": [
     {
      "key": "size",
@@ -308,24 +308,6 @@
      ]
     },
     {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "absolut",
-       "name": "Absolut"
-      },
-      {
-       "key": "stoli",
-       "name": "Stoli"
-      }
-     ]
-    },
-    {
      "key": "mixer",
      "label": "Микс",
      "mode": "many",
@@ -341,43 +323,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -389,12 +371,12 @@
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "vodka-premium",
-   "name": "Grey Goose, Beluga",
+   "key": "stoli",
+   "name": "Stoli",
    "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
-   "price_pence": 26000,
+   "price_pence": 1300,
    "position": 13,
    "state": "on",
    "options": [
@@ -407,27 +389,39 @@
      "add_pence": 0,
      "choices": [
       {
-       "key": "bottle",
-       "name": "Бутылка",
-       "price_pence": 26000
-      }
-     ]
-    },
-    {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "grey-goose",
-       "name": "Grey Goose"
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
       },
       {
-       "key": "beluga",
-       "name": "Beluga"
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
       }
      ]
     },
@@ -447,43 +441,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -495,12 +489,12 @@
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "whiskey",
-   "name": "Jack Daniels, Black Label, Jameson",
-   "description": "Виски · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "key": "grey-goose",
+   "name": "Grey Goose",
+   "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
-   "price_pence": 1300,
+   "price_pence": 26000,
    "position": 14,
    "state": "on",
    "options": [
@@ -513,66 +507,9 @@
      "add_pence": 0,
      "choices": [
       {
-       "key": "ml50",
-       "name": "50 мл",
-       "price_pence": 1300
-      },
-      {
-       "key": "ml100",
-       "name": "100 мл",
-       "price_pence": 2600
-      },
-      {
-       "key": "ml150",
-       "name": "150 мл",
-       "price_pence": 3900
-      },
-      {
-       "key": "ml200",
-       "name": "200 мл",
-       "price_pence": 5200
-      },
-      {
-       "key": "ml250",
-       "name": "250 мл",
-       "price_pence": 6500
-      },
-      {
-       "key": "ml300",
-       "name": "300 мл",
-       "price_pence": 7800
-      },
-      {
        "key": "bottle",
        "name": "Бутылка",
-       "price_pence": 23000
-      },
-      {
-       "key": "premium",
-       "name": "Бутылка (премиум)",
        "price_pence": 26000
-      }
-     ]
-    },
-    {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "jack-daniels",
-       "name": "Jack Daniels"
-      },
-      {
-       "key": "black-label",
-       "name": "Black Label"
-      },
-      {
-       "key": "jameson",
-       "name": "Jameson"
       }
      ]
     },
@@ -592,43 +529,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -636,19 +573,16 @@
      ]
     }
    ],
-   "search_terms": [
-    "виски",
-    "віскі"
-   ],
+   "search_terms": [],
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "bombay",
-   "name": "Bombay",
-   "description": "Джин · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "key": "beluga",
+   "name": "Beluga",
+   "description": "Водка · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
-   "price_pence": 1300,
+   "price_pence": 26000,
    "position": 15,
    "state": "on",
    "options": [
@@ -661,43 +595,8 @@
      "add_pence": 0,
      "choices": [
       {
-       "key": "ml50",
-       "name": "50 мл",
-       "price_pence": 1300
-      },
-      {
-       "key": "ml100",
-       "name": "100 мл",
-       "price_pence": 2600
-      },
-      {
-       "key": "ml150",
-       "name": "150 мл",
-       "price_pence": 3900
-      },
-      {
-       "key": "ml200",
-       "name": "200 мл",
-       "price_pence": 5200
-      },
-      {
-       "key": "ml250",
-       "name": "250 мл",
-       "price_pence": 6500
-      },
-      {
-       "key": "ml300",
-       "name": "300 мл",
-       "price_pence": 7800
-      },
-      {
        "key": "bottle",
        "name": "Бутылка",
-       "price_pence": 23000
-      },
-      {
-       "key": "premium",
-       "name": "Бутылка (премиум)",
        "price_pence": 26000
       }
      ]
@@ -718,43 +617,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -766,9 +665,9 @@
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "rum-house",
-   "name": "Havana Club, Bacardi",
-   "description": "Ром · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "key": "jack-daniels",
+   "name": "Jack Daniels",
+   "description": "Виски из Теннесси · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
    "price_pence": 1300,
@@ -826,20 +725,128 @@
      ]
     },
     {
-     "key": "kind",
-     "label": "Вид",
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "виски",
+    "віскі"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "black-label",
+   "name": "Black Label",
+   "description": "Шотландский купажированный виски · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 17,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
      "mode": "one",
      "required": true,
      "depends": null,
      "add_pence": 0,
      "choices": [
       {
-       "key": "havana-club",
-       "name": "Havana Club"
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
       },
       {
-       "key": "bacardi",
-       "name": "Bacardi"
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
       }
      ]
     },
@@ -859,43 +866,541 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "виски",
+    "віскі"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "jameson",
+   "name": "Jameson",
+   "description": "Ирландский виски · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 18,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "виски",
+    "віскі"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "bombay",
+   "name": "Bombay",
+   "description": "Джин · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 19,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "havana-club",
+   "name": "Havana Club",
+   "description": "Ром · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 20,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "bacardi",
+   "name": "Bacardi",
+   "description": "Белый ром · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 21,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      },
+      {
+       "key": "premium",
+       "name": "Бутылка (премиум)",
+       "price_pence": 26000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -913,7 +1418,7 @@
    "category": "spirits",
    "station": "bar",
    "price_pence": 1300,
-   "position": 17,
+   "position": 22,
    "state": "on",
    "options": [
     {
@@ -977,43 +1482,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -1031,7 +1536,7 @@
    "category": "spirits",
    "station": "bar",
    "price_pence": 1600,
-   "position": 18,
+   "position": 23,
    "state": "on",
    "options": [
     {
@@ -1095,43 +1600,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -1149,7 +1654,7 @@
    "category": "spirits",
    "station": "bar",
    "price_pence": 1300,
-   "position": 19,
+   "position": 24,
    "state": "on",
    "options": [
     {
@@ -1213,43 +1718,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -1263,13 +1768,13 @@
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "liqueur",
-   "name": "Liqueurs",
-   "description": "Ликёр на выбор · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "key": "disaronno",
+   "name": "Disaronno Amaretto",
+   "description": "Ликёр амаретто · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
    "category": "spirits",
    "station": "bar",
    "price_pence": 1300,
-   "position": 20,
+   "position": 25,
    "state": "on",
    "options": [
     {
@@ -1318,28 +1823,124 @@
      ]
     },
     {
-     "key": "kind",
-     "label": "Вид",
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "ликер",
+    "ликёр",
+    "лікер"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "baileys",
+   "name": "Baileys",
+   "description": "Сливочный ликёр · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 26,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
      "mode": "one",
      "required": true,
      "depends": null,
      "add_pence": 0,
      "choices": [
       {
-       "key": "disaronno",
-       "name": "Disaronno Amaretto"
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
       },
       {
-       "key": "baileys",
-       "name": "Baileys"
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
       },
       {
-       "key": "jagermeister",
-       "name": "Jägermeister"
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
       },
       {
-       "key": "malibu",
-       "name": "Malibu"
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
       }
      ]
     },
@@ -1359,43 +1960,43 @@
      },
      "choices": [
       {
-       "key": "soft-drink:cola",
+       "key": "cola",
        "name": "Cola",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:sprite",
+       "key": "sprite",
        "name": "Sprite",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:fanta",
+       "key": "fanta",
        "name": "Fanta",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:orange",
-       "name": "Апельсиновый сок",
+       "key": "juice-orange",
+       "name": "Orange Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:apple",
-       "name": "Яблочный сок",
+       "key": "juice-apple",
+       "name": "Apple Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:cranberry",
-       "name": "Клюквенный сок",
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
        "add_pence": 300,
        "max_qty": 6
       },
       {
-       "key": "soft-drink:red-bull",
+       "key": "red-bull",
        "name": "Red Bull",
        "add_pence": 300,
        "max_qty": 6
@@ -1403,7 +2004,257 @@
      ]
     }
    ],
-   "search_terms": [],
+   "search_terms": [
+    "ликер",
+    "ликёр",
+    "лікер"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "jagermeister",
+   "name": "Jägermeister",
+   "description": "Немецкий ликёр · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 27,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "jagermeister",
+    "егермейстер",
+    "ликер",
+    "ликёр",
+    "лікер"
+   ],
+   "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
+  },
+  {
+   "key": "malibu",
+   "name": "Malibu",
+   "description": "Кокосовый ликёр · Микс к крепкому — £3. Цена бутылки включает два микса на выбор.",
+   "category": "spirits",
+   "station": "bar",
+   "price_pence": 1300,
+   "position": 28,
+   "state": "on",
+   "options": [
+    {
+     "key": "size",
+     "label": "Объём",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "ml50",
+       "name": "50 мл",
+       "price_pence": 1300
+      },
+      {
+       "key": "ml100",
+       "name": "100 мл",
+       "price_pence": 2600
+      },
+      {
+       "key": "ml150",
+       "name": "150 мл",
+       "price_pence": 3900
+      },
+      {
+       "key": "ml200",
+       "name": "200 мл",
+       "price_pence": 5200
+      },
+      {
+       "key": "ml250",
+       "name": "250 мл",
+       "price_pence": 6500
+      },
+      {
+       "key": "ml300",
+       "name": "300 мл",
+       "price_pence": 7800
+      },
+      {
+       "key": "bottle",
+       "name": "Бутылка",
+       "price_pence": 23000
+      }
+     ]
+    },
+    {
+     "key": "mixer",
+     "label": "Микс",
+     "mode": "many",
+     "required": false,
+     "depends": null,
+     "add_pence": 0,
+     "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
+     "choices": [
+      {
+       "key": "cola",
+       "name": "Cola",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "sprite",
+       "name": "Sprite",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "fanta",
+       "name": "Fanta",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-orange",
+       "name": "Orange Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-apple",
+       "name": "Apple Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "juice-cranberry",
+       "name": "Cranberry Juice",
+       "add_pence": 300,
+       "max_qty": 6
+      },
+      {
+       "key": "red-bull",
+       "name": "Red Bull",
+       "add_pence": 300,
+       "max_qty": 6
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "ликер",
+    "ликёр",
+    "лікер"
+   ],
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
@@ -1413,7 +2264,7 @@
    "category": "spirits",
    "station": "bar",
    "price_pence": 900,
-   "position": 21,
+   "position": 29,
    "state": "on",
    "options": [
     {
@@ -1502,7 +2353,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 22,
+   "position": 30,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1518,7 +2369,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 23,
+   "position": 31,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1539,7 +2390,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 24,
+   "position": 32,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1555,7 +2406,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 25,
+   "position": 33,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1571,7 +2422,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 26,
+   "position": 34,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1591,7 +2442,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 27,
+   "position": 35,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1606,7 +2457,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 28,
+   "position": 36,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1627,7 +2478,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 29,
+   "position": 37,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1644,7 +2495,7 @@
    "category": "cocktails",
    "station": "bar",
    "price_pence": 1600,
-   "position": 30,
+   "position": 38,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1662,7 +2513,7 @@
    "category": "beer-soft",
    "station": "bar",
    "price_pence": 800,
-   "position": 31,
+   "position": 39,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1671,55 +2522,120 @@
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "soft-drink",
-   "name": "Soft Drinks / Juices",
-   "description": "Газированные напитки и соки",
+   "key": "cola",
+   "name": "Cola",
+   "description": "Газированный напиток",
    "category": "beer-soft",
    "station": "bar",
    "price_pence": 500,
-   "position": 32,
+   "position": 40,
    "state": "on",
-   "options": [
-    {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "cola",
-       "name": "Cola"
-      },
-      {
-       "key": "sprite",
-       "name": "Sprite"
-      },
-      {
-       "key": "fanta",
-       "name": "Fanta"
-      },
-      {
-       "key": "orange",
-       "name": "Апельсиновый сок"
-      },
-      {
-       "key": "apple",
-       "name": "Яблочный сок"
-      },
-      {
-       "key": "cranberry",
-       "name": "Клюквенный сок"
-      },
-      {
-       "key": "red-bull",
-       "name": "Red Bull"
-      }
-     ]
-    }
+   "options": [],
+   "search_terms": [
+    "cola",
+    "кола"
    ],
-   "search_terms": [],
+   "warning": null
+  },
+  {
+   "key": "sprite",
+   "name": "Sprite",
+   "description": "Газированный напиток",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 41,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "спрайт"
+   ],
+   "warning": null
+  },
+  {
+   "key": "fanta",
+   "name": "Fanta",
+   "description": "Газированный напиток",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 42,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "фанта"
+   ],
+   "warning": null
+  },
+  {
+   "key": "juice-orange",
+   "name": "Orange Juice",
+   "description": "Сок",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 43,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "апельсиновий",
+    "апельсиновый",
+    "сок",
+    "сік"
+   ],
+   "warning": null
+  },
+  {
+   "key": "juice-apple",
+   "name": "Apple Juice",
+   "description": "Сок",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 44,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "сок",
+    "сік",
+    "яблочный",
+    "яблучний"
+   ],
+   "warning": null
+  },
+  {
+   "key": "juice-cranberry",
+   "name": "Cranberry Juice",
+   "description": "Сок",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 45,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "журавлиновий",
+    "клюквенный",
+    "сок",
+    "сік"
+   ],
+   "warning": null
+  },
+  {
+   "key": "red-bull",
+   "name": "Red Bull",
+   "description": "Энергетический напиток",
+   "category": "beer-soft",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 46,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "енергетик",
+    "ред булл",
+    "энергетик"
+   ],
    "warning": null
   },
   {
@@ -1729,7 +2645,7 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 1300,
-   "position": 33,
+   "position": 47,
    "state": "on",
    "options": [
     {
@@ -1763,7 +2679,7 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 1300,
-   "position": 34,
+   "position": 48,
    "state": "on",
    "options": [
     {
@@ -1797,7 +2713,7 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 1300,
-   "position": 35,
+   "position": 49,
    "state": "on",
    "options": [
     {
@@ -1831,7 +2747,7 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 2500,
-   "position": 36,
+   "position": 50,
    "state": "on",
    "options": [
     {
@@ -1883,7 +2799,7 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 50000,
-   "position": 37,
+   "position": 51,
    "state": "on",
    "options": [],
    "search_terms": [],
@@ -1896,46 +2812,62 @@
    "category": "wine",
    "station": "bar",
    "price_pence": 35000,
-   "position": 38,
+   "position": 52,
    "state": "on",
    "options": [],
    "search_terms": [],
    "warning": "Алкоголь. Подаётся только совершеннолетним — бармен проверит документ."
   },
   {
-   "key": "tea-pot",
-   "name": "Tea Pot",
+   "key": "tea-green",
+   "name": "Green Tea",
    "description": "Чайник чая",
    "category": "hot",
    "station": "bar",
    "price_pence": 1000,
-   "position": 39,
+   "position": 53,
    "state": "on",
-   "options": [
-    {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "green",
-       "name": "Зелёный"
-      },
-      {
-       "key": "black",
-       "name": "Чёрный"
-      },
-      {
-       "key": "camomile",
-       "name": "Ромашковый"
-      }
-     ]
-    }
-   ],
+   "options": [],
    "search_terms": [
+    "зелений",
+    "зелёный",
+    "чай",
+    "чайник"
+   ],
+   "warning": null
+  },
+  {
+   "key": "tea-black",
+   "name": "Black Tea",
+   "description": "Чайник чая",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 1000,
+   "position": 54,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "чай",
+    "чайник",
+    "чорний",
+    "чёрный"
+   ],
+   "warning": null
+  },
+  {
+   "key": "tea-camomile",
+   "name": "Camomile Tea",
+   "description": "Чайник чая",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 1000,
+   "position": 55,
+   "state": "on",
+   "options": [],
+   "search_terms": [
+    "ромашка",
+    "ромашковий",
+    "ромашковый",
     "чай",
     "чайник"
    ],
@@ -1948,7 +2880,7 @@
    "category": "hot",
    "station": "bar",
    "price_pence": 1300,
-   "position": 40,
+   "position": 56,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -1964,7 +2896,7 @@
    "category": "hot",
    "station": "bar",
    "price_pence": 600,
-   "position": 41,
+   "position": 57,
    "state": "on",
    "options": [
     {
@@ -2004,7 +2936,7 @@
    "category": "hot",
    "station": "bar",
    "price_pence": 400,
-   "position": 42,
+   "position": 58,
    "state": "on",
    "options": [],
    "search_terms": [
@@ -2016,37 +2948,15 @@
    "warning": null
   },
   {
-   "key": "coffee-milk",
-   "name": "Cappuccino, Latte, Mocha",
+   "key": "cappuccino",
+   "name": "Cappuccino",
    "description": "Кофе на молоке, миндальном или соевом",
    "category": "hot",
    "station": "bar",
    "price_pence": 500,
-   "position": 43,
+   "position": 59,
    "state": "on",
    "options": [
-    {
-     "key": "kind",
-     "label": "Вид",
-     "mode": "one",
-     "required": true,
-     "depends": null,
-     "add_pence": 0,
-     "choices": [
-      {
-       "key": "cappuccino",
-       "name": "Капучино"
-      },
-      {
-       "key": "latte",
-       "name": "Латте"
-      },
-      {
-       "key": "mocha",
-       "name": "Мокко"
-      }
-     ]
-    },
     {
      "key": "milk",
      "label": "Молоко",
@@ -2073,9 +2983,88 @@
    "search_terms": [
     "кава",
     "капучино",
+    "кофе"
+   ],
+   "warning": null
+  },
+  {
+   "key": "latte",
+   "name": "Latte",
+   "description": "Кофе на молоке, миндальном или соевом",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 60,
+   "state": "on",
+   "options": [
+    {
+     "key": "milk",
+     "label": "Молоко",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "milk",
+       "name": "Коровье"
+      },
+      {
+       "key": "almond",
+       "name": "Миндальное"
+      },
+      {
+       "key": "soya",
+       "name": "Соевое"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "кава",
     "кофе",
     "лате",
-    "латте",
+    "латте"
+   ],
+   "warning": null
+  },
+  {
+   "key": "mocha",
+   "name": "Mocha",
+   "description": "Кофе с шоколадом на молоке, миндальном или соевом",
+   "category": "hot",
+   "station": "bar",
+   "price_pence": 500,
+   "position": 61,
+   "state": "on",
+   "options": [
+    {
+     "key": "milk",
+     "label": "Молоко",
+     "mode": "one",
+     "required": true,
+     "depends": null,
+     "add_pence": 0,
+     "choices": [
+      {
+       "key": "milk",
+       "name": "Коровье"
+      },
+      {
+       "key": "almond",
+       "name": "Миндальное"
+      },
+      {
+       "key": "soya",
+       "name": "Соевое"
+      }
+     ]
+    }
+   ],
+   "search_terms": [
+    "кава",
+    "кофе",
+    "мока",
     "мокко"
    ],
    "warning": null
@@ -2087,7 +3076,7 @@
    "category": "hookah",
    "station": "bar",
    "price_pence": 5000,
-   "position": 44,
+   "position": 62,
    "state": "on",
    "options": [
     {

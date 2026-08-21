@@ -72,14 +72,14 @@ def test_real_catalogue_converts(db, venue):
     """Тот самый файл с сайта — на нём и проверяем, а не на выдуманном."""
     src = Path(__file__).resolve().parents[2] / "seed_menu.json"
     snapshot = json.loads(src.read_text(encoding="utf-8"))
-    assert len(snapshot["items"]) == 45
+    assert len(snapshot["items"]) == 63
 
     hookah = next(i for i in snapshot["items"] if i["key"] == "hookah")
     leaf = next(g for g in hookah["options"] if g["key"] == "dark-leaf")
     # Зависимая группа и добавки переживают преобразование — на них держится
     # половина цен в баре.
     assert leaf["depends"] == {"group": "leaf", "value": "dark-leaf"}
-    vodka = next(i for i in snapshot["items"] if i["key"] == "vodka-house")
+    vodka = next(i for i in snapshot["items"] if i["key"] == "absolut")
     mixer = next(g for g in vodka["options"] if g["key"] == "mixer")
     assert mixer["mode"] == "many"
     assert mixer["choices"][0]["add_pence"] == 300

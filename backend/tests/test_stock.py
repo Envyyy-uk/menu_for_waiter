@@ -83,7 +83,7 @@ def test_sending_an_order_takes_it_off_the_shelf(client, db, hall):
     login(client, "123456")
     bottle = make(client, "Absolut", quantity=1500)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": bottle["id"],
         "options": {"size": "ml50"},
         "per_unit": 50,
@@ -92,9 +92,9 @@ def test_sending_an_order_takes_it_off_the_shelf(client, db, hall):
     login(client, "1111")
     check = open_check(client, hall)
     client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "qty": 2,
-        "options": {"size": "ml50", "kind": "absolut"},
+        "options": {"size": "ml50"},
     })
     # Черновик склада не трогает: его ещё могут стереть.
     login(client, "123456")
@@ -118,7 +118,7 @@ def test_recipe_matches_the_chosen_variant(client, db, hall):
     bottle = make(client, "Absolut", quantity=2000)
     for size, per in (("ml50", 50), ("bottle", 700)):
         client.post("/api/stock/recipes", json={
-            "menu_item_id": menu_id(db, "vodka-house"),
+            "menu_item_id": menu_id(db, "absolut"),
             "stock_item_id": bottle["id"],
             "options": {"size": size},
             "per_unit": per,
@@ -127,8 +127,8 @@ def test_recipe_matches_the_chosen_variant(client, db, hall):
     login(client, "1111")
     check = open_check(client, hall)
     client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
-        "options": {"size": "bottle", "kind": "absolut"},
+        "menu_item_id": menu_id(db, "absolut"),
+        "options": {"size": "bottle"},
     })
     client.post(f"/api/checks/{check['id']}/send")
 
@@ -140,7 +140,7 @@ def test_cancelling_puts_it_back(client, db, hall):
     login(client, "123456")
     bottle = make(client, "Absolut", quantity=1000)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": bottle["id"],
         "options": {"size": "ml50"},
         "per_unit": 50,
@@ -149,8 +149,8 @@ def test_cancelling_puts_it_back(client, db, hall):
     login(client, "1111")
     check = open_check(client, hall)
     check = client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
-        "options": {"size": "ml50", "kind": "absolut"},
+        "menu_item_id": menu_id(db, "absolut"),
+        "options": {"size": "ml50"},
     }).json()
     check = client.post(f"/api/checks/{check['id']}/send").json()
     item = check["items"][0]["id"]
@@ -189,7 +189,7 @@ def test_waiter_cannot_sell_more_than_there_is(client, db, hall):
     login(client, "123456")
     bottle = make(client, "Absolut", quantity=30)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": bottle["id"],
         "options": {"size": "ml50"},
         "per_unit": 50,
@@ -198,8 +198,8 @@ def test_waiter_cannot_sell_more_than_there_is(client, db, hall):
     login(client, "1111")
     check = open_check(client, hall)
     r = client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
-        "options": {"size": "ml50", "kind": "absolut"},
+        "menu_item_id": menu_id(db, "absolut"),
+        "options": {"size": "ml50"},
     })
     assert r.status_code == 409
     # Сообщение называет и продукт, и цифры: официанту говорить это гостю.
@@ -215,7 +215,7 @@ def test_the_limit_counts_the_whole_check(client, db, hall):
     login(client, "123456")
     bottle = make(client, "Absolut", quantity=100)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": bottle["id"],
         "options": {"size": "ml50"},
         "per_unit": 50,
@@ -223,8 +223,8 @@ def test_the_limit_counts_the_whole_check(client, db, hall):
 
     login(client, "1111")
     check = open_check(client, hall)
-    body = {"menu_item_id": menu_id(db, "vodka-house"),
-            "options": {"size": "ml50", "kind": "absolut"}}
+    body = {"menu_item_id": menu_id(db, "absolut"),
+            "options": {"size": "ml50"}}
     assert client.post(f"/api/checks/{check['id']}/items", json=body).status_code == 201
     assert client.post(f"/api/checks/{check['id']}/items", json=body).status_code == 201
     assert client.post(f"/api/checks/{check['id']}/items", json=body).status_code == 409
@@ -255,7 +255,7 @@ def test_recipe_shows_the_variant_by_name(client, db, hall):
     login(client, "123456")
     bottle = make(client, "Absolut", quantity=1000)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": bottle["id"],
         "options": {"size": "ml50"},
         "per_unit": 50,
@@ -282,17 +282,17 @@ def test_mixer_goes_off_the_shelf_too(client, db, hall):
     login(client, "123456")
     cola = make(client, "Cola 0.33", unit="pc", quantity=10)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": cola["id"],
-        "options": {"mixer": "soft-drink:cola"},
+        "options": {"mixer": "cola"},
         "per_unit": 1,
     })
 
     login(client, "1111")
     check = open_check(client, hall)
     client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
-        "options": {"size": "ml50", "kind": "absolut", "mixer": ["soft-drink:cola", "soft-drink:cola"]},
+        "menu_item_id": menu_id(db, "absolut"),
+        "options": {"size": "ml50", "mixer": ["cola", "cola"]},
     })
     client.post(f"/api/checks/{check['id']}/send")
 
@@ -304,17 +304,17 @@ def test_mixer_of_another_kind_is_not_touched(client, db, hall):
     login(client, "123456")
     cola = make(client, "Cola 0.33", unit="pc", quantity=10)
     client.post("/api/stock/recipes", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
+        "menu_item_id": menu_id(db, "absolut"),
         "stock_item_id": cola["id"],
-        "options": {"mixer": "soft-drink:cola"},
+        "options": {"mixer": "cola"},
         "per_unit": 1,
     })
 
     login(client, "1111")
     check = open_check(client, hall)
     client.post(f"/api/checks/{check['id']}/items", json={
-        "menu_item_id": menu_id(db, "vodka-house"),
-        "options": {"size": "ml50", "kind": "absolut", "mixer": ["soft-drink:sprite"]},
+        "menu_item_id": menu_id(db, "absolut"),
+        "options": {"size": "ml50", "mixer": ["sprite"]},
     })
     client.post(f"/api/checks/{check['id']}/send")
 

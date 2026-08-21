@@ -22,7 +22,7 @@ const App = {
   async start(me) {
     this.me = me;
     document.getElementById('who').textContent = me.name;
-    document.getElementById('out').addEventListener('click', () => Auth.logout());
+    document.getElementById('out').addEventListener('click', () => this.exit());
 
     // Дорога обратно в админку. В админке ссылка в зал есть, а обратно её не
     // было: администратор, зашедший посмотреть зал, оставался там.
@@ -54,6 +54,14 @@ const App = {
     Push.init();
 
     await this.refresh(true);
+    // Смена начинается со входа. Отдельная кнопка «открыть» означала, что
+    // однажды её забудут нажать — и вечер не попадёт в табель.
+    if (Auth.can('work.shift') && this.shift && !this.shift.open) {
+      try {
+        this.shift = await API.post('/api/work/shift/open');
+        toast('Смена открыта', 'good');
+      } catch (e) { /* без табеля работать всё равно можно */ }
+    }
     this.go('tables');
   },
 
@@ -229,14 +237,13 @@ const App = {
   signalRow() {
     const row = el('div', 'signal');
 
-    // Смена — первым делом: её открывают, приходя на работу, и закрывают,
-    // уходя. Часы считает сервер, здесь только кнопка и то, сколько уже идёт.
-    if (Auth.can('work.shift') && this.shift) {
-      const on = this.shift.open;
-      const b = el('button', 'btn' + (on ? ' ghost' : ' primary'),
-        on ? `Закрыть смену · ${this.shift.hours_text}` : 'Открыть смену');
-      b.addEventListener('click', () => (on ? this.closeShift() : this.openShift()));
-      row.appendChild(b);
+    // Смена идёт со входа и до «Выйти». Здесь не кнопка, а строка: сколько
+    // уже отработано. Нажимать нечего — и забыть нечего.
+    if (Auth.can('work.shift') && this.shift && this.shift.open) {
+      const from = new Date(this.shift.opened_at)
+        .toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      row.appendChild(el('span', 'on-shift',
+        `Смена с ${esc(from)} · ${esc(this.shift.hours_text)}`));
     }
 
     const test = el('button', 'btn ghost', 'Проверить звук');
@@ -269,35 +276,69 @@ const App = {
     return row;
   },
 
+  /* Выход закрывает смену. PIN спрашивается снова: час в табеле это деньги,
+     и закрывать смену должен тот, кто её работал, а не тот, кому отдали
+     телефон долистать. */
+  exit() {
+    if (!(this.shift && this.shift.open)) return Auth.logout();
+
+    const need = (Auth.me && Auth.me.pin_length) || 4;
+    Sheet.show('Закрыть смену', `${this.shift.hours_text} · введите свой PIN`, body => {
+      let pin = '';
+      const dots = el('div', 'dots');
+      const paint = () => {
+        dots.innerHTML = '';
+        for (let i = 0; i < need; i++) dots.appendChild(el('i', i < pin.length ? 'on' : ''));
+      };
+      body.appendChild(dots);
+      const msg = el('p', 'msg');
+      body.appendChild(msg);
+
+      const pad = el('div', 'pad');
+      ['1','2','3','4','5','6','7','8','9','clear','0','back'].forEach(key => {
+        const b = el('button', key === 'clear' || key === 'back' ? 'action' : '');
+        b.type = 'button';
+        b.textContent = key === 'clear' ? 'Сброс' : key === 'back' ? '←' : key;
+        b.addEventListener('click', async () => {
+          if (key === 'clear') pin = '';
+          else if (key === 'back') pin = pin.slice(0, -1);
+          else if (pin.length < need) pin += key;
+          buzz();
+          paint();
+          if (pin.length !== need) return;
+          const code = pin;
+          pin = '';
+          try {
+            const closed = await API.post('/api/work/shift/close', { pin: code });
+            Sheet.hide();
+            this.shift = { open: false };
+            this.shiftReport(closed, true);
+          } catch (e) {
+            paint();
+            msg.textContent = e.message || 'Не получилось';
+            buzz([40, 60, 40]);
+          }
+        });
+        pad.appendChild(b);
+      });
+      body.appendChild(pad);
+      body.appendChild(el('div', '', '<div style="height:10px"></div>'));
+
+      // Телефон передают из рук в руки, и «просто выйти» — обычное дело.
+      // Смена при этом остаётся открытой: она про часы, а не про экран.
+      const just = el('button', 'btn wide ghost', 'Выйти, не закрывая смену');
+      just.addEventListener('click', () => Auth.logout());
+      body.appendChild(just);
+    });
+  },
+
   /* ------------------------------------------------------------ смена --- */
   /* Табель ведёт сам человек: пришёл — открыл, ушёл — закрыл. Часы считает
      сервер: телефон можно перезагрузить, часовой пояс подкрутить, а время
      смены должно остаться тем же. */
-  async openShift() {
-    try {
-      this.shift = await API.post('/api/work/shift/open');
-      toast('Смена открылась', 'good');
-      this.paint();
-    } catch (e) { toast(e.message, 'bad'); }
-  },
-
-  async closeShift() {
-    let closed;
-    try {
-      closed = await API.post('/api/work/shift/close');
-    } catch (e) {
-      // Открытый чек смену не закрывает: уйти домой с ним значит оставить
-      // деньги на столе. Сервер называет столы поимённо.
-      return toast(e.message, 'bad');
-    }
-    this.shift = { open: false };
-    this.paint();
-    this.shiftReport(closed);
-  },
-
   /* Итог вечера показывается один раз — сразу после закрытия. Дальше он
      живёт в табеле, и достать его может менеджер. */
-  shiftReport(shift) {
+  shiftReport(shift, andExit) {
     const r = shift.report || {};
     const when = t => (t ? new Date(t).toLocaleTimeString('ru-RU',
       { hour: '2-digit', minute: '2-digit' }) : '');
@@ -320,7 +361,7 @@ const App = {
         'Записано в табель. Он хранится год — по нему сверяют часы.'));
       body.appendChild(el('div', '', '<div style="height:12px"></div>'));
       const ok = el('button', 'btn wide big primary', 'Понятно');
-      ok.addEventListener('click', () => Sheet.hide());
+      ok.addEventListener('click', () => { Sheet.hide(); if (andExit) Auth.logout(); });
       body.appendChild(ok);
     });
   },

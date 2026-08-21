@@ -608,6 +608,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .opt.on { background: var(--gold); border-color: var(--gold); color: #1d1a16; }
 .opt .add { font-size: 12px; opacity: .8; }
 
+/* Смена идёт — это строка, а не кнопка: нажимать нечего. */
+.on-shift {
+  align-self: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.sheet .dots { display: flex; gap: 14px; justify-content: center; margin: 6px 0 10px; }
+.sheet .msg { min-height: 20px; margin: 0 0 8px; text-align: center; font-size: 13px; color: var(--danger); }
+.sheet .pad { margin: 0 auto; }
+
 /* Ползунок скидки: цифра рядом, крупная — её называют вслух гостю. */
 .percent { display: flex; align-items: center; gap: 14px; }
 .percent .range { flex: 1; accent-color: var(--gold); height: 34px; }
