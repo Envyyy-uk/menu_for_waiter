@@ -1027,6 +1027,13 @@ const Admin = {
       + 'на вопрос «куда делось полбутылки» ответить нечем. Продажи '
       + 'списываются сами, когда позиция уходит на станцию.'));
 
+    // Позиции, которые ещё не заполняли, — не тревога, а список дел.
+    if ((data.new || []).length) {
+      wrap.appendChild(el('p', 'hint',
+        `Не заполнено: ${data.new.length} ${plural(data.new.length, 'позиция', 'позиции', 'позиций')}`
+        + ' — впишите, сколько стоит на полке. Кнопка «Движение» в строке.'));
+    }
+
     if (data.out.length || data.low.length) {
       const alarm = el('div', 'sync' + (data.out.length ? ' bad' : ''));
       alarm.innerHTML = `<div class="body">
@@ -1072,7 +1079,11 @@ const Admin = {
       fill.addEventListener('click', async () => {
         try {
           const made = await API.post('/api/stock/fill');
-          toast(`Заведено позиций: ${made.items}. Количество впишите сами`, 'good', 5000);
+          // Ноль — тоже ответ, и его надо объяснить: иначе кнопка выглядит
+          // сломанной, хотя заводить было нечего.
+          toast(made.items
+            ? `Заведено позиций: ${made.items}. Количество впишите сами`
+            : 'Всё уже заведено: у каждой позиции меню есть правило', 'good', 5000);
           this.load();
         } catch (e) { toast(e.message, 'bad'); }
       });
@@ -1283,6 +1294,25 @@ const Admin = {
 
   recipeActions(recipe) {
     const box = el('div', 'row-actions');
+
+    // Расход правится прямо в строке. Заготовка ставит ноль там, где цифру
+    // знает только человек, и переписывать её удалением правила — тридцать
+    // лишних движений на одно меню.
+    const per = el('input', 'field slim');
+    per.type = 'number';
+    per.step = '0.001';
+    per.value = recipe.per_unit;
+    per.title = 'Сколько уходит на одну порцию';
+    per.addEventListener('change', async () => {
+      try {
+        await API.patch(`/api/stock/recipes/${recipe.id}`,
+          { per_unit: Number(per.value) || 0 });
+        toast('Расход записан', 'good');
+        this.load();
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    box.appendChild(per);
+
     const kill = el('button', 'btn danger', 'Убрать');
     kill.addEventListener('click', async () => {
       try {

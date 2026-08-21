@@ -223,8 +223,8 @@ def alarms(db: Session, ids: Iterable[uuid.UUID]) -> list[dict[str, Any]]:
         item = db.get(StockItem, stock_id)
         if item is None or not item.active:
             continue
-        payload = item_payload(item)
-        if payload["state"] != "ok":
+        payload = item_payload(item, touched(db, item.venue_id))
+        if payload["state"] not in ("ok", "new"):
             out.append(payload)
     return out
 
@@ -314,9 +314,33 @@ def announce(db: Session, venue_id, moves: Iterable[StockMove]) -> None:
 
 
 # --------------------------------------------------------------- ответы ---
-def item_payload(item: StockItem) -> dict[str, Any]:
+def touched(db: Session, venue_id) -> set[uuid.UUID]:
+    """У каких позиций вообще были движения.
+
+    Позиция, только что заведённая заготовкой, стоит на нуле — но это не
+    «кончилось», а «ещё не считали». Кричать о ней тревогой значит утопить в
+    ней те позиции, которые действительно кончились.
+    """
+    rows = db.execute(
+        select(StockMove.stock_item_id)
+        .where(StockMove.venue_id == venue_id)
+        .distinct()
+    ).all()
+    return {r[0] for r in rows}
+
+
+def item_payload(item: StockItem, seen: set[uuid.UUID] | None = None) -> dict[str, Any]:
     quantity = float(item.quantity)
     low = float(item.low_at)
+    if quantity <= 0 and seen is not None and item.id not in seen:
+        # Ноль без единого движения — это «не заполнено», а не «кончилось».
+        state = "new"
+    elif quantity <= 0:
+        state = "out"
+    elif low and quantity <= low:
+        state = "low"
+    else:
+        state = "ok"
     return {
         "id": str(item.id),
         "name": item.name,
@@ -324,8 +348,9 @@ def item_payload(item: StockItem) -> dict[str, Any]:
         "unit_name": UNIT_NAMES.get(item.unit, item.unit),
         "quantity": quantity,
         "low_at": low,
-        # Три состояния, а не два: «кончилось» и «мало» — разные новости.
-        "state": "out" if quantity <= 0 else ("low" if low and quantity <= low else "ok"),
+        # Четыре состояния: «кончилось» и «мало» — разные новости, а
+        # «не заполнено» — вообще не новость.
+        "state": state,
         "note": item.note,
         "active": item.active,
     }

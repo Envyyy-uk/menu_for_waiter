@@ -22,6 +22,8 @@ from app.models import (
     MOVE_NAMES,
     MOVE_REASONS,
     MOVE_WRITE_OFF,
+    STATION_BAR,
+    UNIT_G,
     UNIT_ML,
     UNIT_NAMES,
     UNIT_PC,
@@ -55,15 +57,28 @@ def listing(
     rows = db.scalars(
         select(StockItem).where(StockItem.venue_id == venue.id).order_by(StockItem.name)
     ).all()
-    items = [stock.item_payload(i) for i in rows if i.active]
+    seen = stock.touched(db, venue.id)
+    items = [stock.item_payload(i, seen) for i in rows if i.active]
     return {
         "units": [{"key": u, "name": UNIT_NAMES[u]} for u in UNITS],
         "items": items,
-        # Сводка вперёд списка: ради неё склад и открывают.
+        # Сводка вперёд списка: ради неё склад и открывают. Позиции, которые
+        # ещё не заполняли, сюда не попадают: ноль без движений — это «не
+        # считали», а не «кончилось».
         "out": [i["name"] for i in items if i["state"] == "out"],
         "low": [i["name"] for i in items if i["state"] == "low"],
+        "new": [i["name"] for i in items if i["state"] == "new"],
     }
 
+
+# Что готовят на месте, а что покупают готовым.
+#
+# Состав есть у всего — у банки колы он тоже написан на этикетке. Но на полке
+# лежит банка, а не «газированная вода, сахар и кофеин»: разбирать её на
+# составляющие значит завести склад, которого не существует.
+#
+# Разбираем только то, что собирают руками: коктейли и кухню.
+MADE_HERE = ("cocktails", "pizza", "traditional", "desserts", "platters")
 
 # Сколько миллилитров в бутылке по умолчанию. Цифру потом правят руками —
 # важно, чтобы правило вообще было, а не чтобы оно было точным с первой
@@ -77,14 +92,21 @@ def fill(
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> dict:
-    """Завести склад по меню: на каждую позицию — своя строка и своё правило.
+    """Завести склад по меню.
 
-    Заполнять сорок позиций руками — вечер работы, и на середине бросают.
-    Количество остаётся нулевым: сколько стоит на полке, знает только тот, кто
-    туда посмотрел.
+    Заполнять руками сорок позиций — вечер работы, и на середине бросают.
 
-    Позицию с объёмами («50 мл … бутылка») заводим в миллилитрах и правилом
-    «сколько выбрали, столько и списать». Всё остальное — поштучно.
+    Разбирается три случая, и они разные:
+
+    * **Позиция с объёмами** («50 мл … бутылка») — это бутылка на полке.
+      Заводится в миллилитрах, правило одно: сколько выбрали, столько и ушло.
+    * **Позиция с составом** (коктейль, пицца) — списывается не она сама, а
+      её состав: ром, лайм, сахар, мята. Расход по каждому продукту вписывает
+      человек: сколько мяты в мохито, каталог не знает.
+    * **Всё остальное** — поштучно: банка колы уходит банкой.
+
+    Количество везде остаётся нулевым: сколько стоит на полке, знает только
+    тот, кто туда посмотрел.
     """
     items = db.scalars(
         select(MenuItem).where(MenuItem.venue_id == venue.id, MenuItem.active.is_(True))
@@ -100,44 +122,83 @@ def fill(
 
     made_items = 0
     made_rules = 0
+    blank = 0
+
+    def line(name: str, unit: str) -> StockItem:
+        nonlocal made_items
+        row = have_names.get(name)
+        if row is None:
+            row = StockItem(venue_id=venue.id, name=name, unit=unit, quantity=0, low_at=0)
+            db.add(row)
+            db.flush()
+            have_names[name] = row
+            made_items += 1
+        return row
+
     for item in items:
         # У позиции уже есть правило — её заводили руками, не трогаем.
         if item.id in have_rules:
             continue
+
         by_volume = any(
             str(choice.get("key", "")).startswith("ml")
             for group in (item.options or [])
             for choice in (group.get("choices") or [])
         )
-        stock_item = have_names.get(item.name)
-        if stock_item is None:
-            stock_item = StockItem(
-                venue_id=venue.id,
-                name=item.name,
-                unit=UNIT_ML if by_volume else UNIT_PC,
-                quantity=0,
-                low_at=0,
+        parts = list(item.ingredients or []) if item.category in MADE_HERE else []
+
+        if by_volume:
+            stock_item = line(item.name, UNIT_ML)
+            db.add(
+                Recipe(
+                    venue_id=venue.id,
+                    menu_item_id=item.id,
+                    stock_item_id=stock_item.id,
+                    options={},
+                    per_unit=BOTTLE_ML,
+                    by_volume=True,
+                )
             )
-            db.add(stock_item)
-            db.flush()
-            have_names[item.name] = stock_item
-            made_items += 1
+            made_rules += 1
+            continue
+
+        if parts:
+            # У коктейля своя единица: жидкое считают миллилитрами, еду —
+            # граммами. Ошибиться здесь не страшно, единицу правят в строке.
+            unit = UNIT_ML if item.station == STATION_BAR else UNIT_G
+            for part in parts:
+                name = str(part.get("name") or part.get("key") or "").strip()
+                if not name:
+                    continue
+                db.add(
+                    Recipe(
+                        venue_id=venue.id,
+                        menu_item_id=item.id,
+                        stock_item_id=line(name, unit).id,
+                        options={},
+                        # Ноль намеренно: сколько мяты в мохито, каталог не
+                        # знает, а выдуманная цифра врёт убедительнее пустой.
+                        per_unit=0,
+                    )
+                )
+                made_rules += 1
+                blank += 1
+            continue
 
         db.add(
             Recipe(
                 venue_id=venue.id,
                 menu_item_id=item.id,
-                stock_item_id=stock_item.id,
+                stock_item_id=line(item.name, UNIT_PC).id,
                 options={},
-                per_unit=BOTTLE_ML if by_volume else 1,
-                by_volume=by_volume,
+                per_unit=1,
             )
         )
         made_rules += 1
 
     db.commit()
     realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
-    return {"items": made_items, "recipes": made_rules}
+    return {"items": made_items, "recipes": made_rules, "blank": blank}
 
 
 @router.get("/inventory")
@@ -419,6 +480,33 @@ def recipes(
         }
         for r in rows
     ]
+
+
+class RecipePatch(BaseModel):
+    per_unit: float = Field(ge=0)
+
+
+@router.patch("/recipes/{recipe_id}")
+def edit_recipe(
+    recipe_id: uuid.UUID,
+    body: RecipePatch,
+    actor: User = Depends(require("stock.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Поправить расход в правиле.
+
+    Заготовка ставит ноль там, где расход знает только человек: сколько мяты
+    в мохито, каталог не знает. Вписывать это удалением и добавлением правила
+    заново — тридцать лишних движений на одно меню.
+    """
+    row = db.get(Recipe, recipe_id)
+    if row is None or row.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="правило не найдено")
+    row.per_unit = Decimal(str(body.per_unit))
+    db.commit()
+    realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
+    return {"status": "ok", "per_unit": float(row.per_unit)}
 
 
 @router.post("/recipes", status_code=201)

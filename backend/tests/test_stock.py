@@ -68,13 +68,30 @@ def test_inventory_records_the_difference(client, hall):
 def test_low_and_empty_are_different_news(client, hall):
     login(client, "123456")
     make(client, "Absolut", quantity=100, low=200)
-    make(client, "Beluga", quantity=0, low=200)
+    beluga = make(client, "Beluga", quantity=100, low=200)
     make(client, "Jameson", quantity=900, low=200)
+    # Кончилось по-настоящему: было и ушло.
+    client.post(f"/api/stock/{beluga['id']}/move",
+                json={"delta": 100, "reason": "off", "note": "разбили"})
 
     body = client.get("/api/stock").json()
     assert body["low"] == ["Absolut"]
     assert body["out"] == ["Beluga"]
     assert stock_of(client, "Jameson")["state"] == "ok"
+
+
+def test_a_line_nobody_filled_is_not_an_alarm(client, hall):
+    """Ноль без единого движения — это «ещё не считали», а не «кончилось».
+
+    Иначе заготовка по меню поднимает тревогу разом по всему списку, и в ней
+    тонет то, что действительно кончилось.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    body = client.get("/api/stock").json()
+    assert body["out"] == []
+    assert len(body["new"]) == len(body["items"])
+    assert stock_of(client, "Absolut")["state"] == "new"
 
 
 # ------------------------------------------------------ списание с продаж --
@@ -328,15 +345,20 @@ def test_fill_makes_a_line_and_a_rule_for_every_position(client, db, hall):
     login(client, "123456")
     made = client.post("/api/stock/fill").json()
     assert made["items"] > 30
-    assert made["recipes"] == made["items"]
+    # Правил больше, чем строк: у коктейля правило на каждый продукт состава.
+    assert made["recipes"] >= made["items"]
 
     items = client.get("/api/stock").json()["items"]
     absolut = next(i for i in items if i["name"] == "Absolut")
     # У позиции с объёмами склад в миллилитрах, у остального — поштучно.
     assert absolut["unit"] == "ml"
     assert absolut["quantity"] == 0          # сколько на полке, знает человек
-    pizza = next(i for i in items if "Margherita" in i["name"])
-    assert pizza["unit"] == "pc"
+    # У пиццы состав, значит на полке лежит не «пицца», а мука и моцарелла.
+    cheese = next(i for i in items if i["name"] == "моцарелла")
+    assert cheese["unit"] == "g"
+    # А то, у чего ни объёмов, ни состава, считается поштучно.
+    cola = next(i for i in items if i["name"] == "Cola")
+    assert cola["unit"] == "pc"
 
 
 def test_volume_rule_takes_what_the_waiter_chose(client, db, hall):
@@ -428,3 +450,56 @@ def test_inventory_keeps_the_difference_by_month(client, db, hall):
 def test_inventory_is_not_for_the_waiter(client, db, hall):
     login(client, "1111")
     assert client.get("/api/stock/inventory").status_code == 403
+
+
+def test_fill_takes_a_cocktail_apart(client, db, hall):
+    """Коктейль списывает не «коктейль», а ром, лайм, сахар и мяту."""
+    login(client, "123456")
+    made = client.post("/api/stock/fill").json()
+    assert made["blank"] > 0          # расход по составу вписывает человек
+
+    names = {i["name"] for i in client.get("/api/stock").json()["items"]}
+    assert {"ром", "лайм", "сахар", "мята"} <= names
+
+    rules = [r for r in client.get("/api/stock/recipes").json()
+             if r["menu_item"] == "Mojito"]
+    assert {r["stock_item"] for r in rules} == {"ром", "сахар", "лайм", "мята"}
+    assert all(r["per_unit"] == 0 for r in rules)
+
+
+def test_the_amount_is_edited_in_place(client, db, hall):
+    """Вписывать расход удалением правила — тридцать движений на одно меню."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    rule = next(r for r in client.get("/api/stock/recipes").json()
+                if r["menu_item"] == "Mojito" and r["stock_item"] == "ром")
+
+    r = client.patch(f"/api/stock/recipes/{rule['id']}", json={"per_unit": 50})
+    assert r.status_code == 200
+    assert r.json()["per_unit"] == 50
+
+    after = next(x for x in client.get("/api/stock/recipes").json() if x["id"] == rule["id"])
+    assert after["per_unit"] == 50
+
+
+def test_a_cocktail_takes_all_its_parts_off_the_shelf(client, db, hall):
+    """Заказали мохито — ушли и ром, и лайм, каждый по своей цифре."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    rules = {r["stock_item"]: r for r in client.get("/api/stock/recipes").json()
+             if r["menu_item"] == "Mojito"}
+    for name, per in (("ром", 50), ("лайм", 20)):
+        client.patch(f"/api/stock/recipes/{rules[name]['id']}", json={"per_unit": per})
+        item = next(i for i in client.get("/api/stock").json()["items"] if i["name"] == name)
+        client.post(f"/api/stock/{item['id']}/move",
+                    json={"delta": 1000, "reason": "in", "note": "привезли"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "mojito"), "qty": 2})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert stock_of(client, "ром")["quantity"] == 900      # 1000 − 2×50
+    assert stock_of(client, "лайм")["quantity"] == 960     # 1000 − 2×20

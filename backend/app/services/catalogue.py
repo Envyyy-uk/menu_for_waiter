@@ -147,6 +147,7 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
         return labels.get(key, key)
 
     warnings = {k: ru(v) for k, v in (raw.get("warnings") or {}).items()}
+    lexicon = raw.get("lexicon") or {}
     addons = raw.get("addons") or {}
     categories = {c["key"]: ru(c.get("names"), c["key"]) for c in (raw.get("categories") or [])}
 
@@ -229,6 +230,14 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
 
         warning_texts = [warnings[w] for w in entry.get("w") or [] if w in warnings]
 
+        # Состав. В каталоге он записан ключами («rum», «lime»), а человеку
+        # нужны слова — их даёт словарь. Из состава потом собирается склад:
+        # коктейль списывает не «коктейль», а ром, лайм, сахар и мяту.
+        ingredients = [
+            {"key": k, "name": ru(lexicon.get(k), k)}
+            for k in entry.get("ing") or []
+        ]
+
         items.append(
             {
                 "key": key,
@@ -246,6 +255,7 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
                 "options": groups,
                 # Названия английские, а ищет официант по-русски.
                 "search_terms": sorted({t.lower() for t in entry.get("alt") or []}),
+                "ingredients": ingredients,
                 "warning": " ".join(warning_texts) or None,
             }
         )

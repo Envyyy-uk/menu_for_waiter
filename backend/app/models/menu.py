@@ -85,6 +85,9 @@ class MenuItem(UUIDPk, Timestamped, Base):
     # Слова, по которым официант ищет позицию: «кальян», «шиша», «пельмени».
     # Названия английские, а искать в зале удобнее по-русски.
     search_terms: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    # Состав из каталога: [{"key": "rum", "name": "ром"}]. Из него собирается
+    # склад — коктейль списывает не «коктейль», а ром, лайм, сахар и мяту.
+    ingredients: Mapped[list[dict]] = mapped_column(JSONB, default=list, server_default="[]")
 
     # Предупреждение на марку и в чек: алкоголь и табак — по документу.
     warning: Mapped[str | None] = mapped_column(Text, default=None)

@@ -134,6 +134,7 @@ def apply(db: Session, venue: Venue, payload: dict[str, Any], *, actor_id=None) 
         item.position = int(raw.get("position") or 0)
         item.options = raw.get("options") or []
         item.search_terms = raw.get("search_terms") or []
+        item.ingredients = raw.get("ingredients") or []
         item.warning = raw.get("warning")
         item.active = True
         # Стоп с сайта кладётся отдельным полем. Смешивать его со стоп-листом

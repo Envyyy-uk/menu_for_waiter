@@ -60,6 +60,7 @@ def _menu(db: Session, venue: Venue, payload: dict) -> int:
         item.position = int(raw.get("position") or 0)
         item.options = raw.get("options") or []
         item.search_terms = raw.get("search_terms") or []
+        item.ingredients = raw.get("ingredients") or []
         item.warning = raw.get("warning")
         item.active = True
         seen.add(raw["key"])
