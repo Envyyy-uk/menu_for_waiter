@@ -391,3 +391,40 @@ def test_fill_does_not_touch_what_was_set_by_hand(client, db, hall):
              if r["menu_item"] == "Absolut"]
     assert len(rules) == 1
     assert rules[0]["stock_item"] == "Своя бутылка"
+
+
+# ------------------------------------------------- инвентаризация ---------
+def test_inventory_sheet_shows_what_should_be_there(client, db, hall):
+    """Лист на сегодня: расчётный остаток против полки."""
+    login(client, "123456")
+    make(client, "Absolut", quantity=700)
+    body = client.get("/api/stock/inventory").json()
+    line = next(r for r in body["sheet"] if r["name"] == "Absolut")
+    assert line["expected"] == 700
+    assert line["unit_name"] == "мл"
+
+
+def test_inventory_keeps_the_difference_by_month(client, db, hall):
+    """Через полгода вопрос звучит «когда расхождение началось»."""
+    login(client, "123456")
+    bottle = make(client, "Absolut", quantity=700)
+    client.post(f"/api/stock/{bottle['id']}/move",
+                json={"reason": "count", "counted": 650, "note": "инвентаризация"})
+
+    body = client.get("/api/stock/inventory").json()
+    assert len(body["months"]) == 1
+    rows = body["history"]["rows"]
+    assert len(rows) == 1
+    # Записана разница, а не новое число: само число ничего не объясняет.
+    assert rows[0]["difference"] == -50
+    assert rows[0]["name"] == "Absolut"
+    assert rows[0]["who"] == "Владелец"
+    assert body["history"]["gap"] == -50
+
+    # И остаток стал тем, что на полке.
+    assert stock_of(client, "Absolut")["quantity"] == 650
+
+
+def test_inventory_is_not_for_the_waiter(client, db, hall):
+    login(client, "1111")
+    assert client.get("/api/stock/inventory").status_code == 403

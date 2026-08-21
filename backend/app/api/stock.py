@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.core.deps import get_venue, require
 from app.db import get_db
 from app.models import (
+    MOVE_COUNT,
     MOVE_IN,
     MOVE_NAMES,
     MOVE_REASONS,
@@ -137,6 +138,73 @@ def fill(
     db.commit()
     realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
     return {"items": made_items, "recipes": made_rules}
+
+
+@router.get("/inventory")
+def inventory(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"),
+    actor: User = Depends(require("stock.view")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Инвентаризация: сколько должно быть, сколько есть и куда делась разница.
+
+    Текущий лист — это «должно быть» прямо сейчас: расчётный остаток против
+    полки. Фактическое число вписывает человек, и записывается не оно, а
+    разница: само число ничего не объясняет, объясняет расхождение.
+
+    Прошлые пересчёты лежат по месяцам. Через полгода вопрос звучит не «что
+    там сейчас», а «когда началось расхождение».
+    """
+    items = db.scalars(
+        select(StockItem)
+        .where(StockItem.venue_id == venue.id, StockItem.active.is_(True))
+        .order_by(StockItem.name)
+    ).all()
+
+    counts = db.scalars(
+        select(StockMove)
+        .where(StockMove.venue_id == venue.id, StockMove.reason == MOVE_COUNT)
+        .order_by(StockMove.at.desc())
+    ).all()
+
+    names = {u.id: u.name for u in db.scalars(select(User).where(User.venue_id == venue.id)).all()}
+    titles = {i.id: i for i in items}
+
+    months: dict[str, dict] = {}
+    for row in counts:
+        key = row.at.strftime("%Y-%m")
+        item = titles.get(row.stock_item_id)
+        bucket = months.setdefault(key, {"month": key, "rows": [], "gap": 0.0})
+        bucket["rows"].append(
+            {
+                "at": row.at.isoformat(),
+                "name": item.name if item else "—",
+                "unit_name": UNIT_NAMES.get(item.unit, "") if item else "",
+                # Разница и есть суть записи: минус — недостача, плюс — нашлось.
+                "difference": float(row.delta),
+                "who": names.get(row.by_id, "—"),
+                "note": row.note,
+            }
+        )
+        bucket["gap"] += float(row.delta)
+
+    want = month or (sorted(months, reverse=True)[0] if months else None)
+    return {
+        "months": sorted(months, reverse=True),
+        "month": want,
+        "history": months.get(want, {"month": want, "rows": [], "gap": 0.0}),
+        # Лист на сегодня: расчётный остаток, который надо сверить с полкой.
+        "sheet": [
+            {
+                "id": str(i.id),
+                "name": i.name,
+                "unit_name": UNIT_NAMES.get(i.unit, i.unit),
+                "expected": float(i.quantity),
+            }
+            for i in items
+        ],
+    }
 
 
 class ItemIn(BaseModel):

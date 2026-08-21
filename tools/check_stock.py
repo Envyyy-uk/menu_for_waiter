@@ -83,7 +83,7 @@ def main() -> None:
         # Правило: 50 мл водки на порцию.
         forms = page.locator(".form")
         recipe = forms.last
-        recipe.locator("select").nth(0).select_option(label="Absolut, Stoli")
+        recipe.locator("select").nth(0).select_option(label="Absolut")
         page.wait_for_timeout(300)
         recipe.locator("select").nth(1).select_option(label="Объём: 50 мл")
         recipe.locator("select").nth(2).select_option(label=good)
@@ -107,9 +107,10 @@ def main() -> None:
         waiter.wait_for_timeout(400)
         waiter.locator(".dish").first.click()
         waiter.wait_for_timeout(400)
+        # Вид больше не выбирают: Absolut и Stoli — разные позиции меню, и
+        # на полке это разные бутылки.
         groups = waiter.locator(".sheet .group")
         groups.nth(0).locator(".opt").first.click()      # 50 мл
-        groups.nth(1).locator(".opt").first.click()      # Absolut
         waiter.locator(".sheet [data-qty], .sheet .stepper button").last.click()  # ещё одна
         waiter.wait_for_timeout(300)
         waiter.locator(".sheet .btn.primary").click()

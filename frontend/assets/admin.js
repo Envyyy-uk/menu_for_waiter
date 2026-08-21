@@ -34,6 +34,7 @@ const Admin = {
     { key: 'stations', name: 'Станции', need: 'stations.manage' },
     { key: 'menu', name: 'Меню', need: 'items.edit' },
     { key: 'stock', name: 'Склад', need: 'stock.view' },
+    { key: 'inventory', name: 'Инвентаризация', need: 'stock.view' },
     { key: 'audit', name: 'Журнал', need: 'audit.view' }
   ],
 
@@ -117,6 +118,10 @@ const Admin = {
         this.data.stock = await API.get('/api/stock');
         this.data.recipes = await API.get('/api/stock/recipes');
         this.data.menu = await API.get('/api/menu');
+      }
+      if (this.tab === 'inventory') {
+        this.data.inventory = await API.get(
+          '/api/stock/inventory' + (this.month ? '?month=' + this.month : ''));
       }
       if (this.tab === 'audit') this.data.audit = await API.get('/api/admin/audit');
     } catch (e) {
@@ -1285,6 +1290,110 @@ const Admin = {
   },
 
   /* ---------------------------------------------------------- журнал ---- */
+  /* -------------------------------------------------- инвентаризация ---- */
+  /* Лист на сегодня: сколько должно быть, сколько есть, и куда делась
+     разница. Записывается разница, а не новое число: само число ничего не
+     объясняет, объясняет расхождение. */
+  view_inventory() {
+    const d = this.data.inventory;
+    const wrap = el('div', 'panel');
+    wrap.appendChild(el('h2', '', 'Инвентаризация'));
+    wrap.appendChild(el('p', 'hint',
+      'Слева расчётный остаток — сколько должно быть по чекам и приходам. '
+      + 'Впишите, сколько стоит на полке: в историю попадёт разница, и по ней '
+      + 'потом видно, когда расхождение началось.'));
+
+    if (!d.sheet.length) {
+      wrap.appendChild(el('p', 'hint', 'Склад пуст — считать нечего.'));
+      return wrap;
+    }
+
+    const rows = d.sheet.map(i => {
+      const field = el('input', 'field slim');
+      field.type = 'number';
+      field.step = '0.001';
+      field.placeholder = 'сколько есть';
+      field.dataset.id = i.id;
+      field.dataset.expected = i.expected;
+
+      const gap = el('span', 'gap');
+      field.addEventListener('input', () => {
+        const actual = parseFloat(field.value.replace(',', '.'));
+        if (isNaN(actual)) { gap.textContent = ''; gap.className = 'gap'; return; }
+        const diff = Math.round((actual - i.expected) * 1000) / 1000;
+        gap.textContent = diff === 0 ? 'сходится' : (diff > 0 ? '+' : '') + diff + ' ' + i.unit_name;
+        gap.className = 'gap ' + (diff === 0 ? 'ok' : diff < 0 ? 'bad' : 'warn');
+      });
+
+      return [
+        esc(i.name),
+        { num: `${i.expected} ${esc(i.unit_name)}` },
+        { actions: field },
+        { actions: gap }
+      ];
+    });
+
+    wrap.appendChild(this.table(
+      ['Позиция', 'Должно быть', 'Сколько есть', 'Разница'], rows));
+
+    const save = el('button', 'btn primary', 'Записать пересчёт');
+    save.addEventListener('click', async () => {
+      const fields = [...document.querySelectorAll('.panel .field.slim')]
+        .filter(f => f.value.trim() !== '');
+      if (!fields.length) return toast('Впишите хотя бы одну позицию', 'bad');
+      let done = 0;
+      for (const f of fields) {
+        try {
+          await API.post(`/api/stock/${f.dataset.id}/move`, {
+            reason: 'count',
+            counted: Number(f.value.replace(',', '.')),
+            note: 'инвентаризация'
+          });
+          done += 1;
+        } catch (e) { toast(e.message, 'bad'); }
+      }
+      toast(`Пересчитано позиций: ${done}`, 'good');
+      this.load();
+    });
+    wrap.appendChild(save);
+
+    // История по месяцам: через полгода вопрос звучит не «что там сейчас», а
+    // «когда расхождение началось».
+    if (d.months.length) {
+      wrap.appendChild(el('h2', '', 'Прошлые пересчёты'));
+      const pick = el('div', 'row-actions');
+      pick.style.justifyContent = 'flex-start';
+      d.months.forEach(m => {
+        const b = el('button', 'btn' + (m === d.month ? ' primary' : ''), this.monthName(m));
+        b.addEventListener('click', () => { this.month = m; this.load(); });
+        pick.appendChild(b);
+      });
+      wrap.appendChild(pick);
+
+      const past = d.history.rows;
+      if (past.length) {
+        wrap.appendChild(this.table(
+          ['Когда', 'Позиция', 'Разница', 'Кто'],
+          past.map(r => [
+            esc(this.stamp(r.at)),
+            esc(r.name),
+            `<span class="gap ${r.difference < 0 ? 'bad' : r.difference > 0 ? 'warn' : 'ok'}">`
+              + `${r.difference > 0 ? '+' : ''}${r.difference} ${esc(r.unit_name)}</span>`,
+            esc(r.who)
+          ])
+        ));
+      }
+    }
+    return wrap;
+  },
+
+  monthName(key) {
+    const [y, m] = key.split('-');
+    const names = ['январь','февраль','март','апрель','май','июнь',
+                   'июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+    return `${names[Number(m) - 1]} ${y}`;
+  },
+
   view_audit() {
     const wrap = el('div', 'panel journal');
     wrap.appendChild(el('h2', '', 'Журнал'));
@@ -1298,10 +1407,23 @@ const Admin = {
       'item.cancel': 'Отмена позиции',
       'item.edit': 'Правка меню',
       'item.state': 'Стоп-лист',
+      'category.state': 'Стоп на раздел',
       'user.create': 'Новый сотрудник',
       'user.edit': 'Правка сотрудника',
+      'user.delete': 'Сотрудник убран',
       'user.pin': 'Смена PIN',
-      'pin.failed': 'Неверный PIN'
+      'user.pin_self': 'Сменил свой PIN',
+      'pin.failed': 'Неверный PIN',
+      'stock.move': 'Движение склада',
+      'station.pin': 'PIN станции',
+      'shift.open': 'Смена станции открыта',
+      'shift.close': 'Смена станции закрыта',
+      'work.open': 'Смена открыта',
+      'work.close': 'Смена закрыта',
+      'menu.sync': 'Меню с сайта',
+      'item.price_sync': 'Цена приехала с сайта',
+      'item.gone': 'Позиции больше нет в меню',
+      'table.edit': 'Правка стола'
     };
 
     wrap.appendChild(this.table(
@@ -1310,16 +1432,66 @@ const Admin = {
         `<span class="when">${esc(new Date(r.at).toLocaleString('ru-RU'))}</span>`,
         esc(r.who),
         `<span class="what">${esc(names[r.action] || r.action)}</span>`,
-        `<span class="detail">${esc(r.entity)} ${esc(this.detail(r))}</span>`
+        `<span class="detail">${esc([this.about(r), this.detail(r)].filter(Boolean).join(' · '))}</span>`
       ])
     ));
     return wrap;
   },
 
+  /* Журнал читают глазами, а не разбирают. Сырой JSON в строке —
+     «{"delta":1000,"reason":"in"}» — это не запись о том, что случилось, а
+     дамп, который приходится расшифровывать в уме. */
+  /* «user:f791af6b-29c5-…» человеку не говорит ничего, а имя стоит рядом в
+     подробностях. Показываем только то, что читается. */
+  about(row) {
+    const entity = String(row.entity || '');
+    // «user:f791af6b-29c5-…» не говорит ничего, а «station:bar» повторяет то,
+    // что и так написано в подробностях.
+    if (/^[a-z]+:[0-9a-f]{8}-/i.test(entity)) return '';
+    if (entity === 'menu' || entity.startsWith('station:')) return '';
+    return entity
+      .replace(/^check:/, 'чек ')
+      .replace(/^item:/, '')
+      .replace(/^table:/, 'стол ')
+      .replace(/^stock:/, '')
+      .replace(/^category:/, 'раздел ');
+  },
+
   detail(row) {
+    const words = {
+      delta: 'на', reason: 'причина', note: 'заметка', name: 'имя',
+      role: 'роль', state: 'состояние', price_pence: 'цена', minutes: 'минут',
+      hours: 'отработано', discount_pence: 'скидка', total_pence: 'итого',
+      station: 'станция', tickets: 'марок', count: 'позиций', auto: 'сама',
+      payments: 'оплата', pin_length: 'длина PIN', active: 'включён'
+    };
+    const money2 = v => '£' + (Number(v) / 100).toFixed(2);
+    const one = (key, value) => {
+      if (value === null || value === undefined || value === '') return '';
+      if (key === 'payments' && Array.isArray(value)) {
+        return 'оплата: ' + value.map(p =>
+          `${p.method === 'cash' ? 'наличные' : 'карта'} ${money2(p.amount_pence)}`).join(' + ');
+      }
+      if (String(key).endsWith('_pence')) return `${words[key] || key}: ${money2(value)}`;
+      if (typeof value === 'boolean') return value ? (words[key] || key) : '';
+      if (typeof value === 'object') return '';
+      const names = {
+        in: 'приход', sale: 'продажа', return: 'возврат',
+        off: 'списание', count: 'инвентаризация',
+        on: 'в продаже', soon: 'скоро', bar: 'бар', kitchen: 'кухня',
+        waiter: 'официант', manager: 'менеджер', admin: 'администратор',
+        owner: 'владелец'
+      };
+      return `${words[key] || key}: ${names[value] || value}`;
+    };
+    const flat = obj => Object.keys(obj || {})
+      .map(k => one(k, obj[k])).filter(Boolean).join(', ');
+
     const parts = [];
-    if (row.before) parts.push('было: ' + JSON.stringify(row.before, null, 0));
-    if (row.after) parts.push('стало: ' + JSON.stringify(row.after, null, 0));
+    const was = flat(row.before);
+    const now = flat(row.after);
+    if (was) parts.push('было — ' + was);
+    if (now) parts.push(was ? 'стало — ' + now : now);
     return parts.join(' · ');
   },
 

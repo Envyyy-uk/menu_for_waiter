@@ -85,12 +85,13 @@ def main() -> None:
         check("без обязательного варианта добавить нельзя", disabled.count() > 0)
         # Выбор берётся по группам, а не по подписи: «50 мл» есть и внутри
         # «150 мл», и тест не должен угадывать.
+        # Вид больше не выбирают: Absolut и Stoli стали разными позициями
+        # меню — на полке это и есть разные бутылки.
         groups = page.locator(".sheet .group")
         groups.nth(0).locator(".opt").first.click()   # объём — 50 мл
-        groups.nth(1).locator(".opt").first.click()   # вид — Absolut
         check("микс называет конкретный напиток",
-              "Cola" in groups.nth(2).inner_text(),
-              groups.nth(2).inner_text()[:90])
+              "Cola" in groups.nth(1).inner_text(),
+              groups.nth(1).inner_text()[:90])
         page.wait_for_timeout(300)
         add = page.locator(".sheet .btn.primary")
         check("цена варианта показана до отправки", "£13.00" in add.inner_text(), add.inner_text())

@@ -608,6 +608,14 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .opt.on { background: var(--gold); border-color: var(--gold); color: #1d1a16; }
 .opt .add { font-size: 12px; opacity: .8; }
 
+/* Разница при пересчёте: минус — недостача, плюс — нашлось. Цветом, потому
+   что смотрят на неё бегло и ищут именно минусы. */
+.gap { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.gap.ok { color: var(--ok); }
+.gap.warn { color: var(--warn); }
+.gap.bad { color: var(--danger); }
+.field.slim { min-height: 38px; padding: 0 10px; font-size: 14px; max-width: 140px; }
+
 /* Смена идёт — это строка, а не кнопка: нажимать нечего. */
 .on-shift {
   align-self: center;
