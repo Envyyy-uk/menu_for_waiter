@@ -90,6 +90,22 @@ def mixer_choices(items: list[dict[str, Any]], price_pence: int) -> list[dict[st
     return out
 
 
+def _source_state(entry: dict[str, Any], soon_categories: set[str]) -> str:
+    """Что сайт говорит про эту позицию.
+
+    Три ответа, и они разные: «продаём», «скрыта» и «скоро». Последний — не
+    придирка: раздел, помеченный на сайте «скоро», гость в меню видит, а
+    заказать не может, и в зале должно быть так же.
+    """
+    if entry.get("state") not in (None, "available"):
+        return "off"
+    if entry.get("orderable") is False:
+        return "off"
+    if entry.get("category") in soon_categories:
+        return "soon"
+    return "on"
+
+
 def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, Any]:
     """Каталог сайта → то, что понимает POS.
 
@@ -115,6 +131,13 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
     warnings = {k: ru(v) for k, v in (raw.get("warnings") or {}).items()}
     addons = raw.get("addons") or {}
     categories = {c["key"]: ru(c.get("names"), c["key"]) for c in (raw.get("categories") or [])}
+
+    # Категории меню, помеченного «скоро». Так на сайте выключают целый
+    # раздел — например, кухню, — и в зале его продавать нельзя.
+    soon_categories: set[str] = set()
+    for menu in raw.get("menus") or []:
+        if menu.get("soon"):
+            soon_categories |= set(menu.get("categories") or [])
 
     items: list[dict[str, Any]] = []
     for position, entry in enumerate(raw["items"]):
@@ -192,7 +215,11 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
                 "station": entry.get("station") or "bar",
                 "price_pence": int(entry.get("price_pence") or 0),
                 "position": position,
-                "state": "on",
+                # Стоп с сайта. Позиция бывает скрыта поштучно
+                # (`state: hidden`), а целое меню — помечено «скоро»
+                # (`menus[].soon`): так на сайте выключена кухня. И то и
+                # другое значит одно: гостю это сейчас не продают.
+                "state": _source_state(entry, soon_categories),
                 "options": groups,
                 # Названия английские, а ищет официант по-русски.
                 "search_terms": sorted({t.lower() for t in entry.get("alt") or []}),

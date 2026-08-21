@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session as DbSession
 from app.core.deps import current_user, get_venue, require
 from app.db import get_db
 from app.models import ITEM_STATES, STATION_NAMES, MenuItem, User, Venue
+from app.models.menu import effective_state
 from app.services import realtime
 from app.services.audit import record
 
@@ -26,7 +27,11 @@ def item_payload(item: MenuItem) -> dict:
         "station": item.station,
         "station_name": STATION_NAMES.get(item.station, item.station),
         "price_pence": item.price_pence,
-        "state": item.state,
+        # Итоговое состояние: стоп-лист заведения и то, что говорит сайт.
+        # Продаётся, только если оба выключателя за.
+        "state": effective_state(item.state, item.source_state),
+        "local_state": item.state,
+        "source_state": item.source_state,
         "options": item.options or [],
         "search_terms": item.search_terms or [],
         "warning": item.warning,

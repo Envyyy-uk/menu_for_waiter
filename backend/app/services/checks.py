@@ -45,6 +45,7 @@ from app.models import (
     Venue,
     utcnow,
 )
+from app.models.menu import STATE_ON, effective_state
 from app.services.pricing import PriceError, resolve
 
 
@@ -138,8 +139,14 @@ def add_item(
     require_open(check)
     if not item.active:
         raise CheckError("Позиции больше нет в меню", status=409)
-    if item.state == STATE_OFF:
-        raise CheckError(f"«{item.name}» — стоп", status=409)
+    state = effective_state(item.state, item.source_state)
+    if state != STATE_ON:
+        # «Скоро» на сайте — это тоже «сейчас не продаём»: гость видит раздел
+        # в меню, но заказать его нельзя, и в зале должно быть так же.
+        raise CheckError(
+            f"«{item.name}» — {'стоп' if state == STATE_OFF else 'скоро, пока не продаём'}",
+            status=409,
+        )
 
     try:
         unit, names, chosen = resolve(item, options)

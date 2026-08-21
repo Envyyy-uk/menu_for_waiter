@@ -107,12 +107,13 @@ def apply(db: Session, venue: Venue, payload: dict[str, Any], *, actor_id=None) 
         # «изменением» — значит спрятать возврат в общем списке правок.
         is_new = item is None or not item.active
         if item is None:
-            item = MenuItem(venue_id=venue.id, key=key, state=raw.get("state", "on"))
+            item = MenuItem(venue_id=venue.id, key=key)
             db.add(item)
         if is_new:
             added.append(raw["name"])
 
         was = {
+            "source_state": item.source_state,
             "name": item.name,
             "price_pence": item.price_pence,
             "station": item.station,
@@ -135,7 +136,11 @@ def apply(db: Session, venue: Venue, payload: dict[str, Any], *, actor_id=None) 
         item.search_terms = raw.get("search_terms") or []
         item.warning = raw.get("warning")
         item.active = True
-        # `state` не трогаем намеренно: стоп-лист знает бар, а не каталог.
+        # Стоп с сайта кладётся отдельным полем. Смешивать его со стоп-листом
+        # заведения нельзя: иначе проверка каталога снимает стоп, который
+        # бармен поставил десять минут назад, а бармен возвращает в продажу
+        # то, чего в меню больше нет. `state` остаётся за баром и кухней.
+        item.source_state = raw.get("state", "on")
 
         if is_new:
             continue

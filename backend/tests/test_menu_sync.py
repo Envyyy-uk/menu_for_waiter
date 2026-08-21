@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import MenuItem
+from app.models.menu import effective_state
 from app.services import menu_sync
 from app.services.catalogue import CatalogueError, convert
 from app.services.menu_sync import SyncError, apply
@@ -258,3 +259,54 @@ def test_sync_status_is_visible(client, hall):
     state = client.get("/api/admin/menu/sync").json()
     assert "enabled" in state
     assert "every_minutes" in state
+
+
+# ------------------------------------------------- стоп приезжает с сайта --
+def test_hidden_on_the_site_is_stop_in_the_hall(db, venue):
+    """На сайте позицию скрыли — в зале её продавать нельзя.
+
+    Это ровно то, ради чего каталог один: официант не должен узнавать о
+    скрытой позиции от гостя.
+    """
+    payload = catalogue()
+    payload["items"][0]["state"] = "off"
+    menu_sync.apply(db, venue, payload)
+    db.commit()
+
+    item = keys(db, venue)[payload["items"][0]["key"]]
+    assert item.source_state == "off"
+    assert effective_state(item.state, item.source_state) == "off"
+
+
+def test_soon_section_is_not_orderable(db, venue):
+    """Раздел, помеченный на сайте «скоро», гость видит, а заказать не может."""
+    payload = catalogue()
+    payload["items"][0]["state"] = "soon"
+    menu_sync.apply(db, venue, payload)
+    db.commit()
+
+    item = keys(db, venue)[payload["items"][0]["key"]]
+    assert effective_state(item.state, item.source_state) == "soon"
+
+
+def test_site_does_not_clear_the_bar_stop(db, venue):
+    """Два выключателя, и каталог не трогает чужой.
+
+    Иначе проверка меню снимает стоп, который бармен поставил десять минут
+    назад, — и позиция уходит гостю, хотя её нет.
+    """
+    payload = catalogue()
+    menu_sync.apply(db, venue, payload)
+    db.commit()
+
+    item = keys(db, venue)[payload["items"][0]["key"]]
+    item.state = "off"          # бар: кончилось прямо сейчас
+    db.commit()
+
+    menu_sync.apply(db, venue, payload)   # сайт говорит «продаём»
+    db.commit()
+    db.expire_all()
+    item = keys(db, venue)[payload["items"][0]["key"]]
+    assert item.state == "off"
+    assert item.source_state == "on"
+    assert effective_state(item.state, item.source_state) == "off"

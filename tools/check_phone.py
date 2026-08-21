@@ -80,7 +80,12 @@ def main() -> None:
         page.wait_for_timeout(800)
         page.get_by_placeholder("Имя").fill(name)
         page.get_by_role("button", name="Завести сотрудника").click()
-        page.wait_for_timeout(1200)
+        # Ждём саму шторку, а не секунду: argon2 считает тем дольше, чем
+        # больше в заведении людей, и фиксированная пауза врёт.
+        try:
+            page.wait_for_selector(".pin-shown", timeout=15000)
+        except Exception:
+            pass
         check("PIN показан", page.locator(".pin-shown").count() == 1)
         # Кнопка в шторке должна быть достижима пальцем: раньше её перекрывал фон.
         box = page.locator(".sheet button").last.bounding_box()

@@ -87,7 +87,9 @@ def main() -> None:
         page.wait_for_timeout(300)
         recipe.locator("select").nth(1).select_option(label="Объём: 50 мл")
         recipe.locator("select").nth(2).select_option(label=good)
-        recipe.get_by_placeholder("Сколько уходит").fill("50")
+        # Поле ищем по подписи: ряд безымянных окошек уже один раз довёл до
+        # того, что форму нельзя было заполнить, не читая исходники.
+        recipe.locator(".field-box", has_text="Сколько уходит").locator("input").fill("50")
         page.get_by_role("button", name="Добавить правило").click()
         page.wait_for_timeout(1200)
         check("правило добавлено", page.locator("tr", has_text="50 мл").count() >= 1)

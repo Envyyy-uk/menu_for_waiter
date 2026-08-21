@@ -21,6 +21,19 @@ STATE_SOON = "soon"
 ITEM_STATES = (STATE_ON, STATE_OFF, STATE_SOON)
 
 
+def effective_state(state: str, source_state: str) -> str:
+    """Что с позицией на самом деле.
+
+    Два выключателя, и продаётся позиция, только если оба говорят «да».
+    «Кончилось» сильнее «скоро»: гостю важнее точный ответ.
+    """
+    if STATE_OFF in (state, source_state):
+        return STATE_OFF
+    if STATE_SOON in (state, source_state):
+        return STATE_SOON
+    return STATE_ON
+
+
 class MenuItem(UUIDPk, Timestamped, Base):
     __tablename__ = "menu_items"
     __table_args__ = (UniqueConstraint("venue_id", "key", name="uq_menu_item_key"),)
@@ -39,7 +52,20 @@ class MenuItem(UUIDPk, Timestamped, Base):
     category: Mapped[str | None] = mapped_column(String(80), default=None)
     position: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Два выключателя, а не один.
+    #
+    # `state` — стоп-лист заведения: кончилось прямо сейчас, ставит бар или
+    # кухня со своего планшета. `source_state` — то, что говорит каталог на
+    # сайте: позиция скрыта или целое меню помечено «скоро». Их нельзя
+    # смешивать: иначе синхронизация снимает стоп, поставленный барменом
+    # десять минут назад, а бармен возвращает в продажу то, чего в меню
+    # больше нет.
+    #
+    # Продаётся позиция, только если оба выключателя говорят «да».
     state: Mapped[str] = mapped_column(String(10), default=STATE_ON)
+    source_state: Mapped[str] = mapped_column(
+        String(10), default=STATE_ON, server_default=STATE_ON
+    )
 
     # Группы вариантов. Считает их сервер — браузер присылает, что выбрали,
     # а не сколько это стоит.

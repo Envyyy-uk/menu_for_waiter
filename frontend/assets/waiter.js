@@ -23,6 +23,14 @@ const App = {
     this.me = me;
     document.getElementById('who').textContent = me.name;
     document.getElementById('out').addEventListener('click', () => Auth.logout());
+
+    // Дорога обратно в админку. В админке ссылка в зал есть, а обратно её не
+    // было: администратор, зашедший посмотреть зал, оставался там.
+    if (Auth.can('reports')) {
+      const back = el('a', 'btn', 'Админка');
+      back.href = '/admin/';
+      document.getElementById('out').before(back);
+    }
     document.getElementById('back').addEventListener('click', () => this.back());
 
     try {

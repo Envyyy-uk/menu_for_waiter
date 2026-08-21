@@ -342,6 +342,10 @@ const Admin = {
       + 'шести: отсюда правят цены, роли и склад. Свой PIN каждый меняет сам; '
       + 'здесь его сбрасывают, когда забыли. PIN показывается один раз — '
       + 'дальше в базе только хеш, и подсмотреть его нельзя даже отсюда.'));
+    wrap.appendChild(el('p', 'hint',
+      'PIN планшета бара и кухни — отдельный, он живёт во вкладке «Станции». '
+      + 'Им открывают и закрывают смену на планшете, и задаёт его тот же, кто '
+      + 'заводит персонал.'));
     wrap.appendChild(this.ownPin());
 
     // Менеджеру список нужен ради одного: найти того, кто забыл PIN. Заводить
@@ -379,7 +383,11 @@ const Admin = {
     };
     role.addEventListener('change', fitPin);
     fitPin();
-    fields.append(name, role, pin);
+    fields.append(
+      this.field('Имя', name),
+      this.field('Роль', role),
+      this.field('PIN', pin, 'пусто — придумает сам')
+    );
     form.appendChild(fields);
 
     const create = el('button', 'btn primary', 'Завести сотрудника');
@@ -979,7 +987,12 @@ const Admin = {
     low.type = 'number';
     low.step = '0.001';
     low.placeholder = 'Порог «мало»';
-    fields.append(name, unit, qty, low);
+    fields.append(
+      this.field('Название', name),
+      this.field('В чём считаем', unit),
+      this.field('Сколько сейчас', qty),
+      this.field('Порог «мало»', low, 'ниже него позиция попадёт в тревогу')
+    );
     form.appendChild(fields);
 
     const add = el('button', 'btn primary', 'Завести позицию');
@@ -1094,6 +1107,16 @@ const Admin = {
 
   recipeForm() {
     const form = el('div', 'form');
+
+    // Списывать нечего, пока склад пуст. Форма из пустых списков — это
+    // кнопка, которая молча ничего не делает.
+    if (!this.data.stock.items.length) {
+      form.appendChild(el('p', 'hint',
+        'Сначала заведите позицию склада — то, что будет списываться. '
+        + 'Правило связывает её с позицией меню.'));
+      return form;
+    }
+
     const fields = el('div', 'line-fields');
 
     const dish = el('select', 'field');
@@ -1111,9 +1134,26 @@ const Admin = {
     const per = el('input', 'field');
     per.type = 'number';
     per.step = '0.001';
-    per.placeholder = 'Сколько уходит';
+    per.placeholder = '50';
     const variant = el('select', 'field');
-    fields.append(dish, variant, good, per);
+
+    // Единица берётся у выбранного продукта: «50» без миллилитров — это
+    // пятьдесят чего угодно.
+    const unitOf = () => {
+      const item = this.data.stock.items.find(i => i.id === good.value);
+      return item ? item.unit_name : '';
+    };
+    const perBox = this.field('Сколько уходит', per, unitOf());
+    good.addEventListener('change', () => {
+      perBox.querySelector('.field-hint').textContent = unitOf();
+    });
+
+    fields.append(
+      this.field('Позиция меню', dish),
+      this.field('Вариант', variant, 'у водки — объём, у пиццы вариантов нет'),
+      this.field('Что списать со склада', good),
+      perBox
+    );
     form.appendChild(fields);
 
     // Варианты подставляются от выбранной позиции: у пиццы их нет, у водки
@@ -1211,6 +1251,17 @@ const Admin = {
      телефоне отъезжает, чтобы всё влезло, — и кнопки становятся размером со
      спичечную головку, а шторка уезжает за край. Проверяли: «Персонал»
      разъезжался до 555 px на экране в 390. */
+  /* Поле с подписью. Ряд из четырёх безымянных окошек — это загадка: в
+     каком порядке заполнять и что означает третье, знает только тот, кто
+     это писал. Подпись стоит одной строки кода. */
+  field(label, node, hint) {
+    const box = el('div', 'field-box');
+    box.appendChild(el('label', '', esc(label)));
+    box.appendChild(node);
+    if (hint) box.appendChild(el('span', 'field-hint', esc(hint)));
+    return box;
+  },
+
   table(head, rows, classes) {
     const box = el('div', 'scroller');
     const node = el('table', 'grid');
