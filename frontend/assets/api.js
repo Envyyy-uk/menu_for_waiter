@@ -82,12 +82,12 @@ function plural(n, one, few, many) {
 }
 
 let toastTimer = null;
-function toast(text, kind) {
+function toast(text, kind, ms) {
   document.querySelectorAll('.toast').forEach(n => n.remove());
   const node = el('div', 'toast' + (kind ? ' ' + kind : ''), esc(text));
   document.body.appendChild(node);
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => node.remove(), kind === 'bad' ? 4200 : 2400);
+  toastTimer = setTimeout(() => node.remove(), ms || (kind === 'bad' ? 4200 : 2400));
 }
 
 /** Короткая вибрация как подтверждение нажатия. На iOS её нет — и ладно. */

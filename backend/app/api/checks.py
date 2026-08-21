@@ -170,6 +170,15 @@ def add(
         add_item(
             db, check, item, qty=body.qty, options=body.options, note=body.note, user=actor
         )
+        db.flush()
+        # Больше, чем есть на полке, набрать нельзя. Считаем по всем
+        # черновикам чека, а не по одной строке: три раза по 50 мл — это
+        # те же 150, и упереться в остаток надо на третьем нажатии, а не
+        # на отправке, когда гостю уже назвали заказ.
+        short = stock.shortages(db, [i for i in check.items if i.status == "draft"])
+        if short:
+            db.rollback()
+            raise HTTPException(status_code=409, detail=stock.shortage_text(short))
         db.commit()
     except CheckError as exc:
         _fail(exc)
@@ -228,7 +237,7 @@ def cancel(
         cancel_item(db, check, row, user=actor, reason=body.reason)
         if was_sent:
             # Отменили отправленное — продукт вернулся на полку.
-            stock.give_back(db, row, actor)
+            moves = stock.give_back(db, row, actor)
             record.write(
                 db,
                 venue_id=venue.id,
@@ -239,6 +248,7 @@ def cancel(
             )
         db.commit()
         if was_sent:
+            stock.announce(db, venue.id, moves)
             # Бармен уже мог начать делать — об отмене он должен узнать,
             # а не догадаться по пустому столу.
             realtime.publish(
@@ -262,12 +272,23 @@ def send_order(
     try:
         check = get_check(db, venue, check_id)
         drafts = [i for i in check.items if i.status == "draft"]
+        # Между набором и отправкой остаток мог уйти: соседний стол успел
+        # отправить своё. Проверяем ещё раз — это последний момент, когда
+        # отказать дешевле, чем уйти в минус.
+        short = stock.shortages(db, drafts)
+        if short:
+            db.rollback()
+            raise HTTPException(status_code=409, detail=stock.shortage_text(short))
         order, tickets = send(db, check, actor)
         # Позиция ушла на станцию — её уже наливают. Ждать закрытия чека
         # значит весь вечер видеть на складе остаток, которого там нет.
+        moves = []
         for row in drafts:
-            stock.consume(db, row, actor)
+            moves += stock.consume(db, row, actor)
         db.commit()
+        # После commit: до него изменений ещё нет, и экран склада, прибежавший
+        # за свежими данными, увидел бы старые.
+        stock.announce(db, venue.id, moves)
     except CheckError as exc:
         _fail(exc)
 

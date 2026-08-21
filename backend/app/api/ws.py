@@ -52,6 +52,8 @@ def _channels(token: str | None, shift_token: str | None) -> set[str] | None:
         user = found[0]
 
         channels: set[str] = set()
+        if can(user.role, "stock.view"):
+            channels.add(realtime.CHANNEL_STOCK)
         if can(user.role, "checks.view"):
             channels.add(realtime.CHANNEL_FLOOR)
             channels.add(realtime.waiter_channel(user.id))

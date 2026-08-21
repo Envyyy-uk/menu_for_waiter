@@ -32,6 +32,9 @@ QUEUE_SIZE = 32
 # планшет бара перерисовывался бы на каждую позицию, набранную в зале.
 CHANNEL_ALL = "all"
 CHANNEL_FLOOR = "floor"
+# Склад слышат те, кто за него отвечает. Официанту знать, что кончается
+# вермут, незачем — а владельцу нужно, и сразу.
+CHANNEL_STOCK = "stock"
 
 
 def station_channel(station: str) -> str:

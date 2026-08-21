@@ -66,6 +66,23 @@ const Admin = {
     Live.on('check.changed', () => {
       if (this.tab === 'report' || this.tab === 'payments') this.load();
     });
+
+    // Склад обновляется сам. Смысл экрана в том, чтобы видеть остаток
+    // сейчас, а не тот, что был на момент открытия вкладки.
+    Live.on('stock.changed', () => {
+      if (this.tab === 'stock') this.load();
+    });
+
+    // А это уже новость: позиция ушла в «мало» или кончилась. Её говорят
+    // вслух и там, где админ сейчас, а не только на вкладке склада.
+    Live.on('stock.low', d => {
+      toast(`${d.title}: ${d.body}`, 'bad', 6000);
+      Sound.alert();
+    });
+
+    Live.on('menu.changed', () => { if (this.tab === 'menu') this.load(); });
+    Live.on('menu.state', () => { if (this.tab === 'menu') this.load(); });
+    Live.on('tables.changed', () => { if (this.tab === 'tables') this.load(); });
     Live.start();
     this.go(this.tab);
   },

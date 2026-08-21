@@ -30,7 +30,7 @@ from app.models import (
     User,
     Venue,
 )
-from app.services import stock
+from app.services import realtime, stock
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/stock", tags=["склад"])
@@ -95,12 +95,16 @@ def create(
     )
     db.add(item)
     db.flush()
+    moves = []
     if body.quantity:
         # Стартовый остаток — это приход, а не «просто число»: иначе первая
         # же сверка не сойдётся и объяснить будет нечем.
-        stock.move(db, item, Decimal(str(body.quantity)), MOVE_IN, user=actor,
-                   note="стартовый остаток")
+        moves.append(
+            stock.move(db, item, Decimal(str(body.quantity)), MOVE_IN, user=actor,
+                       note="стартовый остаток")
+        )
     db.commit()
+    stock.announce(db, venue.id, moves)
     return stock.item_payload(item)
 
 
@@ -129,6 +133,8 @@ def edit(
     if body.active is not None:
         item.active = body.active
     db.commit()
+    # Порог мог поменяться — экран склада должен показать это сам.
+    realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
     return stock.item_payload(item)
 
 
@@ -176,6 +182,7 @@ def register(
         after={"delta": float(row.delta), "reason": body.reason, "note": body.note},
     )
     db.commit()
+    stock.announce(db, venue.id, [row])
     return stock.item_payload(item)
 
 
