@@ -82,6 +82,12 @@ class Recipe(UUIDPk, Base):
     # Пустой словарь означает «на любой».
     options: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     per_unit: Mapped[float] = mapped_column(Numeric(12, 3), default=0)
+    # «Сколько выбрал официант, столько и списать».
+    #
+    # Иначе на одну бутылку нужно семь правил: 50, 100, 150, 200, 250, 300 и
+    # сама бутылка. Объём берётся из выбранного варианта — `ml50` это 50 мл, —
+    # а `per_unit` остаётся размером бутылки для варианта, где объёма нет.
+    by_volume: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class StockMove(UUIDPk, Base):

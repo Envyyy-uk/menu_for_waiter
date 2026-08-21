@@ -44,6 +44,30 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         fails.append(name)
 
 
+def station_pin(page, code: str) -> None:
+    """PIN планшета: у него свой экран, без личных имён."""
+    for digit in code:
+        page.locator("#pin-pad button", has_text=digit).first.click()
+    page.wait_for_timeout(1600)
+
+
+def set_station_pin(browser, code: str = "5555") -> None:
+    """PIN станции задаёт администратор — планшет к личным входам не ходит."""
+    ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = ctx.new_page()
+    page.goto(BASE + "/admin/", wait_until="networkidle")
+    pin(page, "123456")
+    page.get_by_role("button", name="Станции").click()
+    page.wait_for_timeout(900)
+    row = page.locator("tr", has_text="Бар").first
+    row.locator("button").first.click()
+    page.wait_for_timeout(500)
+    page.locator(".sheet .field").fill(code)
+    page.get_by_role("button", name="Сохранить").click()
+    page.wait_for_timeout(1000)
+    ctx.close()
+
+
 def pin(page, code: str) -> None:
     for digit in code:
         page.get_by_role("button", name=digit, exact=True).click()
@@ -80,6 +104,8 @@ def main() -> None:
             args=["--autoplay-policy=no-user-gesture-required"],
         )
 
+        set_station_pin(browser)
+
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
         waiter = waiter_ctx.new_page()
         errors: list[str] = []
@@ -96,7 +122,9 @@ def main() -> None:
         bar_ctx = browser.new_context(viewport=TABLET, has_touch=True)
         bar = bar_ctx.new_page()
         bar.goto(BASE + "/station/", wait_until="networkidle")
-        pin(bar, "2222")
+        # Планшет станции открывается своим PIN, а не личным: он стоит на
+        # полке, и личный PIN на каждую марку никто вводить не станет.
+        station_pin(bar, "5555")
 
         # Официант отправляет заказ.
         waiter.locator(FREE_TABLE).first.click()

@@ -207,3 +207,44 @@ def test_discount_keeps_its_reason_on_the_check(client, hall):
     ).json()
     assert off["discount_pence"] == 0
     assert off["discount_reason"] is None
+
+
+def test_an_empty_check_closes_without_payment(client, hall):
+    """Стол открыли, гость передумал — брать нечего, а стол должен освободиться."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    r = client.post(f"/api/checks/{check['id']}/close", json={"payments": []})
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "closed"
+    assert r.json()["payments"] == []
+
+    tables = client.get("/api/tables").json()
+    assert next(t for t in tables if t["id"] == hall["table"])["checks"] == []
+
+
+def test_a_check_emptied_by_cancels_also_closes(client, hall):
+    """Всё отменили — итог ноль, и закрыть его должно быть можно."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    check = client.post(f"/api/checks/{check['id']}/send").json()
+
+    login(client, "444444")
+    item = check["items"][0]["id"]
+    check = client.post(
+        f"/api/checks/{check['id']}/items/{item}/cancel", json={"reason": "передумали"}
+    ).json()
+    assert check["due_pence"] == 0
+    assert client.post(
+        f"/api/checks/{check['id']}/close", json={"payments": []}
+    ).status_code == 200
+
+
+def test_a_check_with_money_still_needs_a_method(client, hall):
+    """Ноль — исключение, а не общее правило: за налитое платят."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    client.post(f"/api/checks/{check['id']}/send")
+    r = client.post(f"/api/checks/{check['id']}/close", json={"payments": []})
+    assert r.status_code == 422

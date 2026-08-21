@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Iterable
 from decimal import Decimal
@@ -122,6 +123,34 @@ def _factor(recipe: Recipe, chosen: dict[str, Any]) -> int:
     return factor
 
 
+VOLUME = re.compile(r"(\d+(?:[.,]\d+)?)")
+
+
+def volume_of(chosen: dict[str, Any]) -> Decimal | None:
+    """Сколько миллилитров выбрал официант.
+
+    Ключ варианта и есть ответ: `ml50` — пятьдесят. Там, где объёма нет
+    («бутылка»), возвращается None: сколько в бутылке, знает только правило.
+    """
+    for value in chosen.values():
+        if not isinstance(value, str) or not value.startswith("ml"):
+            continue
+        found = VOLUME.search(value)
+        if found:
+            return Decimal(found.group(1).replace(",", "."))
+    return None
+
+
+def _amount(recipe: Recipe, chosen: dict[str, Any]) -> Decimal:
+    """Сколько уходит с полки на одну проданную позицию."""
+    if recipe.by_volume:
+        volume = volume_of(chosen)
+        # Объёма в выборе нет — значит взяли бутылку целиком, а её размер
+        # записан в самом правиле.
+        return volume if volume is not None else Decimal(str(recipe.per_unit))
+    return Decimal(str(recipe.per_unit))
+
+
 def needed(db: Session, rows: Iterable[CheckItem]) -> dict[uuid.UUID, Decimal]:
     """Сколько продукта нужно на эти позиции чека.
 
@@ -138,7 +167,7 @@ def needed(db: Session, rows: Iterable[CheckItem]) -> dict[uuid.UUID, Decimal]:
             factor = _factor(recipe, chosen)
             if not factor:
                 continue
-            amount = Decimal(str(recipe.per_unit)) * item.qty * factor
+            amount = _amount(recipe, chosen) * item.qty * factor
             if amount <= 0:
                 continue
             want[recipe.stock_item_id] = want.get(recipe.stock_item_id, Decimal(0)) + amount
@@ -222,7 +251,7 @@ def _apply(db: Session, item: CheckItem, reason: str, sign: int, user: User | No
         stock = db.get(StockItem, recipe.stock_item_id)
         if stock is None or not stock.active:
             continue
-        amount = Decimal(str(recipe.per_unit)) * item.qty * factor * sign
+        amount = _amount(recipe, chosen) * item.qty * factor * sign
         if amount == 0:
             continue
         out.append(move(db, stock, amount, reason, user=user, check_item_id=item.id))

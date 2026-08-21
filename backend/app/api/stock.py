@@ -21,7 +21,9 @@ from app.models import (
     MOVE_NAMES,
     MOVE_REASONS,
     MOVE_WRITE_OFF,
+    UNIT_ML,
     UNIT_NAMES,
+    UNIT_PC,
     UNITS,
     MenuItem,
     Recipe,
@@ -60,6 +62,81 @@ def listing(
         "out": [i["name"] for i in items if i["state"] == "out"],
         "low": [i["name"] for i in items if i["state"] == "low"],
     }
+
+
+# Сколько миллилитров в бутылке по умолчанию. Цифру потом правят руками —
+# важно, чтобы правило вообще было, а не чтобы оно было точным с первой
+# секунды.
+BOTTLE_ML = 700
+
+
+@router.post("/fill", status_code=201)
+def fill(
+    actor: User = Depends(require("stock.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Завести склад по меню: на каждую позицию — своя строка и своё правило.
+
+    Заполнять сорок позиций руками — вечер работы, и на середине бросают.
+    Количество остаётся нулевым: сколько стоит на полке, знает только тот, кто
+    туда посмотрел.
+
+    Позицию с объёмами («50 мл … бутылка») заводим в миллилитрах и правилом
+    «сколько выбрали, столько и списать». Всё остальное — поштучно.
+    """
+    items = db.scalars(
+        select(MenuItem).where(MenuItem.venue_id == venue.id, MenuItem.active.is_(True))
+    ).all()
+    have_names = {
+        i.name: i
+        for i in db.scalars(select(StockItem).where(StockItem.venue_id == venue.id)).all()
+    }
+    have_rules = {
+        r.menu_item_id
+        for r in db.scalars(select(Recipe).where(Recipe.venue_id == venue.id)).all()
+    }
+
+    made_items = 0
+    made_rules = 0
+    for item in items:
+        # У позиции уже есть правило — её заводили руками, не трогаем.
+        if item.id in have_rules:
+            continue
+        by_volume = any(
+            str(choice.get("key", "")).startswith("ml")
+            for group in (item.options or [])
+            for choice in (group.get("choices") or [])
+        )
+        stock_item = have_names.get(item.name)
+        if stock_item is None:
+            stock_item = StockItem(
+                venue_id=venue.id,
+                name=item.name,
+                unit=UNIT_ML if by_volume else UNIT_PC,
+                quantity=0,
+                low_at=0,
+            )
+            db.add(stock_item)
+            db.flush()
+            have_names[item.name] = stock_item
+            made_items += 1
+
+        db.add(
+            Recipe(
+                venue_id=venue.id,
+                menu_item_id=item.id,
+                stock_item_id=stock_item.id,
+                options={},
+                per_unit=BOTTLE_ML if by_volume else 1,
+                by_volume=by_volume,
+            )
+        )
+        made_rules += 1
+
+    db.commit()
+    realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
+    return {"items": made_items, "recipes": made_rules}
 
 
 class ItemIn(BaseModel):

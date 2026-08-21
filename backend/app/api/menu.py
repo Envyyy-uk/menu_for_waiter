@@ -65,6 +65,50 @@ class StateIn(BaseModel):
     state: str
 
 
+class CategoryStateIn(BaseModel):
+    category: str
+    state: str
+
+
+@router.post("/category/state")
+def set_category_state(
+    body: CategoryStateIn,
+    actor: User = Depends(require("items.state")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Стоп на целый раздел.
+
+    Кончился газ — встали все кальяны, а не один. Снимать стоп с двенадцати
+    позиций по одной, когда газ привезли, — то же самое наоборот.
+    """
+    if body.state not in ITEM_STATES:
+        raise HTTPException(status_code=422, detail="неизвестное состояние")
+    items = db.scalars(
+        select(MenuItem).where(
+            MenuItem.venue_id == venue.id,
+            MenuItem.category == body.category,
+            MenuItem.active.is_(True),
+        )
+    ).all()
+    if not items:
+        raise HTTPException(status_code=404, detail="в разделе нет позиций")
+
+    for item in items:
+        item.state = body.state
+    record.write(
+        db,
+        venue_id=venue.id,
+        user_id=actor.id,
+        action="category.state",
+        entity=f"category:{body.category}",
+        after={"state": body.state, "count": len(items)},
+    )
+    db.commit()
+    realtime.publish(realtime.CHANNEL_ALL, {"type": "menu.state", "category": body.category})
+    return {"category": body.category, "state": body.state, "count": len(items)}
+
+
 @router.post("/{item_id}/state")
 def set_state(
     item_id: str,

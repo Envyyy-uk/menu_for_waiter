@@ -879,6 +879,7 @@ const Admin = {
       'Цена — это деньги, поэтому её изменение попадает в журнал с именем. '
       + 'Стоп-лист ставят бар и кухня со своего планшета: кончилось у них.'));
     wrap.appendChild(this.syncBox());
+    wrap.appendChild(this.categoryStops());
 
     wrap.appendChild(this.table(
       ['Позиция', 'Категория', 'Станция', 'Цена', 'Состояние', ''],
@@ -936,6 +937,39 @@ const Admin = {
       this.load();
     });
     box.appendChild(now);
+    return box;
+  },
+
+  /* Стоп на целый раздел. Кончился газ — встали все кальяны, а не один;
+     снимать стоп с двенадцати позиций по одной, когда газ привезли, — то же
+     самое наоборот. */
+  categoryStops() {
+    const box = el('div', 'form');
+    const cats = this.data.menu.categories || [];
+    if (!cats.length) return box;
+
+    box.appendChild(el('p', 'hint', 'Стоп на целый раздел:'));
+    const row = el('div', 'row-actions');
+    row.style.justifyContent = 'flex-start';
+    row.style.flexWrap = 'wrap';
+
+    cats.forEach(cat => {
+      const mine = this.data.menu.items.filter(i => i.category === cat.key);
+      if (!mine.length) return;
+      const off = mine.every(i => i.local_state === 'off');
+      const b = el('button', 'btn' + (off ? ' danger' : ''),
+        esc(cat.name) + (off ? ' · стоп' : ''));
+      b.addEventListener('click', async () => {
+        try {
+          await API.post('/api/menu/category/state',
+            { category: cat.key, state: off ? 'on' : 'off' });
+          toast(off ? `${cat.name} — снова в продаже` : `${cat.name} — стоп`, 'good');
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
     return box;
   },
 
@@ -1020,6 +1054,24 @@ const Admin = {
       this.field('Порог «мало»', low, 'ниже него позиция попадёт в тревогу')
     );
     form.appendChild(fields);
+
+    // Заготовка по меню. Сорок позиций руками — вечер работы, и на середине
+    // бросают; количество всё равно вписывает тот, кто посмотрел на полку.
+    if (!data.items.length) {
+      const fill = el('button', 'btn', 'Завести склад по меню');
+      fill.addEventListener('click', async () => {
+        try {
+          const made = await API.post('/api/stock/fill');
+          toast(`Заведено позиций: ${made.items}. Количество впишите сами`, 'good', 5000);
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      wrap.appendChild(fill);
+      wrap.appendChild(el('p', 'hint',
+        'Заведёт по строке на каждую позицию меню и правило списания: у водки '
+        + '— в миллилитрах, «сколько выбрали, столько и ушло»; у остального — '
+        + 'поштучно. Количество останется нулевым.'));
+    }
 
     const add = el('button', 'btn primary', 'Завести позицию');
     add.addEventListener('click', async () => {

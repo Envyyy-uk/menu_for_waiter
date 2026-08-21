@@ -246,6 +246,19 @@ const Options = {
 const Pay = {
   open(check) {
     const due = check.due_pence;
+
+    // Брать нечего: стол открыли, гость передумал, всё отменили. Стол должен
+    // освободиться, а не висеть занятым до утра.
+    if (!due) {
+      Sheet.show('Закрыть стол', `Стол ${esc(check.table)} · чек №${check.number}`, body => {
+        body.appendChild(el('p', 'sub', 'В чеке ничего нет — платить нечего.'));
+        const ok = el('button', 'btn wide big primary', 'Закрыть без оплаты');
+        ok.addEventListener('click', () => this.close(check, []));
+        body.appendChild(ok);
+      });
+      return;
+    }
+
     Sheet.show('Оплата', `Стол ${esc(check.table)} · чек №${check.number}`, body => {
       body.appendChild(this.summary(check));
 

@@ -656,6 +656,31 @@ const App = {
         sheet.appendChild(el('div', '', '<div style="height:8px"></div>'));
       }
 
+      // Комментарий — это то, что бармен прочитает на марке: «без льда»,
+      // «поострее», «на вынос». Без него официант держит это в голове и
+      // говорит вслух через весь бар.
+      //
+      // Только у черновика: отправленное уже лежит на баре распечатанным, и
+      // дописать туда строчку значит соврать самому себе.
+      if (draft) {
+      const note = el('input', 'field');
+      note.placeholder = 'Комментарий: без льда, поострее…';
+      note.value = item.note || '';
+      sheet.appendChild(note);
+      const save = el('button', 'btn wide', 'Сохранить комментарий');
+      save.addEventListener('click', async () => {
+        Sheet.hide();
+        try {
+          this.check = await API.patch(
+            `/api/checks/${this.check.id}/items/${item.id}`, { note: note.value.trim() });
+          this.paint();
+          toast('Комментарий записан', 'good');
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      sheet.appendChild(save);
+      sheet.appendChild(el('div', '', '<div style="height:8px"></div>'));
+      }
+
       const kill = el('button', 'btn wide big danger',
         draft ? 'Убрать из чека' : 'Отменить позицию');
       kill.addEventListener('click', () => {

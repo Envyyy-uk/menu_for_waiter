@@ -304,14 +304,23 @@ def close_check(
     отдельно, а не прячутся в сумме чека.
     """
     require_open(check)
-    if not check.items or not live_items(check):
-        raise CheckError("В чеке нет позиций", status=409)
     if any(i.status == ITEM_DRAFT for i in check.items):
         raise CheckError("Есть неотправленные позиции", status=409)
-    if not parts:
-        raise CheckError("Не выбран способ оплаты", status=422)
 
     amount_due = due(check)
+    # Пустой чек закрывается без оплаты. Стол открыли, гость передумал, всё
+    # отменили — брать за это нечего, а стол должен освободиться. Иначе он
+    # висит занятым до утра, и официант зовёт менеджера ради нуля.
+    if amount_due == 0 and not parts:
+        check.status = CHECK_CLOSED
+        check.closed_at = utcnow()
+        check.closed_by_id = user.id
+        return check
+
+    if not live_items(check):
+        raise CheckError("В чеке нет позиций", status=409)
+    if not parts:
+        raise CheckError("Не выбран способ оплаты", status=422)
     given = 0
     for part in parts:
         method = part.get("method")

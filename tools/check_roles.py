@@ -2,7 +2,7 @@
 """Прогон ролей в настоящем браузере.
 
 Проверяется то, что видно человеку: бармен пробивает и тут же видит свои
-марки; официант марок не видит вовсе; PIN каждый меняет себе сам.
+марки; официант марок не видит вовсе и свой PIN не меняет.
 
     python3 tools/check_roles.py [http://127.0.0.1:8000]
 """
@@ -38,6 +38,17 @@ def pin(page, code: str) -> None:
     page.wait_for_timeout(800)
 
 
+def leave(page) -> None:
+    """«Выйти» закрывает смену и спрашивает PIN. Для прогона уходим, не
+    закрывая: проверяем роли, а не табель."""
+    page.get_by_role("button", name="Выйти").click()
+    page.wait_for_timeout(700)
+    away = page.get_by_role("button", name="Выйти, не закрывая смену")
+    if away.count():
+        away.click()
+    page.wait_for_timeout(900)
+
+
 def main() -> None:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=CHROME)
@@ -53,40 +64,13 @@ def main() -> None:
         check("у официанта нет кнопки марок",
               page.get_by_role("button", name="Марки").count() == 0)
 
-        # Свой PIN меняется из зала.
-        page.get_by_role("button", name="Сменить PIN").click()
-        page.wait_for_timeout(500)
-        check("смена своего PIN открывается", page.locator(".sheet").is_visible())
-        fields = page.locator(".sheet .field")
-        fields.nth(0).fill("0000")
-        fields.nth(1).fill("2323")
-        page.get_by_role("button", name="Сохранить").click()
-        page.wait_for_timeout(800)
-        check("чужой старый PIN не проходит",
-              page.locator(".toast.bad").count() == 1,
-              page.locator(".toast").inner_text() if page.locator(".toast").count() else "")
-
-        fields.nth(0).fill("1111")
-        fields.nth(1).fill("2323")
-        page.get_by_role("button", name="Сохранить").click()
-        page.wait_for_timeout(900)
-        check("свой PIN меняется", page.locator(".sheet").count() == 0)
-
-        page.get_by_role("button", name="Выйти").click()
-        page.wait_for_timeout(900)
-        pin(page, "2323")
-        check("новый PIN пускает", page.locator(".plan, .tables").count() > 0)
-        # Возвращаем прежний, чтобы прогон можно было повторить.
-        page.get_by_role("button", name="Сменить PIN").click()
-        page.wait_for_timeout(400)
-        page.locator(".sheet .field").nth(0).fill("2323")
-        page.locator(".sheet .field").nth(1).fill("1111")
-        page.get_by_role("button", name="Сохранить").click()
-        page.wait_for_timeout(800)
+        # Свой PIN официант не меняет: PIN в зале — не пароль от почты, а
+        # ключ от кассы. Забыл — новый выдаст менеджер, и это видно в журнале.
+        check("у официанта нет кнопки смены PIN",
+              page.get_by_role("button", name="Сменить PIN").count() == 0)
 
         # --- бармен: зал и марки в одном приложении ------------------------
-        page.get_by_role("button", name="Выйти").click()
-        page.wait_for_timeout(900)
+        leave(page)
         pin(page, "2222")
         check("бармен попадает в зал, а не на планшет",
               page.locator(".plan, .tables").count() > 0, page.url)

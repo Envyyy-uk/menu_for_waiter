@@ -310,3 +310,31 @@ def test_site_does_not_clear_the_bar_stop(db, venue):
     assert item.state == "off"
     assert item.source_state == "on"
     assert effective_state(item.state, item.source_state) == "off"
+
+
+def test_a_whole_section_goes_on_stop(client, hall):
+    """Кончился газ — встали все кальяны, а не один."""
+    login(client, "2222")     # бармен: стоп ставит тот, у кого кончилось
+    menu = client.get("/api/menu").json()
+    category = next(c["key"] for c in menu["categories"] if c["key"])
+    mine = [i for i in menu["items"] if i["category"] == category]
+    assert len(mine) > 1
+
+    r = client.post("/api/menu/category/state", json={"category": category, "state": "off"})
+    assert r.status_code == 200, r.text
+    assert r.json()["count"] == len(mine)
+
+    after = client.get("/api/menu").json()["items"]
+    assert all(i["state"] == "off" for i in after if i["category"] == category)
+
+    # И снимается так же, одним нажатием.
+    client.post("/api/menu/category/state", json={"category": category, "state": "on"})
+    back = client.get("/api/menu").json()["items"]
+    assert all(i["state"] == "on" for i in back if i["category"] == category)
+
+
+def test_unknown_section_is_not_a_stop(client, hall):
+    login(client, "2222")
+    assert client.post(
+        "/api/menu/category/state", json={"category": "нет-такого", "state": "off"}
+    ).status_code == 404

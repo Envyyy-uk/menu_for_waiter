@@ -320,3 +320,74 @@ def test_mixer_of_another_kind_is_not_touched(client, db, hall):
 
     login(client, "123456")
     assert stock_of(client, "Cola 0.33")["quantity"] == 10
+
+
+# ---------------------------------------- склад заводится по меню сам ------
+def test_fill_makes_a_line_and_a_rule_for_every_position(client, db, hall):
+    """Заполнять сорок позиций руками — вечер работы, и на середине бросают."""
+    login(client, "123456")
+    made = client.post("/api/stock/fill").json()
+    assert made["items"] > 30
+    assert made["recipes"] == made["items"]
+
+    items = client.get("/api/stock").json()["items"]
+    absolut = next(i for i in items if i["name"] == "Absolut")
+    # У позиции с объёмами склад в миллилитрах, у остального — поштучно.
+    assert absolut["unit"] == "ml"
+    assert absolut["quantity"] == 0          # сколько на полке, знает человек
+    pizza = next(i for i in items if "Margherita" in i["name"])
+    assert pizza["unit"] == "pc"
+
+
+def test_volume_rule_takes_what_the_waiter_chose(client, db, hall):
+    """Одно правило вместо семи: выбрал 150 мл — ушло 150."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    absolut = next(i for i in client.get("/api/stock").json()["items"] if i["name"] == "Absolut")
+    client.post(f"/api/stock/{absolut['id']}/move",
+                json={"delta": 700, "reason": "in", "note": "привезли"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "absolut"), "options": {"size": "ml150"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert stock_of(client, "Absolut")["quantity"] == 550
+
+
+def test_a_bottle_takes_the_whole_bottle(client, db, hall):
+    """У «бутылки» объёма в варианте нет — её размер записан в правиле."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    absolut = next(i for i in client.get("/api/stock").json()["items"] if i["name"] == "Absolut")
+    client.post(f"/api/stock/{absolut['id']}/move",
+                json={"delta": 1400, "reason": "in", "note": "две бутылки"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "absolut"), "options": {"size": "bottle"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert stock_of(client, "Absolut")["quantity"] == 700
+
+
+def test_fill_does_not_touch_what_was_set_by_hand(client, db, hall):
+    """Правило, заведённое руками, важнее заготовки."""
+    login(client, "123456")
+    bottle = make(client, "Своя бутылка", quantity=500)
+    client.post("/api/stock/recipes", json={
+        "menu_item_id": menu_id(db, "absolut"),
+        "stock_item_id": bottle["id"],
+        "options": {"size": "ml50"},
+        "per_unit": 50,
+    })
+    client.post("/api/stock/fill")
+
+    rules = [r for r in client.get("/api/stock/recipes").json()
+             if r["menu_item"] == "Absolut"]
+    assert len(rules) == 1
+    assert rules[0]["stock_item"] == "Своя бутылка"

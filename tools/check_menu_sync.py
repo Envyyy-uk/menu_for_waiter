@@ -83,7 +83,7 @@ def main() -> None:
         check("каталог скачан и разобран", result["status"] == "ok", json.dumps(result, ensure_ascii=False)[:200])
 
         menu, _ = api("/api/menu", cookies=jar)
-        check("меню на месте", len(menu["items"]) == 45, str(len(menu["items"])))
+        check("меню на месте", len(menu["items"]) == 63, str(len(menu["items"])))
         check("кальян с зависимой группой уцелел",
               any(g.get("depends") for i in menu["items"] if i["key"] == "hookah"
                   for g in i["options"]))
@@ -126,7 +126,7 @@ def main() -> None:
         menu, _ = api("/api/menu", cookies=jar)
         check("её больше не предлагают официанту",
               all(i["key"] != "test-negroni-bianco" for i in menu["items"]))
-        check("но меню целиком на месте", len(menu["items"]) == 45, str(len(menu["items"])))
+        check("но меню целиком на месте", len(menu["items"]) == 63, str(len(menu["items"])))
     finally:
         site.terminate()
         shutil.rmtree(root, ignore_errors=True)
