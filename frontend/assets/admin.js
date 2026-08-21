@@ -241,6 +241,15 @@ const Admin = {
     return wrap;
   },
 
+  /* В табеле дата обязательна. «04:23» без числа — это про сегодня или про
+     прошлый вторник? По табелю считают зарплату, гадать в нём нечего. */
+  stamp(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })
+      + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  },
+
   when(iso) {
     if (!iso) return '';
     const d = new Date(iso);
@@ -338,8 +347,8 @@ const Admin = {
       ['Сотрудник', 'Открыл', 'Закрыл', 'Отработано', ''],
       d.shifts.map(s => [
         esc(s.name),
-        esc(this.when(s.opened_at)),
-        s.closed_at ? esc(this.when(s.closed_at)) : '<span class="faint">идёт</span>',
+        esc(this.stamp(s.opened_at)),
+        s.closed_at ? esc(this.stamp(s.closed_at)) : '<span class="faint">идёт</span>',
         { num: esc(s.hours_text) },
         s.auto_closed
           ? '<span style="color:var(--warn)">закрыта сама</span>'

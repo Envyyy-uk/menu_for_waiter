@@ -43,7 +43,12 @@ def _menu(db: Session, venue: Venue, payload: dict) -> int:
     for raw in payload["items"]:
         item = existing.get(raw["key"])
         if item is None:
-            item = MenuItem(venue_id=venue.id, key=raw["key"], state=raw.get("state", "on"))
+            # Состояние из снимка — это то, что говорит сайт, и кладётся оно
+            # туда же, куда его кладёт синхронизация. Стоп-лист заведения
+            # начинается пустым: заведение ещё не работало.
+            item = MenuItem(
+                venue_id=venue.id, key=raw["key"], source_state=raw.get("state", "on")
+            )
             db.add(item)
         # Состояние не трогаем: то, что сняли со стопа руками, сидер обратно
         # в продажу не возвращает.

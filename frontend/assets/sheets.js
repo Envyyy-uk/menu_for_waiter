@@ -37,6 +37,16 @@ const Sheet = {
   }
 };
 
+/* Сколько выборов в группе идут в цене. Правило приходит из каталога:
+   «к бутылке два микса бесплатно» — это условие на другой выбор, а не
+   свойство самого микса. */
+function freeCount(group, chosen) {
+  const rule = group.free;
+  if (!rule || !rule.count) return 0;
+  const when = rule.when || {};
+  return Object.keys(when).every(k => chosen[k] === when[k]) ? rule.count : 0;
+}
+
 /* ------------------------------------------------------------ варианты --- */
 /* Цену считает сервер. Здесь она показывается, чтобы официант назвал её
    гостю до отправки, но в запрос уходит только выбор. */
@@ -61,6 +71,16 @@ const Options = {
           const block = el('div', 'group');
           block.appendChild(el('h3', '', esc(group.label)
             + (group.required ? '' : ' <span class="faint">— по желанию</span>')));
+          // Группа с несколькими выборами — не кнопки, которые тыкают по
+          // кругу. Там счётчик: «минус, два, плюс». Круговой тык означает
+          // «промахнулся — начинай сначала», а официант в это время считает
+          // вслух гостю.
+          if (group.mode === 'many') {
+            block.appendChild(this.counters(group, chosen, redraw));
+            body.appendChild(block);
+            return;
+          }
+
           const row = el('div', 'opts');
 
           group.choices.forEach(choice => {
@@ -134,6 +154,59 @@ const Options = {
     });
   },
 
+  /* Ряды со счётчиком: слева название, справа «− 2 +». Пока не выбрано,
+     справа одна кнопка «+», и ряд не шумит. */
+  counters(group, chosen, redraw) {
+    const box = el('div', 'counters');
+    const list = () => chosen[group.key] || [];
+
+    const setCount = (key, next) => {
+      const rest = list().filter(p => p !== key);
+      const value = rest.concat(Array(Math.max(0, next)).fill(key));
+      if (value.length) chosen[group.key] = value;
+      else delete chosen[group.key];
+      buzz();
+      redraw();
+    };
+
+    // Сколько уже включено в цену: к бутылке два микса бесплатно, и считать
+    // это в уме официант не должен.
+    const free = freeCount(group, chosen);
+    let left = Math.min(free, list().length);
+
+    group.choices.forEach(choice => {
+      const count = list().filter(p => p === choice.key).length;
+      const limit = choice.max_qty || 1;
+      const add = (choice.add_pence || 0) + (group.add_pence || 0);
+      const covered = Math.min(left, count);
+      left -= covered;
+
+      const row = el('div', 'counter' + (count ? ' on' : ''));
+      row.appendChild(el('span', 'nm', esc(choice.name)
+        + (add
+            ? ` <span class="add">${count && covered === count ? 'в цене' : '+' + money(add)}</span>`
+            : '')));
+
+      const grip = el('span', 'grip');
+      if (count) {
+        const minus = el('button', 'step', '−');
+        minus.addEventListener('click', () => setCount(choice.key, count - 1));
+        grip.append(minus, el('span', 'n', String(count)));
+      }
+      const plus = el('button', 'step', '+');
+      plus.disabled = count >= limit;
+      plus.addEventListener('click', () => setCount(choice.key, count + 1));
+      grip.appendChild(plus);
+      row.appendChild(grip);
+      box.appendChild(row);
+    });
+
+    if (free) {
+      box.appendChild(el('p', 'faint', `Первые ${free} — в цене.`));
+    }
+    return box;
+  },
+
   /** Та же арифметика, что на сервере, — но только чтобы показать цену.
       Настоящую считает сервер: браузеру верить нельзя. */
   calc(item, chosen) {
@@ -145,10 +218,13 @@ const Options = {
       if (group.depends && chosen[group.depends.group] !== group.depends.value) return;
       const picked = chosen[group.key];
       if (group.mode === 'many') {
-        (picked || []).forEach(key => {
-          const choice = group.choices.find(c => c.key === key);
-          if (choice) add += choice.add_pence || 0;
-        });
+        // Бесплатными уходят самые дорогие: гостю так честнее. Настоящую
+        // цену всё равно считает сервер, здесь — чтобы назвать её вслух.
+        const prices = (picked || [])
+          .map(key => (group.choices.find(c => c.key === key) || {}).add_pence || 0)
+          .sort((a, b) => b - a);
+        prices.slice(Math.min(freeCount(group, chosen), prices.length))
+          .forEach(p => { add += p; });
         if ((picked || []).length) add += group.add_pence || 0;
         return;
       }
@@ -213,18 +289,27 @@ const Pay = {
           : 'Скидки нет';
       };
 
-      const opts = el('div', 'opts');
-      [5, 10, 15, 20].forEach(pc => {
-        const b = el('button', 'opt', pc + '%');
-        b.addEventListener('click', () => {
-          value = Math.round(sum * pc / 100);
-          input.value = (value / 100).toFixed(2);
-          paint();
-          buzz();
-        });
-        opts.appendChild(b);
+      // Ползунок, а не четыре кнопки: скидку называют в процентах и любую —
+      // «десять» и «пятьдесят» одинаково законны. Шаг в пять процентов
+      // потому, что скидки в три процента не бывает, а промахнуться пальцем
+      // по проценту легко.
+      const pc = el('div', 'percent');
+      const bar = el('input', 'range');
+      bar.type = 'range';
+      bar.min = '0';
+      bar.max = '100';
+      bar.step = '5';
+      bar.value = sum ? String(Math.round((value / sum) * 20) * 5) : '0';
+      const mark = el('span', 'pc', bar.value + '%');
+      pc.append(bar, mark);
+      body.appendChild(pc);
+
+      bar.addEventListener('input', () => {
+        mark.textContent = bar.value + '%';
+        value = Math.round(sum * Number(bar.value) / 100);
+        input.value = (value / 100).toFixed(2);
+        paint();
       });
-      body.appendChild(opts);
       body.appendChild(el('div', '', '<div style="height:10px"></div>'));
 
       const input = el('input', 'field');
@@ -234,6 +319,9 @@ const Pay = {
       if (value) input.value = (value / 100).toFixed(2);
       input.addEventListener('input', () => {
         value = Math.round(parseFloat((input.value || '0').replace(',', '.')) * 100) || 0;
+        // Ползунок идёт следом: две цифры об одном не должны спорить.
+        bar.value = sum ? String(Math.min(100, Math.round((value / sum) * 20) * 5)) : '0';
+        mark.textContent = bar.value + '%';
         paint();
       });
       body.appendChild(input);

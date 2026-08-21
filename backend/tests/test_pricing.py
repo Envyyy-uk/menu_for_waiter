@@ -108,3 +108,35 @@ def test_stale_choice_from_hidden_group_is_dropped(db, venue):
 def test_unknown_group_is_rejected(db, venue):
     with pytest.raises(PriceError):
         resolve(item(db, "mojito"), {"nonsense": "x"})
+
+
+# ------------------------------------------- два микса к бутылке в цене ----
+def test_two_mixers_come_with_the_bottle(db, venue):
+    """К бутылке два микса в цене — правило заведения, а не подарок официанта."""
+    vodka = item(db, "vodka-house")
+    unit, names, _ = resolve(
+        vodka,
+        {"size": "bottle", "kind": "absolut",
+         "mixer": ["soft-drink:cola", "soft-drink:sprite"]},
+    )
+    assert unit == 23000          # бутылка, миксы не добавили ничего
+    assert any("Cola" in n for n in names)
+
+
+def test_the_third_mixer_is_paid(db, venue):
+    vodka = item(db, "vodka-house")
+    unit, _, _ = resolve(
+        vodka,
+        {"size": "bottle", "kind": "absolut",
+         "mixer": ["soft-drink:cola", "soft-drink:sprite", "soft-drink:fanta"]},
+    )
+    assert unit == 23000 + 300
+
+
+def test_mixer_to_a_glass_is_paid_as_before(db, venue):
+    """Бесплатные — только к бутылке: к стакану микс как был платным, так и остался."""
+    vodka = item(db, "vodka-house")
+    unit, _, _ = resolve(
+        vodka, {"size": "ml50", "kind": "absolut", "mixer": ["soft-drink:cola"]}
+    )
+    assert unit == 1300 + 300

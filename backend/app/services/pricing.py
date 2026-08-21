@@ -43,6 +43,22 @@ def active_groups(item: MenuItem, chosen: Selection) -> list[dict[str, Any]]:
     return [g for g in (item.options or []) if _group_active(g, chosen)]
 
 
+def _free_count(group: dict[str, Any], chosen: Selection) -> int:
+    """Сколько выборов в группе идут в цене.
+
+    Правило приходит из каталога условием на другой выбор: «к бутылке два
+    микса». Свойством самого микса это записать нельзя — к стакану он платный.
+    """
+    rule = group.get("free") or {}
+    count = int(rule.get("count") or 0)
+    if not count:
+        return 0
+    for key, value in (rule.get("when") or {}).items():
+        if chosen.get(key) != value:
+            return 0
+    return count
+
+
 def resolve(item: MenuItem, chosen: Selection | None) -> tuple[int, list[str], Selection]:
     """→ (цена за единицу в пенсах, подписи для марки, нормализованный выбор).
 
@@ -83,16 +99,24 @@ def resolve(item: MenuItem, chosen: Selection | None) -> tuple[int, list[str], S
             if not counts:
                 continue
             prefix = group.get("prefix")
+            # Сколько добавок идёт в цену: к бутылке два микса бесплатно.
+            # Бесплатными уходят самые дорогие — гостю так честнее, а спорить
+            # у стола не о чем.
+            free = _free_count(group, chosen)
+            prices = sorted(
+                (int(choices[p].get("add_pence") or 0) for p, c in counts.items() for _ in range(c)),
+                reverse=True,
+            )
             for pick, count in counts.items():
                 choice = choices[pick]
                 limit = int(choice.get("max_qty") or 1)
                 if count > limit:
                     raise PriceError(f"{choice['name']}: больше {limit} нельзя")
-                add += int(choice.get("add_pence") or 0) * count
                 # С подписью группы: «Микс: Cola» на марке — это разбавить,
                 # а «Cola» — отдельный стакан. Разница в подаче.
                 label = f"{prefix}: {choice['name']}" if prefix else choice["name"]
                 names.append(label if count == 1 else f"{label} ×{count}")
+            add += sum(prices[min(free, len(prices)):])
             add += int(group.get("add_pence") or 0)
             normalised[key] = [p for p, c in counts.items() for _ in range(c)]
             continue

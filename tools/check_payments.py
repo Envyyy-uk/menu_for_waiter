@@ -86,8 +86,13 @@ def main() -> None:
 
         page.get_by_role("button", name="Скидка").click()
         page.wait_for_timeout(400)
-        page.locator(".sheet .opt", has_text="10%").click()
+        # Процент задаётся ползунком: скидку называют в процентах, и любая
+        # от нуля до ста законна, а не четыре заранее выбранные.
+        page.locator(".sheet .range").fill("10")
+        page.locator(".sheet .range").dispatch_event("input")
         page.wait_for_timeout(300)
+        check("процент виден крупно", "10%" in page.locator(".sheet .pc").inner_text(),
+              page.locator(".sheet .pc").inner_text())
         sheet = page.locator(".sheet").inner_text()
         check("процент посчитан от позиций", "£1.30" in sheet, sheet[:160])
         page.get_by_placeholder("Причина").fill("ждали долго")

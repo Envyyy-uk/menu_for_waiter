@@ -26,7 +26,7 @@
    "station": "kitchen",
    "price_pence": 2000,
    "position": 0,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "фрукти",
@@ -44,7 +44,7 @@
    "station": "kitchen",
    "price_pence": 2500,
    "position": 1,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "мʼясна тарілка",
@@ -62,7 +62,7 @@
    "station": "kitchen",
    "price_pence": 1600,
    "position": 2,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "пепероні",
@@ -80,7 +80,7 @@
    "station": "kitchen",
    "price_pence": 1800,
    "position": 3,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "ветчина",
@@ -100,7 +100,7 @@
    "station": "kitchen",
    "price_pence": 1300,
    "position": 4,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "маргарита",
@@ -117,7 +117,7 @@
    "station": "kitchen",
    "price_pence": 1500,
    "position": 5,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "пельмени",
@@ -133,7 +133,7 @@
    "station": "kitchen",
    "price_pence": 1400,
    "position": 6,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "вареники",
@@ -150,7 +150,7 @@
    "station": "kitchen",
    "price_pence": 1400,
    "position": 7,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "вареники",
@@ -167,7 +167,7 @@
    "station": "kitchen",
    "price_pence": 1500,
    "position": 8,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "блинчики",
@@ -186,7 +186,7 @@
    "station": "kitchen",
    "price_pence": 1400,
    "position": 9,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "блинчики",
@@ -205,7 +205,7 @@
    "station": "kitchen",
    "price_pence": 900,
    "position": 10,
-   "state": "on",
+   "state": "soon",
    "options": [],
    "search_terms": [
     "чизкейк",
@@ -221,7 +221,7 @@
    "station": "kitchen",
    "price_pence": 800,
    "position": 11,
-   "state": "on",
+   "state": "soon",
    "options": [
     {
      "key": "flavour",
@@ -260,7 +260,7 @@
    "station": "bar",
    "price_pence": 1300,
    "position": 12,
-   "state": "on",
+   "state": "off",
    "options": [
     {
      "key": "size",
@@ -333,6 +333,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -433,6 +439,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -572,6 +584,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -692,6 +710,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -827,6 +851,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -939,6 +969,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -1051,6 +1087,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -1163,6 +1205,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",
@@ -1303,6 +1351,12 @@
      "depends": null,
      "add_pence": 0,
      "prefix": "Микс",
+     "free": {
+      "when": {
+       "size": "bottle"
+      },
+      "count": 2
+     },
      "choices": [
       {
        "key": "soft-drink:cola",

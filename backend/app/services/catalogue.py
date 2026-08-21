@@ -90,6 +90,19 @@ def mixer_choices(items: list[dict[str, Any]], price_pence: int) -> list[dict[st
     return out
 
 
+# Сколько добавок уходит в цену, когда берут бутылку.
+FREE_WITH_BOTTLE = 2
+BOTTLE_KEY = "bottle"
+
+
+def _free_with_bottle(groups: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """«К бутылке два микса бесплатно», если у позиции вообще есть бутылка."""
+    for group in groups:
+        if any(c.get("key") == BOTTLE_KEY for c in group.get("choices") or []):
+            return {"when": {group["key"]: BOTTLE_KEY}, "count": FREE_WITH_BOTTLE}
+    return None
+
+
 def _source_state(entry: dict[str, Any], soon_categories: set[str]) -> str:
     """Что сайт говорит про эту позицию.
 
@@ -200,6 +213,11 @@ def convert(raw: dict[str, Any], ui: dict[str, Any] | None = None) -> dict[str, 
                     # На марке читается «Микс: Cola», а не просто «Cola»:
                     # бармен видит, что это разбавить, а не отдельный стакан.
                     "prefix": name,
+                    # Правило заведения: к бутылке два микса в цене. Это
+                    # условие на другой выбор, а не свойство самого микса,
+                    # поэтому оно и записано условием — считать его в уме
+                    # официант не должен, а спорить с гостем тем более.
+                    "free": _free_with_bottle(groups),
                     "choices": choices,
                 }
             )

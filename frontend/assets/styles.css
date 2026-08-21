@@ -608,6 +608,50 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .opt.on { background: var(--gold); border-color: var(--gold); color: #1d1a16; }
 .opt .add { font-size: 12px; opacity: .8; }
 
+/* Ползунок скидки: цифра рядом, крупная — её называют вслух гостю. */
+.percent { display: flex; align-items: center; gap: 14px; }
+.percent .range { flex: 1; accent-color: var(--gold); height: 34px; }
+.percent .pc {
+  min-width: 66px;
+  text-align: right;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Счётчики миксов: название слева, «− 2 +» справа. */
+.counters { display: flex; flex-direction: column; gap: 2px; }
+.counter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.counter .nm { flex: 1; min-width: 0; font-size: 15px; }
+.counter .nm .add { color: var(--gold); font-size: 13px; }
+.counter.on .nm { font-weight: 600; }
+.counter .grip { display: flex; align-items: center; gap: 8px; }
+.counter .step {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  font-size: 20px;
+  line-height: 1;
+}
+.counter .step[disabled] { opacity: .35; }
+.counter .n {
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .stepper { display: flex; align-items: center; gap: 14px; }
 .stepper button {
   width: 52px;

@@ -1,7 +1,7 @@
 """Путь заказа целиком: открыл стол → набрал → отправил → бар отдал → закрыл."""
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.models import MenuItem, Table
 
@@ -24,7 +24,14 @@ def menu_id(db, key):
 
 @pytest.fixture()
 def hall(client, db, venue, make_user):
-    """Официант, бармен и повар — по одному, как в маленькой смене."""
+    """Официант, бармен и повар — по одному, как в маленькой смене.
+
+    Меню при этом всё в продаже. В снимке каталога кухня помечена «скоро» —
+    так она выключена на сайте прямо сейчас, — но проверять зал на выключенной
+    кухне бессмысленно: стоп-лист с сайта разбирается своими тестами.
+    """
+    db.execute(update(MenuItem).values(state="on", source_state="on"))
+    db.commit()
     make_user("Аня", role="waiter", pin="1111")
     make_user("Игорь", role="bar", pin="2222")
     make_user("Пётр", role="kitchen", pin="3333")
