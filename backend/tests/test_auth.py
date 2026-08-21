@@ -180,3 +180,4 @@ def test_role_change_inside_the_hall_keeps_the_pin(client, make_user):
     out = client.patch(f"/api/admin/users/{igor['id']}", json={"role": "bar"}).json()
     assert "pin" not in out
     assert login(client, "1379").json()["role"] == "bar"
+

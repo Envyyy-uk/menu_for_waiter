@@ -827,6 +827,10 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .figure.card .value { color: var(--info); }
 .figure.warn .value { color: var(--danger); }
 
+/* Коробка для таблицы: уезжает вбок она, а не страница. Иначе браузер на
+   телефоне отъезжает, чтобы вместить самую широкую строку, и всё остальное
+   становится мелким — включая кнопки, по которым надо попасть. */
+.scroller { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table.grid { width: 100%; border-collapse: collapse; font-size: 15px; }
 table.grid th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
 table.grid td { padding: 11px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; }

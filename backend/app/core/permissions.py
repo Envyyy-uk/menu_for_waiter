@@ -35,6 +35,9 @@ STATION = (ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER, ROLE_BAR, ROLE_KITCHEN)
 MANAGERS = (ROLE_OWNER, ROLE_ADMIN, ROLE_MANAGER)
 ADMINS = (ROLE_OWNER, ROLE_ADMIN)
 OWNER_ONLY = (ROLE_OWNER,)
+# Свой PIN меняют себе только эти двое. Остальным его выдают: PIN в зале —
+# не пароль от почты, а ключ от кассы, и заведение должно знать, какой он.
+PIN_SELF = (ROLE_OWNER, ROLE_MANAGER)
 
 PERMISSIONS: dict[str, tuple[str, ...]] = {
     # Зал: столы и чеки
@@ -73,6 +76,9 @@ PERMISSIONS: dict[str, tuple[str, ...]] = {
     # по просьбе или когда PIN забыли. Менеджер на смене должен уметь это сам,
     # иначе официант стоит без входа до приезда администратора.
     "users.pin": MANAGERS,
+    # Менять PIN самому себе. У официанта, бармена и кухни этого права нет:
+    # забыл — новый выдаст менеджер, и это видно в журнале.
+    "pin.self": PIN_SELF,
     "stations.manage": ADMINS,     # PIN планшета станции
     "shifts.view": MANAGERS,
     "audit.view": MANAGERS,

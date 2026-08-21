@@ -136,3 +136,38 @@ def test_report_shows_cancellations(client, hall):
     client.post(f"/api/checks/{check['id']}/items/{item}/cancel", json={"reason": "ушли"})
     r = client.get("/api/admin/report").json()
     assert r["cancelled"] == {"count": 1, "amount_pence": 1600}
+
+
+def test_a_person_who_never_worked_can_be_removed(client, hall):
+    """Заведённого по ошибке надо убирать: за год список зарастает опечатками."""
+    login(client, "123456")
+    made = client.post(
+        "/api/admin/users", json={"name": "Опечатка", "role": "waiter", "pin": "5151"}
+    ).json()
+    assert client.delete(f"/api/admin/users/{made['id']}").status_code == 200
+    assert all(u["name"] != "Опечатка" for u in client.get("/api/admin/users").json())
+
+
+def test_a_person_who_worked_stays(client, hall):
+    """Отчёт за прошлый месяц должен знать, чья это выручка."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    anya = next(u for u in client.get("/api/admin/users").json() if u["name"] == "Аня")
+    assert anya["worked"] is True
+    r = client.delete(f"/api/admin/users/{anya['id']}")
+    assert r.status_code == 409
+    assert "выключить" in r.json()["detail"]
+    # Выключить при этом можно.
+    assert client.patch(
+        f"/api/admin/users/{anya['id']}", json={"active": False}
+    ).status_code == 200
+
+
+def test_nobody_deletes_himself(client, hall):
+    login(client, "123456")
+    me = client.get("/api/auth/me").json()
+    assert client.delete(f"/api/admin/users/{me['id']}").status_code == 409

@@ -45,38 +45,51 @@ def test_stock_is_for_owner_and_admin_only(client, hall):
 
 
 # ------------------------------------------------------------- свой PIN ---
-def test_everyone_changes_their_own_pin(client, hall):
+def test_own_pin_is_for_the_owner_and_manager(client, hall):
+    """PIN в зале — не пароль от почты, а ключ от кассы.
+
+    Официант, бармен и кухня свой PIN не меняют: забыл — новый выдаст
+    менеджер, и это видно в журнале. Заведение должно знать, какой PIN у
+    человека, иначе сбросить его по просьбе будет некому.
+    """
     login(client, "1111")
     r = client.post("/api/auth/pin/change", json={"old": "1111", "new": "1212"})
-    assert r.status_code == 200
-
+    assert r.status_code == 403
+    assert "менеджер" in r.json()["detail"]
     client.post("/api/auth/logout")
-    assert client.post("/api/auth/pin", json={"pin": "1111"}).status_code == 401
-    assert client.post("/api/auth/pin", json={"pin": "1212"}).status_code == 200
+    assert client.post("/api/auth/pin", json={"pin": "1111"}).status_code == 200
+
+    # А менеджер меняет.
+    login(client, "444444")
+    assert client.post(
+        "/api/auth/pin/change", json={"old": "444444", "new": "441144"}
+    ).status_code == 200
+    client.post("/api/auth/logout")
+    assert client.post("/api/auth/pin", json={"pin": "444444"}).status_code == 401
+    assert client.post("/api/auth/pin", json={"pin": "441144"}).status_code == 200
 
 
 def test_old_pin_is_required(client, hall):
     """Иначе любой, кто подошёл к незапертому планшету, работает под чужим именем."""
-    login(client, "1111")
-    r = client.post("/api/auth/pin/change", json={"old": "0000", "new": "1212"})
+    login(client, "444444")
+    r = client.post("/api/auth/pin/change", json={"old": "000000", "new": "121212"})
     assert r.status_code == 403
     client.post("/api/auth/logout")
-    assert client.post("/api/auth/pin", json={"pin": "1111"}).status_code == 200
+    assert client.post("/api/auth/pin", json={"pin": "444444"}).status_code == 200
 
 
 def test_new_pin_must_differ(client, hall):
-    login(client, "1111")
+    login(client, "444444")
     assert client.post(
-        "/api/auth/pin/change", json={"old": "1111", "new": "1111"}
+        "/api/auth/pin/change", json={"old": "444444", "new": "444444"}
     ).status_code == 422
 
 
 def test_own_pin_change_is_written_down(client, hall):
-    login(client, "1111")
-    client.post("/api/auth/pin/change", json={"old": "1111", "new": "1212"})
     login(client, "444444")
+    client.post("/api/auth/pin/change", json={"old": "444444", "new": "441144"})
     journal = client.get("/api/admin/audit").json()
-    assert any(r["action"] == "user.pin_self" and r["who"] == "Аня" for r in journal)
+    assert any(r["action"] == "user.pin_self" and r["who"] == "Марина" for r in journal)
 
 
 # ------------------------------------------------------- забытый PIN ------

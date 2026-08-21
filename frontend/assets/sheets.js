@@ -13,7 +13,11 @@ const Sheet = {
     document.querySelectorAll('.toast').forEach(n => n.remove());
     const bg = el('div', 'sheet-bg');
     bg.id = 'sheet-bg';
-    bg.addEventListener('click', () => this.hide());
+    // Закрываем по нажатию, а не по click. После тапа пальцем браузер шлёт
+    // ещё и «призрачный» click теми же координатами — а там уже лежит фон
+    // только что открывшейся шторки. Карточка стола открывалась и тут же
+    // пропадала: со стороны это выглядело как «нажатие не работает».
+    bg.addEventListener('pointerdown', e => { e.preventDefault(); this.hide(); });
 
     const sheet = el('div', 'sheet');
     sheet.id = 'sheet';

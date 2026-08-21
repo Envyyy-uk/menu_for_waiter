@@ -49,8 +49,13 @@ const Plan = {
       node.setPointerCapture(down.pointerId);
       node.classList.add('dragging');
       moved = false;
+      const from = { x: down.clientX, y: down.clientY };
 
       const move = e => {
+        // Порог обязателен. Палец никогда не стоит на месте, и браузер шлёт
+        // pointermove даже на чистом тапе — без порога стол «перетаскивался»
+        // на ноль пикселей, а карточка не открывалась никогда.
+        if (!moved && Math.hypot(e.clientX - from.x, e.clientY - from.y) < SLOP) return;
         const box = field.getBoundingClientRect();
         const x = clamp(((e.clientX - box.left) / box.width) * 100);
         const y = clamp(((e.clientY - box.top) / box.height) * 100);
@@ -83,5 +88,7 @@ const Plan = {
   }
 };
 
+// Насколько палец должен уехать, чтобы это считалось перетаскиванием.
+const SLOP = 6;
 const clamp = v => Math.max(4, Math.min(96, v));
 const snap = v => Math.round(v / 2) * 2;

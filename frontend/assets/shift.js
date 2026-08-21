@@ -28,7 +28,7 @@ const Shift = {
   gate() {
     this.ask('Смена не открыта', this.state.configured
       ? 'Введите PIN станции'
-      : 'PIN станции ещё не задан — это делается в админке',
+      : 'PIN станции ещё не задан. Админка → Станции',
       async pin => {
         const opened = await API.post('/api/station/shift/open', { pin });
         this.state = opened;
@@ -64,6 +64,12 @@ const Shift = {
       });
       gate.appendChild(back);
     }
+    // Дорога в админку нужна именно отсюда: PIN станции задаётся там, а
+    // экран смены перекрывает всё остальное — уйти было некуда.
+    const away = el('a', 'elsewhere', 'Вход в админку');
+    away.href = '/admin/';
+    gate.appendChild(away);
+
     document.body.appendChild(gate);
 
     const dots = gate.querySelector('#pin-dots');

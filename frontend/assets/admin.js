@@ -199,6 +199,7 @@ const Admin = {
       return wrap;
     }
 
+    const box = el('div', 'scroller');
     const node = el('table', 'grid');
     node.innerHTML = '<thead><tr>'
       + ['Время', 'Стол', 'Чек', 'Официант', 'Скидка', 'Чем платили', 'Сумма']
@@ -218,7 +219,8 @@ const Admin = {
       body.appendChild(tr);
     });
     node.appendChild(body);
-    wrap.appendChild(node);
+    box.appendChild(node);
+    wrap.appendChild(box);
     return wrap;
   },
 
@@ -413,6 +415,7 @@ const Admin = {
      входа с PIN из письма. */
   ownPin() {
     const box = el('div', 'row-actions');
+    if (!Auth.can('pin.self')) return box;
     const go = el('button', 'btn', 'Сменить свой PIN');
     go.addEventListener('click', () => this.changeOwnPin());
     box.appendChild(go);
@@ -492,6 +495,21 @@ const Admin = {
       } catch (e) { toast(e.message, 'bad'); }
     });
     box.appendChild(toggle);
+
+    // Заведённого по ошибке надо убирать совсем, иначе за год список
+    // персонала зарастает опечатками. Того, кто уже работал, — только
+    // выключить: отчёт за прошлый месяц должен знать, чья это выручка.
+    if (!user.worked && user.id !== this.me.id) {
+      const drop = el('button', 'btn danger', 'Убрать совсем');
+      drop.addEventListener('click', async () => {
+        try {
+          await API.del(`/api/admin/users/${user.id}`);
+          toast('Сотрудник убран', 'good');
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      box.appendChild(drop);
+    }
     return box;
   },
 
@@ -1188,7 +1206,13 @@ const Admin = {
   },
 
   /* --------------------------------------------------------- таблица ---- */
+  /* Таблица кладётся в прокручиваемую коробку.
+     Без неё длинная строка растягивает страницу шире экрана, браузер на
+     телефоне отъезжает, чтобы всё влезло, — и кнопки становятся размером со
+     спичечную головку, а шторка уезжает за край. Проверяли: «Персонал»
+     разъезжался до 555 px на экране в 390. */
   table(head, rows, classes) {
+    const box = el('div', 'scroller');
     const node = el('table', 'grid');
     node.innerHTML = '<thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead>';
     const body = el('tbody');
@@ -1208,6 +1232,7 @@ const Admin = {
       body.appendChild(tr);
     });
     node.appendChild(body);
-    return node;
+    box.appendChild(node);
+    return box;
   }
 };

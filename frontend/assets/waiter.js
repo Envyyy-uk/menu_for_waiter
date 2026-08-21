@@ -232,12 +232,22 @@ const App = {
     }
 
     const test = el('button', 'btn ghost', 'Проверить звук');
-    test.addEventListener('click', () => { Sound.unlock(); Sound.alert(); });
+    // Без ответа кнопка выглядит сломанной: телефон приглушён, сигнала не
+    // слышно, и человек решает, что не работает приложение.
+    test.addEventListener('click', () => {
+      Sound.unlock();
+      Sound.alert();
+      toast('Сигнал прозвучал. Не слышно — прибавьте громкость медиа', 'good');
+    });
     row.appendChild(test);
 
-    const pin = el('button', 'btn ghost', 'Сменить PIN');
-    pin.addEventListener('click', () => this.changePin());
-    row.appendChild(pin);
+    // PIN себе меняют только владелец и менеджер. Остальным его выдают:
+    // забыл — новый ставит менеджер, и это попадает в журнал.
+    if (Auth.can('pin.self')) {
+      const pin = el('button', 'btn ghost', 'Сменить PIN');
+      pin.addEventListener('click', () => this.changePin());
+      row.appendChild(pin);
+    }
 
     if (Push.offer()) {
       const ask = el('button', 'btn', 'Включить уведомления');

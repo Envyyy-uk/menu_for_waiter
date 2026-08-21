@@ -136,6 +136,13 @@ def change_pin(
     что это доступ к деньгам.
     """
     user = identity[0]
+    if not can(user.role, "pin.self"):
+        # Спрятанная кнопка защитой не является: проверка здесь, а не только
+        # в интерфейсе.
+        raise HTTPException(
+            status_code=403,
+            detail="новый PIN выдаёт менеджер — обратитесь к нему",
+        )
     try:
         change_own_pin(db, user, body.old, body.new)
     except AuthError as exc:

@@ -50,8 +50,8 @@ def _fail(exc: AuthError):
 
 
 # -------------------------------------------------------------- персонал ---
-def user_payload(user: User) -> dict:
-    return {
+def user_payload(user: User, worked: bool | None = None) -> dict:
+    out = {
         "id": str(user.id),
         "name": user.name,
         "role": user.role,
@@ -60,6 +60,12 @@ def user_payload(user: User) -> dict:
         "active": user.active,
         "has_pin": bool(user.pin_hash),
     }
+    if worked is not None:
+        # Кто уже работал, того удалить нельзя: отчёт за прошлый месяц должен
+        # знать, чья это выручка. Интерфейс по этому полю и решает, какую
+        # кнопку показать.
+        out["worked"] = worked
+    return out
 
 
 @router.get("/roles")
@@ -76,7 +82,29 @@ def users(
     rows = db.scalars(
         select(User).where(User.venue_id == venue.id).order_by(User.active.desc(), User.name)
     ).all()
-    return [user_payload(u) for u in rows]
+    # Кто уже работал: по этому списку интерфейс решает, можно ли человека
+    # убрать совсем или только выключить.
+    worked = {
+        r[0]
+        for r in db.execute(
+            select(Check.waiter_id).where(Check.venue_id == venue.id).distinct()
+        ).all()
+        if r[0] is not None
+    }
+    worked |= {
+        r[0]
+        for r in db.execute(
+            select(Check.closed_by_id).where(Check.venue_id == venue.id).distinct()
+        ).all()
+        if r[0] is not None
+    }
+    worked |= {
+        r[0]
+        for r in db.execute(
+            select(WorkShift.user_id).where(WorkShift.venue_id == venue.id).distinct()
+        ).all()
+    }
+    return [user_payload(u, worked=u.id in worked) for u in rows]
 
 
 class UserIn(BaseModel):
@@ -191,6 +219,55 @@ def edit_user(
     if fresh is not None:
         out |= {"pin": fresh, "pin_length": pin_length(user.role)}
     return out
+
+
+@router.delete("/users/{user_id}")
+def remove_user(
+    user_id: uuid.UUID,
+    actor: User = Depends(require("users.manage")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Убрать сотрудника насовсем — только если он ещё ни разу не работал.
+
+    Тот, кто вёл чеки или закрывал смены, остаётся: отчёт за прошлый месяц
+    должен знать, чья это выручка и чьи часы. Такого выключают, а не удаляют —
+    он пропадает из зала, но не из истории.
+
+    Заведённого по ошибке удалить надо: иначе список персонала за год
+    зарастает опечатками, и в нём не найти живых.
+    """
+    user = db.get(User, user_id)
+    if user is None or user.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="сотрудник не найден")
+    if user.id == actor.id:
+        raise HTTPException(status_code=409, detail="нельзя удалить самого себя")
+    if not can_touch_user(actor.role, user.role):
+        raise HTTPException(status_code=403, detail="нельзя трогать роль выше своей")
+
+    worked = db.scalars(
+        select(Check).where(
+            (Check.waiter_id == user.id) | (Check.closed_by_id == user.id)
+        )
+    ).first()
+    shifts = db.scalars(select(WorkShift).where(WorkShift.user_id == user.id)).first()
+    if worked is not None or shifts is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="сотрудник уже работал — его можно выключить, но не удалить",
+        )
+
+    record.write(
+        db,
+        venue_id=venue.id,
+        user_id=actor.id,
+        action="user.delete",
+        entity=f"user:{user.id}",
+        before={"name": user.name, "role": user.role},
+    )
+    db.delete(user)
+    db.commit()
+    return {"status": "ok"}
 
 
 class PinIn(BaseModel):
