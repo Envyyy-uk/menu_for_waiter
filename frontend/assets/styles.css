@@ -575,6 +575,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 }
 .dish.off { opacity: .45; }
 .dish.off .price::after { content: ' · стоп'; font-family: var(--sans); font-size: 11px; color: var(--danger); }
+/* «Скоро» — не то же самое, что «кончилось»: так на сайте выключен целый
+   раздел, и официанту важно назвать гостю именно эту причину. */
+.dish.soon .price::after { content: ' · скоро'; color: var(--warn); }
 
 /* --------------------------------------------------------------- лист --- */
 /* Шторка снизу: выбор вариантов, оплата, всё, что перекрывает экран. */
@@ -911,6 +914,7 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 15px; }
 table.grid th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
 table.grid td { padding: 11px 10px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; }
 table.grid td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.grid th.num { text-align: right; }
 table.grid tr.off { opacity: .5; }
 /* Строка оплаты открывается целиком: попадать в маленькую кнопку «подробнее»
    пальцем на планшете — отдельное упражнение. */

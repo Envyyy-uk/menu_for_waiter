@@ -92,14 +92,19 @@ def mixer_choices(items: list[dict[str, Any]], price_pence: int) -> list[dict[st
 
 # Сколько добавок уходит в цену, когда берут бутылку.
 FREE_WITH_BOTTLE = 2
-BOTTLE_KEY = "bottle"
+# Бутылка бывает не одна: есть обычная и премиум, и миксы к ним одинаковые.
+BOTTLE_KEYS = ("bottle", "premium")
 
 
 def _free_with_bottle(groups: list[dict[str, Any]]) -> dict[str, Any] | None:
     """«К бутылке два микса бесплатно», если у позиции вообще есть бутылка."""
     for group in groups:
-        if any(c.get("key") == BOTTLE_KEY for c in group.get("choices") or []):
-            return {"when": {group["key"]: BOTTLE_KEY}, "count": FREE_WITH_BOTTLE}
+        bottles = [
+            c["key"] for c in group.get("choices") or []
+            if str(c.get("key", "")) in BOTTLE_KEYS
+        ]
+        if bottles:
+            return {"when": {group["key"]: bottles}, "count": FREE_WITH_BOTTLE}
     return None
 
 

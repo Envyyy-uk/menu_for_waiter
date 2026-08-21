@@ -44,7 +44,10 @@ function freeCount(group, chosen) {
   const rule = group.free;
   if (!rule || !rule.count) return 0;
   const when = rule.when || {};
-  return Object.keys(when).every(k => chosen[k] === when[k]) ? rule.count : 0;
+  // Условие может называть несколько вариантов: бутылка и бутылка премиум —
+  // обе бутылки, и миксы к ним одинаковые.
+  const fits = k => (Array.isArray(when[k]) ? when[k] : [when[k]]).includes(chosen[k]);
+  return Object.keys(when).every(fits) ? rule.count : 0;
 }
 
 /* ------------------------------------------------------------ варианты --- */

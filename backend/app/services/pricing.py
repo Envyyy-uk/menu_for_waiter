@@ -54,7 +54,10 @@ def _free_count(group: dict[str, Any], chosen: Selection) -> int:
     if not count:
         return 0
     for key, value in (rule.get("when") or {}).items():
-        if chosen.get(key) != value:
+        # Условие может называть несколько вариантов: бутылка и бутылка
+        # премиум — обе бутылки, и миксы к ним одинаковые.
+        allowed = value if isinstance(value, list) else [value]
+        if chosen.get(key) not in allowed:
             return 0
     return count
 

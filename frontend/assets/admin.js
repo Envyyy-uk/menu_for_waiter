@@ -893,7 +893,9 @@ const Admin = {
         esc((this.data.menu.categories.find(c => c.key === i.category) || {}).name || ''),
         esc(i.station_name),
         { num: money(i.price_pence) },
-        i.state === 'off' ? '<span style="color:var(--danger)">стоп</span>' : 'в продаже',
+        i.state === 'off' ? '<span style="color:var(--danger)">стоп</span>'
+          : i.state === 'soon' ? '<span style="color:var(--warn)">скоро · с сайта</span>'
+          : 'в продаже',
         { actions: this.menuActions(i) }
       ])
     ));
@@ -1062,8 +1064,11 @@ const Admin = {
 
     // Заготовка по меню. Сорок позиций руками — вечер работы, и на середине
     // бросают; количество всё равно вписывает тот, кто посмотрел на полку.
-    if (!data.items.length) {
-      const fill = el('button', 'btn', 'Завести склад по меню');
+    // Кнопка остаётся на месте и когда склад уже начали заводить руками:
+    // позиции, у которых правила нет, всё равно надо чем-то закрыть, а
+    // угадывать, почему кнопка пропала, никто не должен.
+    {
+      const fill = el('button', 'btn', 'Заполнить по меню');
       fill.addEventListener('click', async () => {
         try {
           const made = await API.post('/api/stock/fill');
@@ -1515,7 +1520,14 @@ const Admin = {
   table(head, rows, classes) {
     const box = el('div', 'scroller');
     const node = el('table', 'grid');
-    node.innerHTML = '<thead><tr>' + head.map(h => `<th>${esc(h)}</th>`).join('') + '</tr></thead>';
+    // Заголовок числовой колонки прижимается вправо — туда же, где стоят
+    // сами числа. Иначе «ЧЕКОВ» висит над пустотой, а единица — на ладонь
+    // правее, и таблица читается как набор случайных цифр.
+    const numeric = head.map((h, i) =>
+      rows.length > 0 && rows.every(cells => cells[i] && cells[i].num !== undefined));
+    node.innerHTML = '<thead><tr>'
+      + head.map((h, i) => `<th${numeric[i] ? ' class="num"' : ''}>${esc(h)}</th>`).join('')
+      + '</tr></thead>';
     const body = el('tbody');
     rows.forEach((cells, n) => {
       const tr = el('tr', (classes || [])[n] || '');

@@ -763,8 +763,12 @@ const App = {
       return;
     }
     items.forEach(i => {
-      const off = i.state === 'off';
-      const node = el('button', 'dish' + (off ? ' off' : ''));
+      // Не продаётся — это и «стоп», и «скоро». Второе приезжает с сайта:
+      // раздел, помеченный там «скоро», гость в меню видит, а заказать не
+      // может, и в зале должно быть так же.
+      const off = i.state !== 'on';
+      const soon = i.state === 'soon';
+      const node = el('button', 'dish' + (off ? ' off' : '') + (soon ? ' soon' : ''));
       node.type = 'button';
       node.innerHTML = `
         <span class="body">
@@ -773,7 +777,7 @@ const App = {
         </span>
         <span class="price">${money(i.price_pence)}</span>`;
       node.addEventListener('click', () => {
-        if (off) return toast(`«${i.name}» — стоп`, 'bad');
+        if (off) return toast(`«${i.name}» — ${soon ? 'скоро, пока не продаём' : 'стоп'}`, 'bad');
         this.pick(i);
       });
       list.appendChild(node);

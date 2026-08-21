@@ -140,3 +140,14 @@ def test_mixer_to_a_glass_is_paid_as_before(db, venue):
         vodka, {"size": "ml50", "mixer": ["cola"]}
     )
     assert unit == 1300 + 300
+
+
+def test_premium_bottle_also_comes_with_two_mixers(db, venue):
+    """Бутылка бывает не одна: обычная и премиум — обе бутылки."""
+    gin = item(db, "bombay")
+    unit, _, _ = resolve(
+        gin, {"size": "premium", "mixer": ["cola", "sprite"]}
+    )
+    sizes = {c["key"]: c["price_pence"] for g in gin.options if g["key"] == "size"
+             for c in g["choices"]}
+    assert unit == sizes["premium"]      # миксы не добавили ничего
