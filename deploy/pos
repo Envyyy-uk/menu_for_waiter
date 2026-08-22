@@ -11,6 +11,8 @@
 #   pos update   обновить приложение с гитхаба и перезапустить
 #   pos backup   выгрузить базу прямо сейчас
 #   pos pin      напомнить PIN владельца из .env
+#   pos unlock   снять блокировку после неудачных попыток
+#   pos newpin   выдать владельцу новый PIN (если старый потерян)
 set -euo pipefail
 
 ROOT=/srv/pos
@@ -39,8 +41,18 @@ case "${1:-ps}" in
 		# останется тот, с которым заведение завели.
 		grep '^SEED_ADMIN_PIN=' "$ROOT/.env" | cut -d= -f2
 		;;
+	unlock)
+		# Пять неудачных попыток — и вход ждёт пятнадцать минут. Перед
+		# сменой столько не ждут.
+		$C exec -T api python -m app.tools.pin --unlock
+		;;
+	newpin)
+		# PIN владельца потерян. Заодно снимается блокировка: иначе человек
+		# с новым PIN в руках упрётся в неё же.
+		$C exec -T api python -m app.tools.pin ${2:-}
+		;;
 	*)
-		echo "pos [ps|log|restart|update|backup|pin]" >&2
+		echo "pos [ps|log|restart|update|backup|pin|unlock|newpin]" >&2
 		exit 1
 		;;
 esac
