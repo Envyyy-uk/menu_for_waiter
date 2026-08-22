@@ -1,0 +1,46 @@
+#!/bin/bash
+# Короткие команды вместо длинной строки docker compose.
+#
+# Владелец заведения не должен помнить, что база поднимается файлом из папки
+# deploy с ключом --env-file. Ему нужно четыре вещи: посмотреть, что живо,
+# почитать лог, перезапустить и обновить.
+#
+#   pos          что запущено
+#   pos log      лог сервера, Ctrl+C выйти
+#   pos restart  перезапустить
+#   pos update   обновить приложение с гитхаба и перезапустить
+#   pos backup   выгрузить базу прямо сейчас
+#   pos pin      напомнить PIN владельца из .env
+set -euo pipefail
+
+ROOT=/srv/pos
+C="docker compose --env-file $ROOT/.env -f $ROOT/deploy/docker-compose.prod.yml"
+
+case "${1:-ps}" in
+	ps|status|"")
+		$C ps
+		;;
+	log|logs)
+		$C logs -f --tail 100 api
+		;;
+	restart)
+		$C up -d --build
+		;;
+	update)
+		git -C "$ROOT" pull --ff-only
+		$C up -d --build
+		echo "обновлено"
+		;;
+	backup)
+		"$ROOT/deploy/backup.sh"
+		;;
+	pin)
+		# Только для первого входа: дальше PIN живёт в базе хешем, и здесь
+		# останется тот, с которым заведение завели.
+		grep '^SEED_ADMIN_PIN=' "$ROOT/.env" | cut -d= -f2
+		;;
+	*)
+		echo "pos [ps|log|restart|update|backup|pin]" >&2
+		exit 1
+		;;
+esac

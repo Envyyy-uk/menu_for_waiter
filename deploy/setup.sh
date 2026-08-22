@@ -44,7 +44,11 @@ echo "домен ведёт сюда: $THERE"
 # -------------------------------------------------------------- система ---
 say "Ставлю систему (это самая долгая часть, пара минут)"
 apt-get upgrade -y -qq
-apt-get install -y -qq docker.io docker-compose-v2 git ufw unattended-upgrades openssl
+# docker-buildx отдельно: без него compose ругается на «Bake, but buildx
+# isn't installed» и собирает старым сборщиком. Собирает верно, но пугает
+# предупреждением там, где человек и так не уверен, что всё идёт как надо.
+apt-get install -y -qq docker.io docker-compose-v2 docker-buildx git ufw \
+	unattended-upgrades openssl
 systemctl enable --now docker >/dev/null
 
 # Обновления безопасности ставятся сами: без этого сервер стареет опасно.
@@ -116,6 +120,10 @@ if ! crontab -l 2>/dev/null | grep -q 'pos/deploy/backup.sh'; then
 	( crontab -l 2>/dev/null; echo "0 * * * * $ROOT/deploy/backup.sh >> /var/log/pos-backup.log 2>&1" ) | crontab -
 fi
 
+# Короткие команды вместо длинной строки docker compose: владелец заведения
+# не должен помнить про --env-file и путь к файлу в deploy/.
+install -m 755 "$ROOT/deploy/pos" /usr/local/bin/pos
+
 # --------------------------------------------------------------- итог ---
 say "Жду, пока сервер ответит по HTTPS"
 # Первый сертификат Let's Encrypt выписывается до минуты. Молчаливое
@@ -146,8 +154,13 @@ cat <<TXT
   2. Заведите персонал, расставьте столы, заполните склад.
   3. На телефонах и планшетах — «на домашний экран».
 
-Полезное:
-  логи        $COMPOSE logs -f api
-  обновить    git -C $ROOT pull && $COMPOSE up -d --build
-  бэкапы      $ROOT/backups
+Команды на сервере:
+  pos           что запущено
+  pos log       лог сервера (Ctrl+C выйти)
+  pos restart   перезапустить
+  pos update    обновить приложение
+  pos backup    выгрузить базу прямо сейчас
+  pos pin       напомнить PIN владельца
+
+Бэкапы складываются в $ROOT/backups каждый час.
 TXT
