@@ -9,6 +9,13 @@
 set -e
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+
+# Cron запускается с пустым окружением, а имя пользователя базы лежит в .env.
+# Без этой строки бэкап молча уходил бы в базу `pos` даже там, где она другая.
+if [ -f "$ROOT/.env" ]; then
+	. "$ROOT/.env"
+fi
+
 OUT="$ROOT/backups"
 KEEP_DAYS=14
 STAMP=$(date +%Y-%m-%d-%H)
