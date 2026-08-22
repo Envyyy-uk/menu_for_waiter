@@ -285,6 +285,7 @@ with sync_playwright() as pw:
     station_pin(p, "2727")
     who = p.locator("#tablet .bar .who").inner_text().lower()
     check("второй бармен встал в ту же смену", "игорь" in who and "слава" in who, who)
+    check("часы идут у каждого свои", who.count("мин") + who.count(" ч ") >= 2, who)
     check("смена осталась одна", p.locator("#tablet .board-grid").count() == 1)
     check("кнопка обещает уход, а не закрытие",
           "уйти" in p.locator("#tablet [data-shift='close']").inner_text().lower(),

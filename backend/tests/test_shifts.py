@@ -311,7 +311,7 @@ def test_shift_log_lists_everyone_who_stood_there(client, hall, make_user):
 
     login(client, "123456")
     row = client.get("/api/admin/shifts").json()[0]
-    assert row["people"] == ["Игорь", "Слава"]
+    assert [x["name"] for x in row["people"]] == ["Игорь", "Слава"]
     assert row["opened_by"] == "Игорь"
     assert row["closed_by"] == "Слава"
 
@@ -449,8 +449,109 @@ def test_shift_log_shows_who_is_still_on(client, hall, make_user):
 
     login(client, "123456")
     row = client.get("/api/admin/shifts").json()[0]
-    assert row["people"] == ["Игорь", "Слава"]
-    assert row["people_here"] == ["Слава"]
+    assert [x["name"] for x in row["people"]] == ["Игорь", "Слава"]
+    assert [x["here"] for x in row["people"]] == [False, True]
 
     journal = client.get("/api/admin/audit").json()
     assert any(r["action"] == "shift.leave" for r in journal)
+
+
+# ------------------------------------------------- часы у каждого свои ---
+def test_standing_at_the_bar_opens_a_personal_timesheet(client, hall, db):
+    """Бармен весь вечер за стойкой — и в табеле он есть.
+
+    Иначе тот, кто в зал не заходил ни разу, часов не набирает вовсе: он-то
+    работал, а платить не за что.
+    """
+    from app.models import User, WorkShift
+
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    igor = db.query(User).filter(User.name == "Игорь").one()
+    row = (
+        db.query(WorkShift)
+        .filter(WorkShift.user_id == igor.id, WorkShift.closed_at.is_(None))
+        .one_or_none()
+    )
+    assert row is not None
+    assert row.role_snapshot == "bar"
+
+
+def test_leaving_the_bar_closes_only_his_own_timesheet(client, hall, db, make_user):
+    """Один отработал три часа, другой семь — и в табеле это две строки.
+
+    Платить обоим по большему — чужие деньги.
+    """
+    from app.models import User, WorkShift
+
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2727"})
+    client.post("/api/station/shift/leave", json={"pin": "2222"})
+
+    igor = db.query(User).filter(User.name == "Игорь").one()
+    slava = db.query(User).filter(User.name == "Слава").one()
+    db.expire_all()
+
+    mine = db.query(WorkShift).filter(WorkShift.user_id == igor.id).one()
+    assert mine.closed_at is not None          # ушёл домой — табель закрыт
+    his = db.query(WorkShift).filter(WorkShift.user_id == slava.id).one()
+    assert his.closed_at is None               # остался работать — идёт дальше
+
+
+def test_the_bar_shift_reports_hours_per_person(client, hall, make_user):
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2727"})
+
+    hours = client.get("/api/station/shift").json()["hours"]
+    assert [x["name"] for x in hours] == ["Игорь", "Слава"]
+    assert all(x["here"] for x in hours)
+    # Часы считаются каждому от своего прихода, а не от открытия смены.
+    assert all("joined_at" in x and "hours_text" in x for x in hours)
+
+    gone = client.post("/api/station/shift/leave", json={"pin": "2222"}).json()
+    assert "worked" in gone                    # сколько отработал именно он
+    hours = client.get("/api/station/shift").json()["hours"]
+    assert [x["here"] for x in hours] == [False, True]
+
+
+def test_you_cannot_go_home_with_an_open_check(client, hall, make_user, db):
+    """Уйти с открытым чеком — значит оставить деньги на столе.
+
+    Правило то же, что в зале: сначала закройте стол.
+    """
+    from tests.test_floor import add, open_check
+
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2727"})
+
+    # Бармен пробил заказ за стойкой сам — чек его.
+    login(client, "2222")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    client.post("/api/auth/logout")
+
+    refused = client.post("/api/station/shift/leave", json={"pin": "2222"})
+    assert refused.status_code == 409
+    assert "чек" in refused.json()["detail"].lower()
+    # И со смены он не пропал: отказали до того, как его убрали.
+    assert client.get("/api/station/shift").json()["people"] == ["Игорь", "Слава"]
+
+
+def test_the_timesheet_shows_both_bartenders_apart(client, hall, make_user):
+    """В табеле у менеджера — две строки с разными часами, а не одна общая."""
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2727"})
+    client.post("/api/station/shift/leave", json={"pin": "2222"})
+
+    login(client, "123456")
+    sheet = client.get("/api/admin/timesheet").json()
+    rows = {r["name"]: r for r in sheet["shifts"]}
+    assert {"Игорь", "Слава"} <= set(rows)
+    # У ушедшего смена закрыта и часы посчитаны, у оставшегося — идёт.
+    assert rows["Игорь"]["closed_at"] is not None
+    assert rows["Слава"]["hours_text"] == "идёт"
+    # В итогах пока только отработанное: идущая смена — ещё не часы.
+    assert [p["name"] for p in sheet["people"]] == ["Игорь"]

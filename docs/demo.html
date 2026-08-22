@@ -901,7 +901,8 @@ h1 {
         <b>2727</b>: смена остаётся одна — очередь марок общая, — но в шапке
         встанут оба имени. Теперь нажмите <b>Уйти со смены</b> и введите
         <b>2222</b>: Игорь ушёл домой, а планшет работает дальше — Слава ещё
-        за стойкой. Смена закроется сама, когда уйдёт последний.</p>
+        за стойкой. Часы у каждого свои — они идут рядом с именем от его
+        прихода, — а смена закроется сама, когда уйдёт последний.</p>
       <p>Нажмите <b>Открыть смену</b> на телефоне — пойдут часы. Закрыть её с
         открытым чеком система не даст, а после закрытия покажет итог вечера:
         сколько отработано, чеков, наличными и картой.</p>
@@ -1115,6 +1116,10 @@ function beep() {
    же. В демо секунда стоит за минуту — иначе смотреть пришлось бы на «0 мин»
    весь вечер. */
 const workMinutes = () => (S.work.open ? Math.floor((Date.now() - S.work.from) / 1000) : 0);
+
+/* Часы человека на станции — от его прихода, а не от открытия смены. Здесь,
+   как и в личной смене, секунда стоит за минуту. */
+const shiftMinutes = p => (p ? Math.floor((Date.now() - p.from) / 1000) : 0);
 
 function workText(minutes) {
   const h = Math.floor(minutes / 60), m = minutes % 60;
@@ -1330,7 +1335,9 @@ function tabletHTML() {
   const news = list.filter(t => t.status === 'new').length;
   return `<div class="bar">
       <span class="dot"></span><h3>Бар и кухня</h3>
-      <span class="who">${S.shift.people.length ? esc(S.shift.people.join(', ')) + ' · ' : ''}${news
+      <span class="who">${S.shift.people.length
+        ? esc(S.shift.people.map(p => `${p.name} ${workText(shiftMinutes(p))}`).join(' · ')) + ' · '
+        : ''}${news
         ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : list.length + ' в работе'}</span>
       <button type="button" data-shift="join">+ Ещё человек</button>
       <!-- Кнопка называет то, что случится. Пока на баре двое, уход одного
@@ -1983,7 +1990,11 @@ document.addEventListener('click', e => {
       // Кто ввёл личный PIN — тот и был на баре. Общий PIN станции никого не
       // записывает: за ним нет имени, и выдумывать его — врать в отчёте.
       const remember = () => {
-        if (who && !f.people.includes(who)) f.people.push(who);
+        if (who && !f.people.some(p => p.name === who)) {
+          // Часы каждому свои: один встал в шесть, другой в девять, и
+          // платить обоим по большему — чужие деньги.
+          f.people.push({ name: who, from: Date.now() });
+        }
       };
       if (!right) {
         // Чужой PIN смену не закрывает — иначе отчёт по станции превращается
@@ -2005,13 +2016,16 @@ document.addEventListener('click', e => {
         // Уходят по одному: пришли в разное время — уйдут тоже в разное.
         // Тот, кто ушёл домой раньше, не гасит планшет за оставшимся: очередь
         // марок общая. Общий PIN станции — другое дело, им заканчивают вечер.
-        const stayed = who ? f.people.filter(n => n !== who) : [];
+        const mine = f.people.find(p => p.name === who);
+        const stayed = who ? f.people.filter(p => p.name !== who) : [];
         if (who && stayed.length) {
           f.people = stayed;
           f.closing = false;
           f.why = null;
-          // Без глагола: за стойкой стоят и «он», и «она».
-          tip(`Со смены: ${who} · остаются: ${stayed.join(', ')}`, 3000);
+          // Без глагола: за стойкой стоят и «он», и «она». Часы — его
+          // собственные: смена длиннее, а платят за отработанное им.
+          tip(`Со смены: ${who} · ${workText(shiftMinutes(mine))} · остаются: `
+            + stayed.map(p => p.name).join(', '), 3000);
         } else {
           f.closing = false;
           f.open = false;
@@ -2165,7 +2179,7 @@ document.addEventListener('pointerdown', e => {
 /* Часы на марках идут сами: «2:14» должно означать две минуты, а не то,
    сколько было в момент прихода заказа. */
 // Часы идут: время на марках и время личной смены.
-setInterval(() => { if (live().length || S.work.open) render(); }, 1000);
+setInterval(() => { if (live().length || S.work.open || S.shift.open) render(); }, 1000);
 
 render();
 </script>

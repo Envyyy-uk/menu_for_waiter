@@ -34,6 +34,8 @@ from app.services import push, realtime, shifts
 from app.services.audit import record
 from app.services.checks import CheckError, set_ticket_status, ticket_payload
 from app.services.auth import AuthError
+from app.services import worktime
+from app.services.worktime import WorkError
 from app.services.shifts import SHIFT_COOKIE
 
 router = APIRouter(prefix="/api/station", tags=["станция"])
@@ -344,8 +346,11 @@ def shift_leave(
         return answer
 
     try:
-        closed, stayed = shifts.leave(db, shift, who)
+        closed, stayed, minutes = shifts.leave(db, shift, who)
     except AuthError as e:
+        return JSONResponse(status_code=e.status, content={"detail": e.message})
+    except WorkError as e:
+        # Открытый чек — не «неверный PIN», а «сначала закройте стол».
         return JSONResponse(status_code=e.status, content={"detail": e.message})
     db.commit()
 
@@ -355,6 +360,8 @@ def shift_leave(
         "closed": closed,
         "left": who.name,
         "stayed": stayed,
+        # Часы именно этого человека, а не всей смены.
+        "worked": worktime.hours_text(minutes),
     })
     if closed:
         answer.delete_cookie(SHIFT_COOKIE, path="/")

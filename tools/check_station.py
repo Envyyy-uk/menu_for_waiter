@@ -113,6 +113,9 @@ def main() -> None:
         check("второй встал в ту же смену",
               "Игорь" in who and "Слава" in who and not bar.locator("#gate").is_visible(),
               who)
+        # Часы каждому от его прихода: один встал в шесть, другой в девять, и
+        # платить обоим по большему — чужие деньги.
+        check("у каждого свои часы", who.count("мин") >= 2, who)
 
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
         waiter = waiter_ctx.new_page()
@@ -170,6 +173,9 @@ def main() -> None:
         bar.wait_for_timeout(900)
         who = bar.locator("#who").inner_text()
         check("ушедший пропал из шапки", "Игорь" not in who and "Слава" in who, who)
+        check("ушедшему показали его часы",
+              "Со смены" in bar.locator(".toast").inner_text(),
+              bar.locator(".toast").inner_text())
         check("планшет остался работать",
               not bar.locator("#gate").is_visible() and bar.locator(".mark").count() >= 1)
         check("остался один — кнопка снова про закрытие",

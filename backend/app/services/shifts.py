@@ -18,6 +18,11 @@ PIN-ами: общим PIN станции и личным PIN того, кто �
 Уходят по одному. Пришли в разное время — уйдут тоже в разное, и тот, кто
 ушёл раньше, не должен гасить планшет за тем, кто остался работать. Смена
 закрывается сама, когда с неё ушёл последний.
+
+Часы при этом считает табель, а не эта смена, и считает их каждому свои.
+Один за вечер отработает три часа, другой семь; заплатить обоим по большему
+— это чужие деньги. Поэтому «встал на станцию» открывает личный табель, а
+«ушёл со смены» — закрывает его.
 """
 
 from __future__ import annotations
@@ -42,6 +47,8 @@ from app.models import (
     User,
     utcnow,
 )
+from app.services import worktime
+from app.services.worktime import WorkError
 from app.services.audit import record
 from app.models.user import ROLE_BAR, ROLE_KITCHEN
 from app.services.auth import PIN_LENGTH, AuthError
@@ -216,6 +223,16 @@ def close_shift(
     # Смена кончилась — на ней никого не осталось, кем бы её ни закрыли.
     for row in _rows(db, shift, only_here=True):
         row.left_at = shift.closed_at
+        person = db.get(User, row.user_id)
+        if person is None:
+            continue
+        try:
+            _clock_out(db, person)
+        except WorkError:
+            # У человека остался открытый чек. Станцию это не держит — бар
+            # гасят целиком, — но его табель идёт дальше: деньги на столе
+            # ещё его, и часы капают, пока он их не закроет.
+            continue
     record.write(
         db,
         venue_id=shift.venue_id,
@@ -286,6 +303,7 @@ def join(db: DbSession, shift: Shift, opener: Opener) -> ShiftPerson | None:
         # Отошёл и вернулся — та же строка. Смена не считает часы, это делает
         # табель; здесь важно только, что человек на баре был.
         row.left_at = None
+        _clock_in(db, opener.user)
         return row
     row = ShiftPerson(
         shift_id=shift.id,
@@ -295,6 +313,7 @@ def join(db: DbSession, shift: Shift, opener: Opener) -> ShiftPerson | None:
     )
     db.add(row)
     db.flush()
+    _clock_in(db, opener.user)
     record.write(
         db,
         venue_id=shift.venue_id,
@@ -304,6 +323,27 @@ def join(db: DbSession, shift: Shift, opener: Opener) -> ShiftPerson | None:
         after={"station": shift.station, "who": opener.user.name},
     )
     return row
+
+
+def _clock_in(db: DbSession, user: User) -> None:
+    """Встал на станцию — пошёл личный табель.
+
+    Иначе бармен, который весь вечер не выходил из-за стойки и в зал не
+    заходил, в табеле не появляется вовсе: он-то работал, а часов у него нет.
+    Вторую смену поверх открытой табель не заводит, так что вернувшийся из
+    перекура не получает второй строки.
+    """
+    worktime.open_shift(db, user)
+
+
+def _clock_out(db: DbSession, user: User) -> None:
+    """Ушёл со станции — закрылся и табель.
+
+    Отказ здесь настоящий: уйти домой с открытым чеком значит оставить деньги
+    на столе, и это то же правило, что в зале.
+    """
+    if worktime.current(db, user) is not None:
+        worktime.close_shift(db, user)
 
 
 def _rows(db: DbSession, shift: Shift, only_here: bool = False) -> list[ShiftPerson]:
@@ -318,8 +358,36 @@ def people(db: DbSession, shift: Shift, only_here: bool = False) -> list[str]:
     return [row.name_snapshot for row in _rows(db, shift, only_here)]
 
 
-def leave(db: DbSession, shift: Shift, who: Opener) -> tuple[bool, list[str]]:
-    """Один человек уходит со смены. Возвращает (смена закрыта, кто остался).
+def minutes_of(row: ShiftPerson) -> int:
+    """Сколько человек простоял на станции. Открытая строка считается до сих пор."""
+    until = row.left_at or utcnow()
+    return max(0, int((until - row.joined_at).total_seconds() // 60))
+
+
+def people_detail(db: DbSession, shift: Shift) -> list[dict]:
+    """Кто был и сколько простоял — каждый со своими часами.
+
+    Один за вечер отработает три часа, другой семь, и общая длина смены о
+    зарплате не говорит ничего.
+    """
+    out = []
+    for row in _rows(db, shift):
+        minutes = minutes_of(row)
+        out.append(
+            {
+                "name": row.name_snapshot,
+                "here": row.left_at is None,
+                "joined_at": row.joined_at.isoformat(),
+                "left_at": row.left_at.isoformat() if row.left_at else None,
+                "minutes": minutes,
+                "hours_text": worktime.hours_text(minutes),
+            }
+        )
+    return out
+
+
+def leave(db: DbSession, shift: Shift, who: Opener) -> tuple[bool, list[str], int]:
+    """Уход одного со смены: (смена закрыта, кто остался, его минуты).
 
     Пришли в разное время — уйдут тоже в разное. Тот, кто ушёл домой раньше,
     не должен гасить планшет за тем, кто остался работать: пока на станции
@@ -341,25 +409,36 @@ def leave(db: DbSession, shift: Shift, who: Opener) -> tuple[bool, list[str]]:
     if row is None:
         raise AuthError("Вас нет в этой смене", status=409)
 
+    # Табель закрывается первым: если у человека остался открытый чек, уйти
+    # нельзя вовсе — и лучше отказать до того, как он пропал из смены.
+    _clock_out(db, who.user)
+
     row.left_at = utcnow()
     db.flush()
+    minutes = minutes_of(row)
     record.write(
         db,
         venue_id=shift.venue_id,
         user_id=who.user.id,
         action="shift.leave",
         entity=f"station:{shift.station}",
-        after={"station": shift.station, "who": who.user.name},
+        after={
+            "station": shift.station,
+            "who": who.user.name,
+            # Часы именно этого человека: смена длиннее, а платят за его.
+            "minutes": minutes,
+            "hours": worktime.hours_text(minutes),
+        },
     )
 
     stayed = people(db, shift, only_here=True)
     if stayed:
-        return False, stayed
+        return False, stayed, minutes
 
     # Ушёл последний. Смена закрывается его же именем: он и есть тот, кто её
     # сдал, даже если PIN он вводил, чтобы просто уйти домой.
     close_shift(db, shift, closer=who)
-    return True, []
+    return True, [], minutes
 
 
 def who_names(db: DbSession, shift: Shift) -> tuple[str | None, str | None]:
@@ -391,4 +470,7 @@ def payload(shift: Shift | None, station: str | None = None, db: DbSession | Non
         # пропадает, но из вечера — нет.
         "people": people(db, shift, only_here=True) if db is not None else [],
         "people_all": people(db, shift) if db is not None else [],
+        # Часы каждого отдельно: один за вечер отработает три часа, другой
+        # семь, и длина смены о зарплате не говорит ничего.
+        "hours": people_detail(db, shift) if db is not None else [],
     }

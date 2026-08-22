@@ -843,13 +843,14 @@ const Admin = {
         ['Станция', 'Кто был', 'Открыл', 'Открыта', 'Закрыл', 'Закрыта', 'Марок'],
         this.data.shifts.map(s => [
           esc(s.name),
-          // Смена одна на станцию, а людей в ней бывает несколько: планшет
-          // один, а барменов за вечер двое. Кто уже ушёл домой — бледнее:
-          // в открытой смене видно, кто на баре прямо сейчас.
+          // Смена одна на станцию, а людей в ней бывает несколько, и часы у
+          // каждого свои: один отработал три, другой семь. Кто уже ушёл
+          // домой — бледнее: видно, кто на баре прямо сейчас.
           s.people && s.people.length
-            ? s.people.map(n => (s.people_here || []).includes(n)
-                ? esc(n)
-                : `<span class="faint">${esc(n)}</span>`).join(', ')
+            ? s.people.map(x => {
+                const line = `${esc(x.name)} <span class="faint">${esc(x.hours_text)}</span>`;
+                return x.here ? line : `<span class="faint">${esc(x.name)} ${esc(x.hours_text)}</span>`;
+              }).join('<br>')
             : '<span class="faint">—</span>',
           who(s.opened_by),
           esc(new Date(s.opened_at).toLocaleString('ru-RU')),

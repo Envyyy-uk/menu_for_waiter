@@ -68,19 +68,39 @@ const Board = {
       ? 'смена с ' + new Date(shift.opened_at).toLocaleTimeString('ru-RU',
           { hour: '2-digit', minute: '2-digit' })
       : '';
-    // Имён может быть несколько — тогда они и стоят через запятую. Пусто
-    // значит, что вошли общим PIN станции: смена есть, имени за ней нет.
-    const names = (shift.people && shift.people.length)
-      ? shift.people.join(', ')
-      : (shift.opened_by || '');
-    document.getElementById('who').textContent =
-      names ? `${names} · ${since}` : since;
+    this.since = since;
+    this.paintWho();
 
     // Кнопка называет то, что случится. Пока на баре двое, уход одного смену
     // не гасит — и обещать «закрыть» в этот момент нельзя.
     const many = shift.people && shift.people.length > 1;
     const out = document.getElementById('out');
     out.textContent = many ? 'Уйти со смены' : 'Закрыть смену';
+  },
+
+  /* Кто на станции и сколько уже стоит. Часы идут на глазах, как и ожидание
+     на марках: «3 ч 20 мин» должно означать столько же и через минуту, а не
+     столько, сколько было при последнем заказе. */
+  paintWho() {
+    const shift = this.shift || {};
+    const here = (shift.hours || []).filter(x => x.here);
+    const names = here.length
+      ? here.map(x => `${x.name} ${this.worked(x)}`).join(' · ')
+      : (shift.people && shift.people.length
+          ? shift.people.join(', ')
+          : (shift.opened_by || ''));
+    const since = this.since || '';
+    document.getElementById('who').textContent =
+      names ? `${names} · ${since}` : since;
+  },
+
+  /* Минуты, а не часы: округление до часа в обе стороны — это чужие деньги. */
+  worked(person) {
+    const from = new Date(person.joined_at).getTime();
+    const minutes = Math.max(0, Math.floor((Date.now() - from) / 60000));
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    if (!h) return `${m} мин`;
+    return m ? `${h} ч ${m} мин` : `${h} ч`;
   },
 
   /* Второй бармен встаёт в открытую смену своим PIN.
@@ -111,7 +131,9 @@ const Board = {
       async pin => {
         const done = await API.post('/api/station/shift/leave', { pin });
         if (done.closed) {
-          Shift.done(`Смена закрыта · марок отдано: ${done.tickets_done}`);
+          Shift.done(done.worked
+            ? `Смена закрыта · ${done.worked} · марок отдано: ${done.tickets_done}`
+            : `Смена закрыта · марок отдано: ${done.tickets_done}`);
           return;
         }
         // Ушёл один, а планшет остаётся включённым: очередь марок общая, и
@@ -121,8 +143,10 @@ const Board = {
         document.body.classList.remove('locked');
         this.showShift(done);
         // Без глагола: за стойкой стоят и «он», и «она», а угадывать род по
-        // имени — способ обратиться к человеку неправильно.
-        toast(`Со смены: ${done.left} · остаются: ${done.stayed.join(', ')}`, 'good');
+        // имени — способ обратиться к человеку неправильно. Часы — его
+        // собственные: смена длиннее, а платят за отработанное им.
+        toast(`Со смены: ${done.left} · ${done.worked} · остаются: `
+          + done.stayed.join(', '), 'good');
       });
   },
 
@@ -140,6 +164,7 @@ const Board = {
   paint() {
     const board = document.getElementById('board');
     const state = document.getElementById('state');
+    this.paintWho();
     board.innerHTML = '';
 
     if (!this.tickets.length) {
