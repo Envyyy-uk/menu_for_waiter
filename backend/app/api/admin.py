@@ -721,8 +721,10 @@ def shift_log(
                 "opened_by": opened_by,
                 "closed_by": closed_by,
                 # Все, кто стоял на этой станции за смену, а не только тот,
-                # кто ввёл PIN первым.
+                # кто ввёл PIN первым. И кто из них ещё на ней: уходят по
+                # одному, и ушедший домой не гасит планшет за остальными.
                 "people": shift_service.people(db, s),
+                "people_here": shift_service.people(db, s, only_here=True),
             }
         )
     return out

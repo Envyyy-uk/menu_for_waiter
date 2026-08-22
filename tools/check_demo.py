@@ -286,6 +286,31 @@ with sync_playwright() as pw:
     who = p.locator("#tablet .bar .who").inner_text().lower()
     check("второй бармен встал в ту же смену", "игорь" in who and "слава" in who, who)
     check("смена осталась одна", p.locator("#tablet .board-grid").count() == 1)
+    check("кнопка обещает уход, а не закрытие",
+          "уйти" in p.locator("#tablet [data-shift='close']").inner_text().lower(),
+          p.locator("#tablet [data-shift='close']").inner_text())
+
+    # Ушёл домой раньше — планшет работает дальше: очередь марок общая, и
+    # погасить её значит оставить второго без заказов.
+    p.locator("#tablet [data-shift='close']").click(); p.wait_for_timeout(300)
+    station_pin(p, "2222")
+    p.wait_for_timeout(400)
+    who = p.locator("#tablet .bar .who").inner_text().lower()
+    check("ушедший пропал из шапки", "игорь" not in who and "слава" in who, who)
+    check("смена не закрылась", p.locator("#tablet .board-grid").count() == 1)
+    check("остался один — кнопка снова про закрытие",
+          "закрыть" in p.locator("#tablet [data-shift='close']").inner_text().lower(),
+          p.locator("#tablet [data-shift='close']").inner_text())
+    # Игорь вернулся: смена та же, и в шапке снова двое.
+    p.locator("#tablet [data-shift='join']").click(); p.wait_for_timeout(300)
+    station_pin(p, "2222")
+    p.wait_for_timeout(400)
+    who = p.locator("#tablet .bar .who").inner_text().lower()
+    check("вернувшийся снова в шапке", "игорь" in who and "слава" in who, who)
+    # И ушёл уже до конца вечера — дальше Слава один.
+    p.locator("#tablet [data-shift='close']").click(); p.wait_for_timeout(300)
+    station_pin(p, "2222")
+    p.wait_for_timeout(400)
     p.locator("#phone .spot[data-table='3']").click(); p.wait_for_timeout(300)
     p.locator("#phone [data-open]").click(); p.wait_for_timeout(300)
     add(p, "pelmeni")

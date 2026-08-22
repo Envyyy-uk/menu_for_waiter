@@ -14,6 +14,10 @@ PIN-ами: общим PIN станции и личным PIN того, кто �
 барменов за вечер бывает двое, и работают они рядом, а не по очереди: вторая
 смена на тот же бар разрезала бы очередь марок пополам. Поэтому второй не
 открывает свою смену, а входит в открытую — и остаётся в списке «кто был».
+
+Уходят по одному. Пришли в разное время — уйдут тоже в разное, и тот, кто
+ушёл раньше, не должен гасить планшет за тем, кто остался работать. Смена
+закрывается сама, когда с неё ушёл последний.
 """
 
 from __future__ import annotations
@@ -209,6 +213,9 @@ def close_shift(
     shift.closed_by_id = who.id if who else None
     if closer is not None:
         join(db, shift, closer)
+    # Смена кончилась — на ней никого не осталось, кем бы её ни закрыли.
+    for row in _rows(db, shift, only_here=True):
+        row.left_at = shift.closed_at
     record.write(
         db,
         venue_id=shift.venue_id,
@@ -299,15 +306,60 @@ def join(db: DbSession, shift: Shift, opener: Opener) -> ShiftPerson | None:
     return row
 
 
-def people(db: DbSession, shift: Shift) -> list[str]:
-    """Кто был на смене, в порядке появления."""
-    return list(
-        db.scalars(
-            select(ShiftPerson.name_snapshot)
-            .where(ShiftPerson.shift_id == shift.id)
-            .order_by(ShiftPerson.joined_at)
-        ).all()
+def _rows(db: DbSession, shift: Shift, only_here: bool = False) -> list[ShiftPerson]:
+    q = select(ShiftPerson).where(ShiftPerson.shift_id == shift.id)
+    if only_here:
+        q = q.where(ShiftPerson.left_at.is_(None))
+    return list(db.scalars(q.order_by(ShiftPerson.joined_at)).all())
+
+
+def people(db: DbSession, shift: Shift, only_here: bool = False) -> list[str]:
+    """Кто был на смене, в порядке появления. `only_here` — кто на ней сейчас."""
+    return [row.name_snapshot for row in _rows(db, shift, only_here)]
+
+
+def leave(db: DbSession, shift: Shift, who: Opener) -> tuple[bool, list[str]]:
+    """Один человек уходит со смены. Возвращает (смена закрыта, кто остался).
+
+    Пришли в разное время — уйдут тоже в разное. Тот, кто ушёл домой раньше,
+    не должен гасить планшет за тем, кто остался работать: пока на станции
+    есть хоть один, очередь марок жива и смена идёт.
+
+    Ушёл последний — смену закрывать некому и незачем, она закрывается сама и
+    пишет итог, как при обычном закрытии.
+    """
+    if who.user is None:
+        raise AuthError("Уйти со смены можно только своим PIN")
+
+    row = db.scalars(
+        select(ShiftPerson).where(
+            ShiftPerson.shift_id == shift.id,
+            ShiftPerson.user_id == who.user.id,
+            ShiftPerson.left_at.is_(None),
+        )
+    ).first()
+    if row is None:
+        raise AuthError("Вас нет в этой смене", status=409)
+
+    row.left_at = utcnow()
+    db.flush()
+    record.write(
+        db,
+        venue_id=shift.venue_id,
+        user_id=who.user.id,
+        action="shift.leave",
+        entity=f"station:{shift.station}",
+        after={"station": shift.station, "who": who.user.name},
     )
+
+    stayed = people(db, shift, only_here=True)
+    if stayed:
+        return False, stayed
+
+    # Ушёл последний. Смена закрывается его же именем: он и есть тот, кто её
+    # сдал, даже если PIN он вводил, чтобы просто уйти домой.
+    close_shift(db, shift, closer=who)
+    return True, []
 
 
 def who_names(db: DbSession, shift: Shift) -> tuple[str | None, str | None]:
@@ -334,6 +386,9 @@ def payload(shift: Shift | None, station: str | None = None, db: DbSession | Non
         "tickets_done": shift.tickets_done,
         "opened_by": opened_by,
         "closed_by": closed_by,
-        # Кто на смене — все, а не только тот, кто ввёл PIN первым.
-        "people": people(db, shift) if db is not None else [],
+        # Кто на смене сейчас — все, а не только тот, кто ввёл PIN первым.
+        # И отдельно те, кто был за смену: ушедший домой из первого списка
+        # пропадает, но из вечера — нет.
+        "people": people(db, shift, only_here=True) if db is not None else [],
+        "people_all": people(db, shift) if db is not None else [],
     }

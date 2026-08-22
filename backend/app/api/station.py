@@ -309,6 +309,58 @@ def shift_join(
     return JSONResponse({**shifts.payload(shift, db=db), "configured": True, "joined": who.name})
 
 
+@router.post("/shift/leave")
+def shift_leave(
+    body: ShiftCloseIn,
+    request: Request,
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> Response:
+    """Один человек уходит со смены, а планшет продолжает работать.
+
+    Пришли в разное время — уйдут тоже в разное. Тот, кто ушёл домой раньше,
+    не должен гасить планшет за тем, кто остался: очередь марок на станции
+    общая, и погасить её значит оставить второго без заказов.
+
+    Ушёл последний — смена закрывается сама, с обычным итогом. А общий PIN
+    станции закрывает всю смену сразу: им заканчивают вечер.
+    """
+    shift = shifts.by_token(db, request.cookies.get(SHIFT_COOKIE))
+    if shift is None or shift.closed_at is not None:
+        raise HTTPException(status_code=409, detail="смена не открыта")
+
+    who = shifts.station_for_pin(db, venue.id, body.pin)
+    if who is None or who.station != shift.station:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN"})
+
+    if who.user is None:
+        # PIN станции — это «закрыть бар», а не «я ухожу».
+        shifts.close_shift(db, shift, body.note)
+        db.commit()
+        answer = JSONResponse(
+            {**shifts.payload(shift, db=db), "configured": True, "closed": True}
+        )
+        answer.delete_cookie(SHIFT_COOKIE, path="/")
+        return answer
+
+    try:
+        closed, stayed = shifts.leave(db, shift, who)
+    except AuthError as e:
+        return JSONResponse(status_code=e.status, content={"detail": e.message})
+    db.commit()
+
+    answer = JSONResponse({
+        **shifts.payload(shift, db=db),
+        "configured": True,
+        "closed": closed,
+        "left": who.name,
+        "stayed": stayed,
+    })
+    if closed:
+        answer.delete_cookie(SHIFT_COOKIE, path="/")
+    return answer
+
+
 @router.post("/shift/close")
 def shift_close(
     body: ShiftCloseIn,

@@ -159,6 +159,23 @@ def main() -> None:
               "ждёт официанта" in mark.inner_text().lower(),
               mark.inner_text()[:120])
 
+        # Пока на баре двое, кнопка обещает уход, а не закрытие: ушедший
+        # домой раньше не гасит планшет за тем, кто остался работать.
+        check("кнопка обещает уход, а не закрытие",
+              "Уйти" in bar.locator("#out").inner_text(),
+              bar.locator("#out").inner_text())
+        bar.locator("#out").click()
+        bar.wait_for_timeout(500)
+        station_pin(bar, "2222")
+        bar.wait_for_timeout(900)
+        who = bar.locator("#who").inner_text()
+        check("ушедший пропал из шапки", "Игорь" not in who and "Слава" in who, who)
+        check("планшет остался работать",
+              not bar.locator("#gate").is_visible() and bar.locator(".mark").count() >= 1)
+        check("остался один — кнопка снова про закрытие",
+              "Закрыть" in bar.locator("#out").inner_text(),
+              bar.locator("#out").inner_text())
+
         # Закрывается смена PIN-ом — своим или станции. PIN станции здесь и
         # проверяется: он запасной вход на случай забытого личного.
         bar.get_by_role("button", name="Закрыть смену").click()

@@ -75,6 +75,12 @@ const Board = {
       : (shift.opened_by || '');
     document.getElementById('who').textContent =
       names ? `${names} · ${since}` : since;
+
+    // Кнопка называет то, что случится. Пока на баре двое, уход одного смену
+    // не гасит — и обещать «закрыть» в этот момент нельзя.
+    const many = shift.people && shift.people.length > 1;
+    const out = document.getElementById('out');
+    out.textContent = many ? 'Уйти со смены' : 'Закрыть смену';
   },
 
   /* Второй бармен встаёт в открытую смену своим PIN.
@@ -96,10 +102,28 @@ const Board = {
      формальности: иначе смену закрывает любой, кто прошёл мимо планшета.
      Закрыть может не тот, кто открыл: смену сдают, и в журнале будут оба. */
   closeShift() {
-    Shift.ask('Закрыть смену', 'Введите свой PIN или PIN станции', async pin => {
-      const done = await API.post('/api/station/shift/close', { pin });
-      Shift.done(`Смена закрыта · марок отдано: ${done.tickets_done}`);
-    });
+    const many = this.shift && this.shift.people && this.shift.people.length > 1;
+    Shift.ask(
+      many ? 'Кто уходит' : 'Закрыть смену',
+      many
+        ? 'Свой PIN — уйти. PIN станции — закрыть весь бар'
+        : 'Введите свой PIN или PIN станции',
+      async pin => {
+        const done = await API.post('/api/station/shift/leave', { pin });
+        if (done.closed) {
+          Shift.done(`Смена закрыта · марок отдано: ${done.tickets_done}`);
+          return;
+        }
+        // Ушёл один, а планшет остаётся включённым: очередь марок общая, и
+        // погасить её значит оставить второго без заказов.
+        const gate = document.getElementById('gate');
+        if (gate) gate.remove();
+        document.body.classList.remove('locked');
+        this.showShift(done);
+        // Без глагола: за стойкой стоят и «он», и «она», а угадывать род по
+        // имени — способ обратиться к человеку неправильно.
+        toast(`Со смены: ${done.left} · остаются: ${done.stayed.join(', ')}`, 'good');
+      });
   },
 
   arrived(event) {

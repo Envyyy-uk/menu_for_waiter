@@ -899,7 +899,9 @@ h1 {
       <p>Откройте смену планшета PIN-ом <b>2222</b> — в шапке появится
         «Игорь». Если на баре двое, нажмите <b>+ Ещё человек</b> и введите
         <b>2727</b>: смена остаётся одна — очередь марок общая, — но в шапке
-        встанут оба имени. Закрыть её тоже может второй.</p>
+        встанут оба имени. Теперь нажмите <b>Уйти со смены</b> и введите
+        <b>2222</b>: Игорь ушёл домой, а планшет работает дальше — Слава ещё
+        за стойкой. Смена закроется сама, когда уйдёт последний.</p>
       <p>Нажмите <b>Открыть смену</b> на телефоне — пойдут часы. Закрыть её с
         открытым чеком система не даст, а после закрытия покажет итог вечера:
         сколько отработано, чеков, наличными и картой.</p>
@@ -1331,7 +1333,10 @@ function tabletHTML() {
       <span class="who">${S.shift.people.length ? esc(S.shift.people.join(', ')) + ' · ' : ''}${news
         ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : list.length + ' в работе'}</span>
       <button type="button" data-shift="join">+ Ещё человек</button>
-      <button type="button" data-shift="close">Закрыть смену</button>
+      <!-- Кнопка называет то, что случится. Пока на баре двое, уход одного
+           смену не гасит — обещать «закрыть» в этот момент нельзя. -->
+      <button type="button" data-shift="close">${S.shift.people.length > 1
+        ? 'Уйти со смены' : 'Закрыть смену'}</button>
     </div>
     <div class="view"><div class="board-grid">
       ${list.length ? list.map(markHTML).join('')
@@ -1369,7 +1374,8 @@ function markHTML(t) {
 function shiftHTML() {
   const closing = !!S.shift.closing;
   const joining = !!S.shift.joining;
-  const head = closing ? 'Закрытие смены'
+  const many = S.shift.people.length > 1;
+  const head = closing ? (many ? 'Кто уходит' : 'Закрытие смены')
     : joining ? 'Кто ещё на смене' : 'Смена не открыта';
   return `<div class="bar">
       <span class="dot"></span><h3>${head}</h3>
@@ -1377,7 +1383,9 @@ function shiftHTML() {
       ${closing || joining ? '<button type="button" data-shift="cancel">Отмена</button>' : ''}
     </div>
     <div class="view pad0"><div class="gate">
-      <p>${closing ? 'PIN — закрыть смену'
+      <p>${closing
+        ? (many ? 'Свой PIN — уйти. PIN станции — закрыть весь бар'
+                : 'PIN — закрыть смену')
         : joining ? 'Свой PIN — встать в смену' : 'Свой PIN или PIN станции'}</p>
       <div class="dots">${[0, 1, 2, 3].map(i =>
         `<i class="${i < S.shift.pin.length ? 'on' : ''}"></i>`).join('')}</div>
@@ -1994,16 +2002,28 @@ document.addEventListener('click', e => {
         }
       } else if (f.closing) {
         remember();
-        f.closing = false;
-        f.open = false;
-        f.why = null;
-        // Закрыть может не тот, кто открыл: смену сдают, и в журнале
-        // остаются оба имени.
-        tip(`Смена закрыта${who ? ' · ' + who : ''} · ${f.done} `
-          + plural(f.done, 'марка', 'марки', 'марок'), 3000);
-        f.done = 0;
-        f.who = null;
-        f.people = [];
+        // Уходят по одному: пришли в разное время — уйдут тоже в разное.
+        // Тот, кто ушёл домой раньше, не гасит планшет за оставшимся: очередь
+        // марок общая. Общий PIN станции — другое дело, им заканчивают вечер.
+        const stayed = who ? f.people.filter(n => n !== who) : [];
+        if (who && stayed.length) {
+          f.people = stayed;
+          f.closing = false;
+          f.why = null;
+          // Без глагола: за стойкой стоят и «он», и «она».
+          tip(`Со смены: ${who} · остаются: ${stayed.join(', ')}`, 3000);
+        } else {
+          f.closing = false;
+          f.open = false;
+          f.why = null;
+          // Закрыть может не тот, кто открыл: смену сдают, и в журнале
+          // остаются оба имени.
+          tip(`Смена закрыта${who ? ' · ' + who : ''} · ${f.done} `
+            + plural(f.done, 'марка', 'марки', 'марок'), 3000);
+          f.done = 0;
+          f.who = null;
+          f.people = [];
+        }
       } else {
         remember();
         f.open = true;

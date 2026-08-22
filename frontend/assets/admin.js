@@ -844,9 +844,12 @@ const Admin = {
         this.data.shifts.map(s => [
           esc(s.name),
           // Смена одна на станцию, а людей в ней бывает несколько: планшет
-          // один, а барменов за вечер двое.
+          // один, а барменов за вечер двое. Кто уже ушёл домой — бледнее:
+          // в открытой смене видно, кто на баре прямо сейчас.
           s.people && s.people.length
-            ? esc(s.people.join(', '))
+            ? s.people.map(n => (s.people_here || []).includes(n)
+                ? esc(n)
+                : `<span class="faint">${esc(n)}</span>`).join(', ')
             : '<span class="faint">—</span>',
           who(s.opened_by),
           esc(new Date(s.opened_at).toLocaleString('ru-RU')),
@@ -1488,6 +1491,7 @@ const Admin = {
       'station.pin': 'PIN станции',
       'shift.open': 'Смена станции открыта',
       'shift.join': 'Встал на смену станции',
+      'shift.leave': 'Ушёл со смены станции',
       'shift.close': 'Смена станции закрыта',
       'work.open': 'Смена открыта',
       'work.close': 'Смена закрыта',
