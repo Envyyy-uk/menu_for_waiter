@@ -74,8 +74,15 @@ async def socket(websocket: WebSocket) -> None:
     shift_token = websocket.cookies.get(SHIFT_COOKIE)
     channels = await asyncio.to_thread(_channels, token, shift_token)
     if channels is None:
-        # 1008 — policy violation. Экран должен показать вход, а не молчаливый
-        # пустой список.
+        # Отказ должен доехать до экрана — а для этого сокет надо сначала
+        # принять и только потом закрыть.
+        #
+        # Закрытие до accept — это HTTP 403 на рукопожатии, и код закрытия до
+        # браузера уже не доходит: он видит 1006 «обрыв связи». Экран тогда
+        # молча долбится в закрытую дверь по кругу и показывает «нет связи»,
+        # хотя связь есть, а войти надо заново. Приняли и закрыли — экран
+        # получает 1008 и показывает вход.
+        await websocket.accept()
         await websocket.close(code=1008)
         return
 
