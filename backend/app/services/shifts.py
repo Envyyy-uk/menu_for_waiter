@@ -5,12 +5,16 @@
 получить ни одного нажатия. Личная ответственность здесь и не нужна: планшет
 показывает марки и двигает их статус, к деньгам он не прикасается.
 
-Именное здесь одно — открытие и закрытие смены. Кто ввёл PIN, тот и открыл, и
-это записано в журнале вместе с тем, сколько марок прошло.
+Именное здесь одно — открытие и закрытие смены. И открыть её можно двумя
+PIN-ами: общим PIN станции и личным PIN того, кто на этой станции работает.
+Бармен за вечер не один, кухарь тоже, и «смену открыл планшет» — это ответ,
+который в спорный вечер ничего не стоит. Личный PIN пишет в смену имя; общий
+остаётся как запасной вход, когда человек забыл свой.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import func, select
@@ -18,6 +22,8 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.core.security import hash_secret, new_token, token_fingerprint, verify_secret
 from app.models import (
+    STATION_BAR,
+    STATION_KITCHEN,
     STATIONS,
     Check,
     Order,
@@ -28,6 +34,7 @@ from app.models import (
     utcnow,
 )
 from app.services.audit import record
+from app.models.user import ROLE_BAR, ROLE_KITCHEN
 from app.services.auth import PIN_LENGTH, AuthError
 
 SHIFT_COOKIE = "shift"
@@ -75,29 +82,70 @@ def has_pin(db: DbSession, venue_id, station: str) -> bool:
     )
 
 
-def station_for_pin(db: DbSession, venue_id, pin: str) -> str | None:
-    """Какой станции принадлежит этот PIN.
+# Чей личный PIN открывает какую станцию. Роль здесь и есть допуск: бармен
+# отвечает за бар, кухарь — за кухню. Управляющим станция не принадлежит, и
+# открывать её от своего имени им незачем: для этого есть общий PIN, который
+# они сами и задают.
+ROLE_STATION = {ROLE_BAR: STATION_BAR, ROLE_KITCHEN: STATION_KITCHEN}
+
+
+@dataclass(frozen=True)
+class Opener:
+    """Кто открывает смену: станция и, если PIN личный, — человек."""
+
+    station: str
+    user: User | None = None
+
+    @property
+    def name(self) -> str | None:
+        return self.user.name if self.user else None
+
+
+def station_for_pin(db: DbSession, venue_id, pin: str) -> Opener | None:
+    """Какой станции принадлежит этот PIN и кто его ввёл.
 
     Станцию не спрашивают отдельно: планшет бара и планшет кухни отличаются
     как раз PIN-ом, и лишний экран выбора — это лишний способ открыть чужую
     смену.
+
+    Личный PIN проверяется первым. Иначе владелец, поставивший станции те же
+    четыре цифры, что и себе, навсегда потерял бы имя в отчёте.
     """
+    pin = (pin or "").strip()
+    if not pin:
+        return None
+
+    for user in db.scalars(
+        select(User).where(
+            User.venue_id == venue_id,
+            User.pin_hash.is_not(None),
+            User.active.is_(True),
+            User.role.in_(tuple(ROLE_STATION)),
+        )
+    ).all():
+        if verify_secret(user.pin_hash, pin):
+            return Opener(station=ROLE_STATION[user.role], user=user)
+
     for row in db.scalars(select(StationPin).where(StationPin.venue_id == venue_id)).all():
         if verify_secret(row.pin_hash, pin):
-            return row.station
+            return Opener(station=row.station)
     return None
 
 
-def open_shift(db: DbSession, venue_id, station: str) -> tuple[Shift, str]:
+def open_shift(db: DbSession, venue_id, opener: Opener) -> tuple[Shift, str]:
     """Открыть смену. Возвращает (смена, токен планшета).
 
     Уже открытая смена переиспользуется: планшет перезагрузили, а смена та же.
+    Имя при этом не переписывается — открыл её тот, кто открыл.
     """
+    station = opener.station
     _close_stale(db, venue_id)
     live = current(db, venue_id, station)
     if live is not None:
         token = new_token()
         live.token_hash = token_fingerprint(token)
+        if live.opened_by_id is None and opener.user is not None:
+            live.opened_by_id = opener.user.id
         return live, token
 
     token = new_token()
@@ -105,6 +153,7 @@ def open_shift(db: DbSession, venue_id, station: str) -> tuple[Shift, str]:
         venue_id=venue_id,
         station=station,
         opened_at=utcnow(),
+        opened_by_id=opener.user.id if opener.user else None,
         token_hash=token_fingerprint(token),
     )
     db.add(shift)
@@ -112,10 +161,10 @@ def open_shift(db: DbSession, venue_id, station: str) -> tuple[Shift, str]:
     record.write(
         db,
         venue_id=venue_id,
-        user_id=None,
+        user_id=opener.user.id if opener.user else None,
         action="shift.open",
         entity=f"station:{station}",
-        after={"station": station},
+        after={"station": station, "who": opener.name},
     )
     return shift, token
 
@@ -143,20 +192,25 @@ def by_token(db: DbSession, token: str | None) -> Shift | None:
     return shift
 
 
-def close_shift(db: DbSession, shift: Shift, note: str | None = None) -> Shift:
+def close_shift(
+    db: DbSession, shift: Shift, note: str | None = None, closer: Opener | None = None
+) -> Shift:
     shift.closed_at = utcnow()
     shift.tickets_done = _counted(db, shift)
     shift.note = (note or "").strip() or None
+    who = closer.user if closer else None
+    shift.closed_by_id = who.id if who else None
     record.write(
         db,
         venue_id=shift.venue_id,
-        user_id=None,
+        user_id=who.id if who else None,
         action="shift.close",
         entity=f"station:{shift.station}",
         after={
             "station": shift.station,
             "tickets": shift.tickets_done,
             "minutes": int((shift.closed_at - shift.opened_at).total_seconds() // 60),
+            "who": who.name if who else None,
         },
     )
     return shift
@@ -199,13 +253,28 @@ def _close_stale(db: DbSession, venue_id) -> None:
             shift.note = "закрыта автоматически: планшет забыли выключить"
 
 
-def payload(shift: Shift | None, station: str | None = None) -> dict:
+def who_names(db: DbSession, shift: Shift) -> tuple[str | None, str | None]:
+    """Имена открывшего и закрывшего. Пусто — значит, вошли общим PIN станции."""
+
+    def name(user_id) -> str | None:
+        if user_id is None:
+            return None
+        user = db.get(User, user_id)
+        return user.name if user else None
+
+    return name(shift.opened_by_id), name(shift.closed_by_id)
+
+
+def payload(shift: Shift | None, station: str | None = None, db: DbSession | None = None) -> dict:
     if shift is None:
         return {"open": False, "station": station}
+    opened_by, closed_by = who_names(db, shift) if db is not None else (None, None)
     return {
         "open": shift.closed_at is None,
         "station": shift.station,
         "opened_at": shift.opened_at.isoformat(),
         "closed_at": shift.closed_at.isoformat() if shift.closed_at else None,
         "tickets_done": shift.tickets_done,
+        "opened_by": opened_by,
+        "closed_by": closed_by,
     }

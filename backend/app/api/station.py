@@ -111,7 +111,7 @@ def queue(
         "tickets": rows,
         # Планшету нужно знать, чья это смена и когда её открыли; человеку с
         # личным входом — нет, он и так знает, кто он.
-        "shift": shifts.payload(access.shift, which) if access.shift else None,
+        "shift": shifts.payload(access.shift, which, db=db) if access.shift else None,
     }
 
 
@@ -253,7 +253,7 @@ def shift_state(
             # отвергает любые четыре цифры молча.
             "configured": any(shifts.has_pin(db, venue.id, s) for s in STATIONS),
         }
-    return {**shifts.payload(shift), "configured": True}
+    return {**shifts.payload(shift, db=db), "configured": True}
 
 
 @router.post("/shift/open")
@@ -262,18 +262,20 @@ def shift_open(
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> Response:
-    """Открыть смену планшета.
+    """Открыть смену планшета — общим PIN станции или своим личным.
 
     Станцию не спрашиваем: планшет бара и планшет кухни отличаются как раз
     PIN-ом, и лишний экран выбора — это лишний способ открыть чужую смену.
+    Личный PIN бармена или кухаря ведёт на его станцию и пишет в смену имя:
+    барменов за вечер бывает двое, и «смену открыл планшет» — плохой ответ.
     """
-    station = shifts.station_for_pin(db, venue.id, body.pin)
-    if station is None:
-        return JSONResponse(status_code=401, content={"detail": "Неверный PIN станции"})
+    opener = shifts.station_for_pin(db, venue.id, body.pin)
+    if opener is None:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN"})
 
-    shift, token = shifts.open_shift(db, venue.id, station)
+    shift, token = shifts.open_shift(db, venue.id, opener)
     db.commit()
-    answer = JSONResponse({**shifts.payload(shift), "configured": True})
+    answer = JSONResponse({**shifts.payload(shift, db=db), "configured": True})
     _shift_cookie(answer, token)
     return answer
 
@@ -285,21 +287,22 @@ def shift_close(
     db: DbSession = Depends(get_db),
     venue: Venue = Depends(get_venue),
 ) -> Response:
-    """Закрыть смену — тем же PIN станции.
+    """Закрыть смену — PIN станции или личным PIN того, кто на ней работает.
 
     Спрашивается он не для формальности: иначе смену закрывает любой, кто
     прошёл мимо планшета, и отчёт по станции превращается в набор огрызков.
+    Закрыть может не тот, кто открыл: смену сдают — в журнале останутся оба.
     """
     shift = shifts.by_token(db, request.cookies.get(SHIFT_COOKIE))
     if shift is None:
         raise HTTPException(status_code=409, detail="смена не открыта")
-    station = shifts.station_for_pin(db, venue.id, body.pin)
-    if station != shift.station:
-        return JSONResponse(status_code=401, content={"detail": "Неверный PIN станции"})
+    closer = shifts.station_for_pin(db, venue.id, body.pin)
+    if closer is None or closer.station != shift.station:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN"})
 
-    shifts.close_shift(db, shift, body.note)
+    shifts.close_shift(db, shift, body.note, closer)
     db.commit()
-    answer = JSONResponse({**shifts.payload(shift), "configured": True})
+    answer = JSONResponse({**shifts.payload(shift, db=db), "configured": True})
     answer.delete_cookie(SHIFT_COOKIE, path="/")
     return answer
 

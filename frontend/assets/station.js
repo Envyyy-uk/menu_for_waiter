@@ -23,10 +23,14 @@ const Board = {
 
   async start(shift) {
     this.shift = shift;
-    document.getElementById('who').textContent = shift.opened_at
+    // Кто открыл смену — на видном месте. Планшет один, а за вечер за ним
+    // стоят двое, и «чья это смена» не должно выясняться задним числом.
+    const since = shift.opened_at
       ? 'смена с ' + new Date(shift.opened_at).toLocaleTimeString('ru-RU',
           { hour: '2-digit', minute: '2-digit' })
       : '';
+    document.getElementById('who').textContent =
+      shift.opened_by ? `${shift.opened_by} · ${since}` : since;
     document.getElementById('out').addEventListener('click', () => this.closeShift());
 
     Live.on('ticket.new', d => this.arrived(d))
@@ -59,10 +63,11 @@ const Board = {
     }
   },
 
-  /* Смена закрывается тем же PIN станции. Спрашивается он не для
-     формальности: иначе смену закрывает любой, кто прошёл мимо планшета. */
+  /* Смена закрывается PIN-ом — своим или станции. Спрашивается он не для
+     формальности: иначе смену закрывает любой, кто прошёл мимо планшета.
+     Закрыть может не тот, кто открыл: смену сдают, и в журнале будут оба. */
   closeShift() {
-    Shift.ask('Закрыть смену', 'Введите PIN станции', async pin => {
+    Shift.ask('Закрыть смену', 'Введите свой PIN или PIN станции', async pin => {
       const done = await API.post('/api/station/shift/close', { pin });
       Shift.done(`Смена закрыта · марок отдано: ${done.tickets_done}`);
     });

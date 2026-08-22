@@ -698,6 +698,7 @@ def shift_log(
     venue: Venue = Depends(get_venue),
 ) -> list[dict]:
     from app.models import STATION_NAMES, Shift
+    from app.services import shifts as shift_service
 
     rows = db.scalars(
         select(Shift)
@@ -705,17 +706,23 @@ def shift_log(
         .order_by(Shift.opened_at.desc())
         .limit(limit)
     ).all()
-    return [
-        {
-            "station": s.station,
-            "name": STATION_NAMES.get(s.station, s.station),
-            "opened_at": s.opened_at.isoformat(),
-            "closed_at": s.closed_at.isoformat() if s.closed_at else None,
-            "tickets_done": s.tickets_done,
-            "note": s.note,
-        }
-        for s in rows
-    ]
+    out = []
+    for s in rows:
+        opened_by, closed_by = shift_service.who_names(db, s)
+        out.append(
+            {
+                "station": s.station,
+                "name": STATION_NAMES.get(s.station, s.station),
+                "opened_at": s.opened_at.isoformat(),
+                "closed_at": s.closed_at.isoformat() if s.closed_at else None,
+                "tickets_done": s.tickets_done,
+                "note": s.note,
+                # Кто открыл и кто закрыл. Пусто — вошли общим PIN станции.
+                "opened_by": opened_by,
+                "closed_by": closed_by,
+            }
+        )
+    return out
 
 
 # ------------------------------------------------------ меню с сайта -----

@@ -75,10 +75,13 @@ with sync_playwright() as pw:
     station_pin(p, "1357")
     check("чужой PIN смену не открывает",
           p.locator("#tablet .gate").count() == 1
-          and "не тот" in p.locator("#tablet .gate .hint").inner_text().lower(),
+          and "не подходит" in p.locator("#tablet .gate .hint").inner_text().lower(),
           p.locator("#tablet .gate .hint").inner_text())
     station_pin(p)
-    check("свой PIN открыл смену", p.locator("#tablet .board-grid").count() == 1)
+    check("PIN станции открыл смену", p.locator("#tablet .board-grid").count() == 1)
+    check("смена по PIN станции остаётся без имени",
+          "игорь" not in p.locator("#tablet .bar .who").inner_text().lower(),
+          p.locator("#tablet .bar .who").inner_text())
 
     # ---- два стола рядом: то, на чём демо ломалось -------------------------
     open_table(p, 5)
@@ -262,10 +265,16 @@ with sync_playwright() as pw:
     check("расстановка после сброса сохранилась",
           abs(p.locator("#phone .spot[data-table='5']").bounding_box()["y"] - after["y"]) < 6)
 
-    # ---- закрытие смены -----------------------------------------------------
+    # ---- смена именем человека ----------------------------------------------
+    # Планшет один, а барменов за вечер двое. Личный PIN пишет в смену имя,
+    # и закрыть её может второй: смену сдают.
     p.locator("[data-right='station']").click(); p.wait_for_timeout(300)
     check("после сброса планшет снова просит PIN", p.locator("#tablet .gate").count() == 1)
-    station_pin(p)
+    station_pin(p, "2222")
+    check("личный PIN бармена открыл смену", p.locator("#tablet .board-grid").count() == 1)
+    check("в шапке смены стоит имя",
+          "игорь" in p.locator("#tablet .bar .who").inner_text().lower(),
+          p.locator("#tablet .bar .who").inner_text())
     p.locator("#phone .spot[data-table='3']").click(); p.wait_for_timeout(300)
     p.locator("#phone [data-open]").click(); p.wait_for_timeout(300)
     add(p, "pelmeni")
@@ -280,10 +289,10 @@ with sync_playwright() as pw:
           p.locator("#tablet .bar h3").inner_text())
     station_pin(p, "1357")
     check("чужим PIN смену не закрыть", p.locator("#tablet .gate").count() == 1)
-    station_pin(p)
-    check("смена закрылась и посчитала марки",
-          "1 марка" in p.locator("#tablet .toast").inner_text().lower(),
-          p.locator("#tablet .toast").inner_text())
+    station_pin(p, "2727")
+    toast = p.locator("#tablet .toast").inner_text().lower()
+    check("смена закрылась и посчитала марки", "1 марка" in toast, toast)
+    check("закрыл смену второй бармен — и это видно", "слава" in toast, toast)
     check("после закрытия планшет снова просит PIN", p.locator("#tablet .gate").count() == 1)
 
     # ---- личная смена официанта ---------------------------------------------

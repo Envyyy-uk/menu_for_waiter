@@ -86,12 +86,17 @@ def main() -> None:
         check("планшет без смены спрашивает PIN станции",
               bar.locator("#gate").is_visible() and bar.locator(".mark").count() == 0)
 
-        station_pin(bar, "5555")
+        # Смену открывает бармен своим PIN: планшет один, а барменов за вечер
+        # двое, и «смену открыл планшет» — ответ, который ничего не стоит.
+        station_pin(bar, "2222")
         check("смена открылась своей станцией",
               bar.locator("#title").inner_text().strip().lower() == "бар",
               bar.locator("#title").inner_text())
         check("в шапке видно время открытия смены",
               "смена с" in bar.locator("#who").inner_text(),
+              bar.locator("#who").inner_text())
+        check("в шапке стоит имя того, кто открыл",
+              "Игорь" in bar.locator("#who").inner_text(),
               bar.locator("#who").inner_text())
 
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
@@ -139,7 +144,8 @@ def main() -> None:
               "ждёт официанта" in mark.inner_text().lower(),
               mark.inner_text()[:120])
 
-        # Смена закрывается тем же PIN станции.
+        # Закрывается смена PIN-ом — своим или станции. PIN станции здесь и
+        # проверяется: он запасной вход на случай забытого личного.
         bar.get_by_role("button", name="Закрыть смену").click()
         bar.wait_for_timeout(600)
         check("закрытие смены тоже просит PIN", bar.locator("#gate").is_visible())

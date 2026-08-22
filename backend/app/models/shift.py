@@ -54,6 +54,15 @@ class Shift(UUIDPk, Timestamped, Base):
     closed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), default=None, index=True
     )
+    # Кто открыл и кто закрыл. Планшет один, а барменов за вечер бывает
+    # двое: смена без имени не отвечает на вопрос «кто стоял на баре».
+    opened_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    closed_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
     # Сколько марок прошло за смену — считается при закрытии.
     tickets_done: Mapped[int] = mapped_column(Integer, default=0)
     note: Mapped[str | None] = mapped_column(Text, default=None)
