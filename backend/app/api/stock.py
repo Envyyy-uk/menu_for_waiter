@@ -36,6 +36,7 @@ from app.models import (
     Venue,
 )
 from app.services import realtime, stock
+from app.services.stock import SIZE_GROUPS
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/stock", tags=["склад"])
@@ -80,10 +81,17 @@ def listing(
 # Разбираем только то, что собирают руками: коктейли и кухню.
 MADE_HERE = ("cocktails", "pizza", "traditional", "desserts", "platters")
 
+# Что стоит на полке бутылкой и наливается. Считается миллилитрами, даже
+# если в меню продаётся только целиком: бутылка водки остаётся бутылкой
+# водки, а «1 шт» перестанет сходиться в тот день, когда рядом появится
+# 50 мл — и не скажет об этом, просто начнёт списывать бутылку за порцию.
+POURED = ("spirits", "wine")
+
 # Сколько миллилитров в бутылке по умолчанию. Цифру потом правят руками —
 # важно, чтобы правило вообще было, а не чтобы оно было точным с первой
-# секунды.
+# секунды. У вина бутылка своя, 0,75.
 BOTTLE_ML = 700
+WINE_BOTTLE_ML = 750
 
 
 @router.post("/fill", status_code=201)
@@ -98,8 +106,11 @@ def fill(
 
     Разбирается три случая, и они разные:
 
-    * **Позиция с объёмами** («50 мл … бутылка») — это бутылка на полке.
-      Заводится в миллилитрах, правило одно: сколько выбрали, столько и ушло.
+    * **То, что наливают** — крепкое и вино. В миллилитрах, правило одно:
+      сколько выбрали, столько и ушло. Выбрали «Бутылку» — ушла бутылка.
+      Считается так и тогда, когда в меню одна только бутылка: на полке это
+      всё равно бутылка водки, и «1 шт» сломается в тот день, когда рядом
+      появится порция.
     * **Позиция с составом** (коктейль, пицца) — списывается не она сама, а
       её состав: ром, лайм, сахар, мята. Расход по каждому продукту вписывает
       человек: сколько мяты в мохито, каталог не знает.
@@ -107,6 +118,9 @@ def fill(
 
     Количество везде остаётся нулевым: сколько стоит на полке, знает только
     тот, кто туда посмотрел.
+
+    Повторный запуск чинит правила, заведённые штучными там, где надо
+    наливать, — но только пока по этой позиции не считали остаток.
     """
     items = db.scalars(
         select(MenuItem).where(MenuItem.venue_id == venue.id, MenuItem.active.is_(True))
@@ -115,14 +129,14 @@ def fill(
         i.name: i
         for i in db.scalars(select(StockItem).where(StockItem.venue_id == venue.id)).all()
     }
-    have_rules = {
-        r.menu_item_id
-        for r in db.scalars(select(Recipe).where(Recipe.venue_id == venue.id)).all()
-    }
+    have_rules: dict = {}
+    for r in db.scalars(select(Recipe).where(Recipe.venue_id == venue.id)).all():
+        have_rules.setdefault(r.menu_item_id, []).append(r)
 
     made_items = 0
     made_rules = 0
     blank = 0
+    fixed = 0
 
     def line(name: str, unit: str) -> StockItem:
         nonlocal made_items
@@ -135,17 +149,86 @@ def fill(
             made_items += 1
         return row
 
-    for item in items:
-        # У позиции уже есть правило — её заводили руками, не трогаем.
-        if item.id in have_rules:
-            continue
+    def bottle_ml(item: MenuItem) -> int:
+        return WINE_BOTTLE_ML if item.category == "wine" else BOTTLE_ML
 
-        by_volume = any(
+    def pours(item: MenuItem) -> bool:
+        """Наливается ли это с полки.
+
+        Не по тому, есть ли в меню «50 мл»: у Grey Goose в меню одна только
+        бутылка, но на полке это та же бутылка водки. Считать её штукой
+        значит поймать ошибку в тот день, когда в меню добавят порцию, —
+        и не заметить, потому что списываться начнёт бутылка за каждые 50 мл.
+        """
+        if item.category in POURED:
+            return True
+        return any(
             str(choice.get("key", "")).startswith("ml")
             for group in (item.options or [])
             for choice in (group.get("choices") or [])
         )
+
+    # Вариант, названный так же, как позиция меню, — это она и есть. Микс
+    # «Cola» к водке и есть та банка колы, что стоит в меню отдельной строкой.
+    by_key = {i.key: i for i in items if i.key}
+
+    def mixers(item: MenuItem) -> int:
+        """Правила на варианты, которые сами лежат на полке.
+
+        Без них микс не списывается вовсе: банку колы, взятую к водке, склад
+        не видит. Заводить это руками — семь напитков на восемнадцать бутылок,
+        сто двадцать шесть правил; никто их не заведёт.
+
+        Связываем только там, где вариант совпал с позицией меню по ключу:
+        «дарк-лиф» и «50 мл» ничем на полке не являются.
+        """
+        added = 0
+        for group in item.options or []:
+            key = str(group.get("key") or "")
+            if not key or key in SIZE_GROUPS:
+                continue
+            for choice in group.get("choices") or []:
+                other = by_key.get(str(choice.get("key") or ""))
+                if other is None or other.id == item.id:
+                    continue
+                db.add(
+                    Recipe(
+                        venue_id=venue.id,
+                        menu_item_id=item.id,
+                        stock_item_id=line(other.name, UNIT_PC).id,
+                        options={key: choice.get("key")},
+                        per_unit=1,
+                    )
+                )
+                added += 1
+        return added
+
+    for item in items:
+        by_volume = pours(item)
+
+        # У позиции уже есть правило — её заводили руками, не трогаем.
+        #
+        # Кроме одного случая: правило штучное, а позиция наливается. Так
+        # заводили раньше, и это тихо неверно — бокал вина списывал целую
+        # бутылку. Чиним, пока никто не посчитал остаток: тронуть полку,
+        # которую уже пересчитали, куда хуже, чем оставить старое правило.
+        if item.id in have_rules:
+            if not by_volume:
+                continue
+            for rule in have_rules[item.id]:
+                if rule.by_volume or rule.options:
+                    continue
+                shelf = db.get(StockItem, rule.stock_item_id)
+                if shelf is None or Decimal(str(shelf.quantity)) != 0:
+                    continue
+                shelf.unit = UNIT_ML
+                rule.by_volume = True
+                rule.per_unit = bottle_ml(item)
+                fixed += 1
+            continue
+
         parts = list(item.ingredients or []) if item.category in MADE_HERE else []
+        made_rules += mixers(item)
 
         if by_volume:
             stock_item = line(item.name, UNIT_ML)
@@ -155,7 +238,7 @@ def fill(
                     menu_item_id=item.id,
                     stock_item_id=stock_item.id,
                     options={},
-                    per_unit=BOTTLE_ML,
+                    per_unit=bottle_ml(item),
                     by_volume=True,
                 )
             )
@@ -198,7 +281,7 @@ def fill(
 
     db.commit()
     realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
-    return {"items": made_items, "recipes": made_rules, "blank": blank}
+    return {"items": made_items, "recipes": made_rules, "blank": blank, "fixed": fixed}
 
 
 @router.get("/inventory")

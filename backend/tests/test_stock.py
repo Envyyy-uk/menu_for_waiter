@@ -503,3 +503,173 @@ def test_a_cocktail_takes_all_its_parts_off_the_shelf(client, db, hall):
     login(client, "123456")
     assert stock_of(client, "ром")["quantity"] == 900      # 1000 − 2×50
     assert stock_of(client, "лайм")["quantity"] == 960     # 1000 − 2×20
+
+
+# ------------------------------------------- что наливают, то в миллилитрах ---
+def test_bottle_only_spirit_is_still_counted_in_millilitres(client, db, hall):
+    """Grey Goose продаётся только бутылкой — но на полке это бутылка водки.
+
+    Считать её штукой значит поймать ошибку в тот день, когда в меню добавят
+    порцию: правило останется штучным, и за каждые 50 мл будет списываться
+    целая бутылка. Молча.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+
+    goose = stock_of(client, "Grey Goose")
+    assert goose["unit"] == "ml"
+
+    client.post(f"/api/stock/{goose['id']}/move",
+                json={"delta": 1400, "reason": "in", "note": "две бутылки"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "grey-goose"), "options": {"size": "bottle"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert float(stock_of(client, "Grey Goose")["quantity"]) == 700
+
+
+def test_a_glass_of_wine_does_not_take_the_whole_bottle(client, db, hall):
+    """Объём бокала написан в названии варианта — «Бокал 175 мл».
+
+    Ключ там `glass`, и по нему объёма не видно. Раньше это читалось как
+    «объём не назван», и с полки уходила целая бутылка: пять бокалов за
+    вечер — минус пять бутылок в остатке.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+
+    wine = stock_of(client, "White Wine")
+    assert wine["unit"] == "ml"
+    client.post(f"/api/stock/{wine['id']}/move",
+                json={"delta": 1500, "reason": "in", "note": "две бутылки"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "white-wine"), "options": {"size": "glass"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert float(stock_of(client, "White Wine")["quantity"]) == 1500 - 175
+
+
+def test_a_bottle_of_wine_is_seven_hundred_fifty(client, db, hall):
+    """У вина бутылка своя: 0,75, а не 0,7 как у крепкого."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    wine = stock_of(client, "White Wine")
+    client.post(f"/api/stock/{wine['id']}/move", json={"delta": 1500, "reason": "in"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": menu_id(db, "white-wine"), "options": {"size": "bottle"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert float(stock_of(client, "White Wine")["quantity"]) == 750
+
+
+def test_filling_again_fixes_a_rule_that_counted_pieces(client, db, hall):
+    """Заведённое штуками там, где наливают, чинится повторным заполнением."""
+    from app.models import MenuItem, Recipe, StockItem
+
+    login(client, "123456")
+    item = db.scalars(select(MenuItem).where(MenuItem.key == "grey-goose")).one()
+    shelf = StockItem(venue_id=item.venue_id, name="Grey Goose", unit="pc", quantity=0, low_at=0)
+    db.add(shelf)
+    db.flush()
+    db.add(Recipe(venue_id=item.venue_id, menu_item_id=item.id,
+                  stock_item_id=shelf.id, options={}, per_unit=1))
+    db.commit()
+
+    made = client.post("/api/stock/fill").json()
+    assert made["fixed"] >= 1
+    assert stock_of(client, "Grey Goose")["unit"] == "ml"
+
+
+def test_filling_again_never_touches_a_shelf_someone_counted(client, db, hall):
+    """Тронуть полку, которую уже пересчитали, хуже, чем оставить правило.
+
+    Остаток «3» в штуках и «3» в миллилитрах — это разные три, и переписать
+    единицу под чужой цифрой значит соврать в инвентаризации.
+    """
+    from app.models import MenuItem, Recipe, StockItem
+
+    login(client, "123456")
+    item = db.scalars(select(MenuItem).where(MenuItem.key == "grey-goose")).one()
+    shelf = StockItem(venue_id=item.venue_id, name="Grey Goose", unit="pc", quantity=3, low_at=0)
+    db.add(shelf)
+    db.flush()
+    db.add(Recipe(venue_id=item.venue_id, menu_item_id=item.id,
+                  stock_item_id=shelf.id, options={}, per_unit=1))
+    db.commit()
+
+    made = client.post("/api/stock/fill").json()
+    assert made["fixed"] == 0
+    assert stock_of(client, "Grey Goose")["unit"] == "pc"
+
+
+def test_a_number_in_a_mixer_name_is_not_a_volume():
+    """«Cola 330» — это не то, сколько налили водки.
+
+    Объём читается только из группы объёма; иначе банка микса определяла бы
+    расход бутылки.
+    """
+    from app.services.stock import volume_of
+
+    class FakeItem:
+        options = [
+            {"key": "size", "choices": [{"key": "bottle", "name": "Бутылка"}]},
+            {"key": "mixer", "choices": [{"key": "cola", "name": "Cola 330 мл"}]},
+        ]
+
+    assert volume_of({"size": "bottle", "mixer": ["cola"]}, FakeItem()) is None
+    assert volume_of({"size": "ml150"}, FakeItem()) == 150
+
+
+def test_fill_links_the_mixer_to_its_own_shelf(client, db, hall):
+    """Микс «Cola» к водке — это та же банка колы, что стоит в меню строкой.
+
+    Заводить такие правила руками — семь напитков на восемнадцать бутылок,
+    сто двадцать шесть штук. Никто их не заведёт, и микс не списывался бы
+    вовсе.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+
+    cola = stock_of(client, "Cola")
+    assert cola["unit"] == "pc"
+    client.post(f"/api/stock/{cola['id']}/move", json={"delta": 10, "reason": "in"})
+    goose = stock_of(client, "Grey Goose")
+    client.post(f"/api/stock/{goose['id']}/move", json={"delta": 1400, "reason": "in"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": menu_id(db, "grey-goose"),
+        "options": {"size": "bottle", "mixer": ["cola", "cola"]},
+    })
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    # Две колы — две банки, и бутылка водки отдельно.
+    assert float(stock_of(client, "Cola")["quantity"]) == 8
+    assert float(stock_of(client, "Grey Goose")["quantity"]) == 700
+
+
+def test_fill_does_not_invent_a_shelf_for_a_flavour(client, db, hall):
+    """«Дарк-лиф» и «50 мл» ничем на полке не являются.
+
+    Правило заводится только там, где вариант совпал с позицией меню: иначе
+    склад зарастёт строками, которых никто никогда не считал.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    names = {i["name"] for i in client.get("/api/stock").json()["items"]}
+    assert "MustHave" not in names
+    assert "50 мл" not in names

@@ -29,6 +29,7 @@ from app.models import (
     MOVE_SALE,
     UNIT_NAMES,
     CheckItem,
+    MenuItem,
     Recipe,
     StockItem,
     StockMove,
@@ -125,13 +126,68 @@ def _factor(recipe: Recipe, chosen: dict[str, Any]) -> int:
 
 VOLUME = re.compile(r"(\d+(?:[.,]\d+)?)")
 
+# Объём бывает написан не в ключе, а в названии варианта: «Бокал 175 мл»,
+# «Бутылка 0,7 л». Ключ там `glass` и `bottle` — по нему не догадаться.
+NAMED_ML = re.compile(r"(\d+(?:[.,]\d+)?)\s*мл\b", re.IGNORECASE)
+NAMED_L = re.compile(r"(\d+(?:[.,]\d+)?)\s*л\b", re.IGNORECASE)
 
-def volume_of(chosen: dict[str, Any]) -> Decimal | None:
+# Группы, в которых лежит объём. Всё остальное — вкус, лист, микс: там числа
+# в названии («Cola 330») к налитому отношения не имеют, и читать их нельзя.
+SIZE_GROUPS = ("size", "volume")
+
+
+def _number(text: str) -> Decimal | None:
+    found = NAMED_ML.search(text)
+    if found:
+        return Decimal(found.group(1).replace(",", "."))
+    found = NAMED_L.search(text)
+    if found:
+        return Decimal(found.group(1).replace(",", ".")) * 1000
+    return None
+
+
+def size_choice(item: MenuItem | None, chosen: dict[str, Any]) -> dict | None:
+    """Выбранный вариант объёма, как он описан в каталоге."""
+    if item is None:
+        return None
+    for group in item.options or []:
+        if str(group.get("key") or "") not in SIZE_GROUPS:
+            continue
+        picked = chosen.get(group.get("key"))
+        if not isinstance(picked, str):
+            continue
+        for choice in group.get("choices") or []:
+            if str(choice.get("key") or "") == picked:
+                return choice
+    return None
+
+
+def volume_of(chosen: dict[str, Any], item: MenuItem | None = None) -> Decimal | None:
     """Сколько миллилитров выбрал официант.
 
-    Ключ варианта и есть ответ: `ml50` — пятьдесят. Там, где объёма нет
-    («бутылка»), возвращается None: сколько в бутылке, знает только правило.
+    Обычно ответ в ключе варианта: `ml50` — пятьдесят. Но не всегда: у вина
+    ключ `glass`, а объём написан словами — «Бокал 175 мл». Раньше это
+    читалось как «объёма нет», и бокал списывал целую бутылку.
+
+    Ищем только в группе объёма. В названии микса тоже бывают числа («Cola
+    330»), и принимать их за налитое нельзя.
+
+    None означает «объём не назван» — например, просто «Бутылка». Сколько в
+    ней, знает правило.
     """
+    choice = size_choice(item, chosen)
+    if choice is not None:
+        key = str(choice.get("key") or "")
+        if key.startswith("ml"):
+            found = VOLUME.search(key)
+            if found:
+                return Decimal(found.group(1).replace(",", "."))
+        named = _number(str(choice.get("name") or ""))
+        if named is not None:
+            return named
+        return None
+
+    # Каталога под рукой нет — остаётся ключ.
     for value in chosen.values():
         if not isinstance(value, str) or not value.startswith("ml"):
             continue
@@ -141,10 +197,10 @@ def volume_of(chosen: dict[str, Any]) -> Decimal | None:
     return None
 
 
-def _amount(recipe: Recipe, chosen: dict[str, Any]) -> Decimal:
+def _amount(recipe: Recipe, chosen: dict[str, Any], item: MenuItem | None = None) -> Decimal:
     """Сколько уходит с полки на одну проданную позицию."""
     if recipe.by_volume:
-        volume = volume_of(chosen)
+        volume = volume_of(chosen, item)
         # Объёма в выборе нет — значит взяли бутылку целиком, а её размер
         # записан в самом правиле.
         return volume if volume is not None else Decimal(str(recipe.per_unit))
@@ -163,11 +219,14 @@ def needed(db: Session, rows: Iterable[CheckItem]) -> dict[uuid.UUID, Decimal]:
         if item.menu_item_id is None:
             continue
         chosen = dict(item.options_keys or {})
+        # Каталог нужен, чтобы прочитать объём варианта: у вина он написан в
+        # названии («Бокал 175 мл»), а не в ключе.
+        menu_item = db.get(MenuItem, item.menu_item_id)
         for recipe in recipes_for(db, item.menu_item_id):
             factor = _factor(recipe, chosen)
             if not factor:
                 continue
-            amount = _amount(recipe, chosen) * item.qty * factor
+            amount = _amount(recipe, chosen, menu_item) * item.qty * factor
             if amount <= 0:
                 continue
             want[recipe.stock_item_id] = want.get(recipe.stock_item_id, Decimal(0)) + amount
@@ -243,6 +302,10 @@ def _apply(db: Session, item: CheckItem, reason: str, sign: int, user: User | No
     if item.menu_item_id is None:
         return []
     chosen = dict(item.options_keys or {})
+    # Тот же каталог, что и в `needed`. Считать здесь иначе — значит развести
+    # запрет и списание: официант упрётся в остаток, которого хватало, или
+    # наоборот — отправит то, чего на полке нет.
+    menu_item = db.get(MenuItem, item.menu_item_id)
     out: list[StockMove] = []
     for recipe in recipes_for(db, item.menu_item_id):
         factor = _factor(recipe, chosen)
@@ -251,7 +314,7 @@ def _apply(db: Session, item: CheckItem, reason: str, sign: int, user: User | No
         stock = db.get(StockItem, recipe.stock_item_id)
         if stock is None or not stock.active:
             continue
-        amount = _amount(recipe, chosen) * item.qty * factor * sign
+        amount = _amount(recipe, chosen, menu_item) * item.qty * factor * sign
         if amount == 0:
             continue
         out.append(move(db, stock, amount, reason, user=user, check_item_id=item.id))
