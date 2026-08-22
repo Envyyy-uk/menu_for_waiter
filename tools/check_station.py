@@ -99,6 +99,21 @@ def main() -> None:
               "Игорь" in bar.locator("#who").inner_text(),
               bar.locator("#who").inner_text())
 
+        # На баре двое: смена одна — очередь марок общая, — но имён в ней два.
+        bar.get_by_role("button", name="Ещё человек").click()
+        bar.wait_for_timeout(500)
+        station_pin(bar, "5555")
+        check("общий PIN станции в смену никого не записывает",
+              bar.locator("#gate").is_visible())
+        station_pin(bar, "3333")
+        check("кухня в смену бара не встаёт", bar.locator("#gate").is_visible())
+        station_pin(bar, "2727")
+        bar.wait_for_timeout(800)
+        who = bar.locator("#who").inner_text()
+        check("второй встал в ту же смену",
+              "Игорь" in who and "Слава" in who and not bar.locator("#gate").is_visible(),
+              who)
+
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
         waiter = waiter_ctx.new_page()
         waiter.goto(BASE, wait_until="networkidle")

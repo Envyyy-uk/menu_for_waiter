@@ -36,7 +36,7 @@ from app.models.menu import (
     STATIONS,
     MenuItem,
 )
-from app.models.shift import Shift, StationPin, WorkShift
+from app.models.shift import Shift, ShiftPerson, StationPin, WorkShift
 from app.models.stock import (
     MOVE_COUNT,
     MOVE_IN,
@@ -137,6 +137,7 @@ __all__ = [
     "Recipe",
     "Session",
     "Shift",
+    "ShiftPerson",
     "StockItem",
     "StockMove",
     "StationPin",

@@ -254,3 +254,84 @@ def test_personal_pin_wins_over_the_station_pin(client, hall, db):
     client.post("/api/auth/logout")
 
     assert client.post("/api/station/shift/open", json={"pin": "7777"}).json()["opened_by"] == "Игорь"
+
+
+# ------------------------------------------------- двое на одной станции ---
+def test_second_bartender_joins_the_open_shift(client, hall, make_user):
+    """На баре двое — смена одна.
+
+    Вторая смена на ту же станцию разрезала бы очередь марок пополам, поэтому
+    второй не открывает свою, а встаёт в открытую.
+    """
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+
+    joined = client.post("/api/station/shift/join", json={"pin": "2727"})
+    assert joined.status_code == 200
+    body = joined.json()
+    assert body["joined"] == "Слава"
+    assert body["people"] == ["Игорь", "Слава"]
+    # Смена та же: очередь марок общая, планшет не перелогинивался.
+    assert body["opened_by"] == "Игорь"
+    assert body["open"] is True
+
+
+def test_joining_twice_does_not_double_the_name(client, hall):
+    """Отошёл и вернулся — та же строка, а не второй «Игорь» в списке."""
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2222"})
+    assert client.get("/api/station/shift").json()["people"] == ["Игорь"]
+
+
+def test_kitchen_cannot_join_the_bar(client, hall):
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    assert client.post("/api/station/shift/join", json={"pin": "3333"}).status_code == 401
+
+
+def test_station_pin_adds_nobody(client, hall):
+    """За общим PIN нет имени, а список без имён ни на что не отвечает."""
+    login(client, "123456")
+    set_pin(client, "bar", "5555")
+    client.post("/api/auth/logout")
+
+    client.post("/api/station/shift/open", json={"pin": "5555"})
+    assert client.post("/api/station/shift/join", json={"pin": "5555"}).status_code == 401
+    assert client.get("/api/station/shift").json()["people"] == []
+
+
+def test_joining_without_an_open_shift_is_refused(client, hall):
+    assert client.post("/api/station/shift/join", json={"pin": "2222"}).status_code == 409
+
+
+def test_shift_log_lists_everyone_who_stood_there(client, hall, make_user):
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    client.post("/api/station/shift/join", json={"pin": "2727"})
+    client.post("/api/station/shift/close", json={"pin": "2727"})
+
+    login(client, "123456")
+    row = client.get("/api/admin/shifts").json()[0]
+    assert row["people"] == ["Игорь", "Слава"]
+    assert row["opened_by"] == "Игорь"
+    assert row["closed_by"] == "Слава"
+
+    journal = client.get("/api/admin/audit").json()
+    assert any(r["action"] == "shift.join" for r in journal)
+
+
+def test_the_one_who_closes_is_counted_as_present(client, hall, make_user):
+    """Закрыл смену — значит, был на баре. Иначе список врёт."""
+    make_user("Слава", role="bar", pin="2727")
+    client.post("/api/station/shift/open", json={"pin": "2222"})
+    closed = client.post("/api/station/shift/close", json={"pin": "2727"}).json()
+    assert closed["people"] == ["Игорь", "Слава"]
+
+
+def test_reopening_the_tablet_adds_whoever_unlocked_it(client, hall, make_user):
+    """Планшет перезагрузили — смена та же, но второе имя в ней появится."""
+    make_user("Слава", role="bar", pin="2727")
+    first = client.post("/api/station/shift/open", json={"pin": "2222"}).json()
+    again = client.post("/api/station/shift/open", json={"pin": "2727"}).json()
+    assert again["opened_at"] == first["opened_at"]   # смена не переоткрылась
+    assert again["opened_by"] == "Игорь"              # открыл всё равно первый
+    assert again["people"] == ["Игорь", "Слава"]

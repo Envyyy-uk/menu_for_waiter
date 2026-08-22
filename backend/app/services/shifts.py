@@ -7,9 +7,13 @@
 
 Именное здесь одно — открытие и закрытие смены. И открыть её можно двумя
 PIN-ами: общим PIN станции и личным PIN того, кто на этой станции работает.
-Бармен за вечер не один, кухарь тоже, и «смену открыл планшет» — это ответ,
-который в спорный вечер ничего не стоит. Личный PIN пишет в смену имя; общий
-остаётся как запасной вход, когда человек забыл свой.
+Личный PIN пишет в смену имя; общий остаётся как запасной вход, когда человек
+забыл свой.
+
+Смена при этом одна на станцию, а людей в ней сколько угодно. Планшет один, а
+барменов за вечер бывает двое, и работают они рядом, а не по очереди: вторая
+смена на тот же бар разрезала бы очередь марок пополам. Поэтому второй не
+открывает свою смену, а входит в открытую — и остаётся в списке «кто был».
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from app.models import (
     Check,
     Order,
     Shift,
+    ShiftPerson,
     StationPin,
     Ticket,
     User,
@@ -146,6 +151,7 @@ def open_shift(db: DbSession, venue_id, opener: Opener) -> tuple[Shift, str]:
         live.token_hash = token_fingerprint(token)
         if live.opened_by_id is None and opener.user is not None:
             live.opened_by_id = opener.user.id
+        join(db, live, opener)
         return live, token
 
     token = new_token()
@@ -158,6 +164,7 @@ def open_shift(db: DbSession, venue_id, opener: Opener) -> tuple[Shift, str]:
     )
     db.add(shift)
     db.flush()
+    join(db, shift, opener)
     record.write(
         db,
         venue_id=venue_id,
@@ -200,6 +207,8 @@ def close_shift(
     shift.note = (note or "").strip() or None
     who = closer.user if closer else None
     shift.closed_by_id = who.id if who else None
+    if closer is not None:
+        join(db, shift, closer)
     record.write(
         db,
         venue_id=shift.venue_id,
@@ -253,6 +262,54 @@ def _close_stale(db: DbSession, venue_id) -> None:
             shift.note = "закрыта автоматически: планшет забыли выключить"
 
 
+def join(db: DbSession, shift: Shift, opener: Opener) -> ShiftPerson | None:
+    """Записать человека в смену. Второй раз — не вторая строка.
+
+    Общий PIN станции никого не записывает: за ним нет имени, и выдумывать
+    его — значит врать в отчёте.
+    """
+    if opener.user is None:
+        return None
+    row = db.scalars(
+        select(ShiftPerson).where(
+            ShiftPerson.shift_id == shift.id, ShiftPerson.user_id == opener.user.id
+        )
+    ).first()
+    if row is not None:
+        # Отошёл и вернулся — та же строка. Смена не считает часы, это делает
+        # табель; здесь важно только, что человек на баре был.
+        row.left_at = None
+        return row
+    row = ShiftPerson(
+        shift_id=shift.id,
+        user_id=opener.user.id,
+        name_snapshot=opener.user.name,
+        joined_at=utcnow(),
+    )
+    db.add(row)
+    db.flush()
+    record.write(
+        db,
+        venue_id=shift.venue_id,
+        user_id=opener.user.id,
+        action="shift.join",
+        entity=f"station:{shift.station}",
+        after={"station": shift.station, "who": opener.user.name},
+    )
+    return row
+
+
+def people(db: DbSession, shift: Shift) -> list[str]:
+    """Кто был на смене, в порядке появления."""
+    return list(
+        db.scalars(
+            select(ShiftPerson.name_snapshot)
+            .where(ShiftPerson.shift_id == shift.id)
+            .order_by(ShiftPerson.joined_at)
+        ).all()
+    )
+
+
 def who_names(db: DbSession, shift: Shift) -> tuple[str | None, str | None]:
     """Имена открывшего и закрывшего. Пусто — значит, вошли общим PIN станции."""
 
@@ -277,4 +334,6 @@ def payload(shift: Shift | None, station: str | None = None, db: DbSession | Non
         "tickets_done": shift.tickets_done,
         "opened_by": opened_by,
         "closed_by": closed_by,
+        # Кто на смене — все, а не только тот, кто ввёл PIN первым.
+        "people": people(db, shift) if db is not None else [],
     }

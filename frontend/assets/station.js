@@ -23,15 +23,9 @@ const Board = {
 
   async start(shift) {
     this.shift = shift;
-    // Кто открыл смену — на видном месте. Планшет один, а за вечер за ним
-    // стоят двое, и «чья это смена» не должно выясняться задним числом.
-    const since = shift.opened_at
-      ? 'смена с ' + new Date(shift.opened_at).toLocaleTimeString('ru-RU',
-          { hour: '2-digit', minute: '2-digit' })
-      : '';
-    document.getElementById('who').textContent =
-      shift.opened_by ? `${shift.opened_by} · ${since}` : since;
+    this.showShift(shift);
     document.getElementById('out').addEventListener('click', () => this.closeShift());
+    document.getElementById('join').addEventListener('click', () => this.joinShift());
 
     Live.on('ticket.new', d => this.arrived(d))
         .on('ticket.changed', () => this.refresh())
@@ -55,12 +49,47 @@ const Board = {
       this.station = data;
       this.tickets = data.tickets;
       document.getElementById('title').textContent = data.station_name;
+      // На баре бывает два планшета. Кто встал на смену на одном, тот виден
+      // и на другом — без перезагрузки.
+      if (data.shift) this.showShift(data.shift);
       this.paint();
     } catch (e) {
       // 401 здесь означает одно: смену закрыли. Планшет должен снова
       // спросить PIN, а не показывать застывшую очередь.
       if (e.status === 401) location.reload();
     }
+  },
+
+  /* Кто на смене — в шапке. Планшет один, а за вечер за ним стоят двое, и
+     «чья это смена» не должно выясняться задним числом. */
+  showShift(shift) {
+    this.shift = shift;
+    const since = shift.opened_at
+      ? 'смена с ' + new Date(shift.opened_at).toLocaleTimeString('ru-RU',
+          { hour: '2-digit', minute: '2-digit' })
+      : '';
+    // Имён может быть несколько — тогда они и стоят через запятую. Пусто
+    // значит, что вошли общим PIN станции: смена есть, имени за ней нет.
+    const names = (shift.people && shift.people.length)
+      ? shift.people.join(', ')
+      : (shift.opened_by || '');
+    document.getElementById('who').textContent =
+      names ? `${names} · ${since}` : since;
+  },
+
+  /* Второй бармен встаёт в открытую смену своим PIN.
+
+     Свою он открыть не может, и это не ограничение: очередь марок на станции
+     общая, и вторая смена разрезала бы её пополам. */
+  joinShift() {
+    Shift.ask('Кто ещё на смене', 'Введите свой PIN', async pin => {
+      const state = await API.post('/api/station/shift/join', { pin });
+      const gate = document.getElementById('gate');
+      if (gate) gate.remove();
+      document.body.classList.remove('locked');
+      this.showShift(state);
+      toast(`${state.joined} на смене`, 'good');
+    });
   },
 
   /* Смена закрывается PIN-ом — своим или станции. Спрашивается он не для

@@ -107,3 +107,31 @@ class WorkShift(UUIDPk, Timestamped, Base):
     # Минуты, а не часы: округление до часа в обе стороны — это чужие деньги.
     minutes: Mapped[int] = mapped_column(Integer, default=0)
     report: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+
+
+class ShiftPerson(UUIDPk, Timestamped, Base):
+    """Кто был на смене станции.
+
+    Смена одна на станцию — планшет-то один, а барменов за вечер бывает двое,
+    и работают они не по очереди, а рядом. Открывать вторую смену на тот же
+    бар нельзя: очередь марок общая, и разрезать её пополам значит потерять
+    половину заказов.
+
+    Поэтому человек не открывает свою смену, а входит в открытую. Список
+    отвечает на вопрос «кто стоял на баре в тот вечер» — тот самый, который
+    задают, когда касса не сошлась.
+    """
+
+    __tablename__ = "shift_people"
+
+    shift_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("shifts.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    # Имя снимком: человек уволится, а смена за прошлый месяц останется
+    # читаемой.
+    name_snapshot: Mapped[str] = mapped_column(String(120), default="")
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

@@ -275,6 +275,17 @@ with sync_playwright() as pw:
     check("в шапке смены стоит имя",
           "игорь" in p.locator("#tablet .bar .who").inner_text().lower(),
           p.locator("#tablet .bar .who").inner_text())
+
+    # На баре двое: смена одна — очередь марок общая, — но имён в ней два.
+    p.locator("#tablet [data-shift='join']").click(); p.wait_for_timeout(300)
+    station_pin(p, "2468")
+    check("общий PIN в смену никого не записывает",
+          "личный" in p.locator("#tablet .gate .hint").inner_text().lower(),
+          p.locator("#tablet .gate .hint").inner_text())
+    station_pin(p, "2727")
+    who = p.locator("#tablet .bar .who").inner_text().lower()
+    check("второй бармен встал в ту же смену", "игорь" in who and "слава" in who, who)
+    check("смена осталась одна", p.locator("#tablet .board-grid").count() == 1)
     p.locator("#phone .spot[data-table='3']").click(); p.wait_for_timeout(300)
     p.locator("#phone [data-open]").click(); p.wait_for_timeout(300)
     add(p, "pelmeni")

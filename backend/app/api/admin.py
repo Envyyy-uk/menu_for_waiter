@@ -720,6 +720,9 @@ def shift_log(
                 # Кто открыл и кто закрыл. Пусто — вошли общим PIN станции.
                 "opened_by": opened_by,
                 "closed_by": closed_by,
+                # Все, кто стоял на этой станции за смену, а не только тот,
+                # кто ввёл PIN первым.
+                "people": shift_service.people(db, s),
             }
         )
     return out

@@ -897,8 +897,9 @@ h1 {
         откройте <b>Оплаты</b>: там видно, за что именно взяли деньги. В
         рабочей версии скидку даёт менеджер, официант такой кнопки не видит.</p>
       <p>Откройте смену планшета PIN-ом <b>2222</b> — в шапке появится
-        «Игорь». Закройте её PIN-ом <b>2727</b>: смену сдали, и в журнале
-        останутся оба имени.</p>
+        «Игорь». Если на баре двое, нажмите <b>+ Ещё человек</b> и введите
+        <b>2727</b>: смена остаётся одна — очередь марок общая, — но в шапке
+        встанут оба имени. Закрыть её тоже может второй.</p>
       <p>Нажмите <b>Открыть смену</b> на телефоне — пойдут часы. Закрыть её с
         открытым чеком система не даст, а после закрытия покажет итог вечера:
         сколько отработано, чеков, наличными и картой.</p>
@@ -1038,7 +1039,8 @@ function fresh(keepPlan) {
   S = {
     screen: 'pin',
     pin: '',
-    shift: { open: false, closing: false, pin: '', done: 0, why: null, who: null },
+    shift: { open: false, closing: false, joining: false, pin: '', done: 0, why: null,
+             who: null, people: [] },
     // Личная смена официанта: табель считает часы, а не выручку.
     work: { open: false, from: 0, report: null },
     stock: STOCK.map(x => ({ ...x })),
@@ -1320,14 +1322,15 @@ function tabletHTML() {
   if (S.right === 'admin') return adminHTML();
   if (S.right === 'paid') return paidHTML();
   if (S.right === 'stock') return stockHTML();
-  if (!S.shift.open || S.shift.closing) return shiftHTML();
+  if (!S.shift.open || S.shift.closing || S.shift.joining) return shiftHTML();
 
   const list = live();
   const news = list.filter(t => t.status === 'new').length;
   return `<div class="bar">
       <span class="dot"></span><h3>Бар и кухня</h3>
-      <span class="who">${S.shift.who ? esc(S.shift.who) + ' · ' : ''}${news
+      <span class="who">${S.shift.people.length ? esc(S.shift.people.join(', ')) + ' · ' : ''}${news
         ? news + ' ' + plural(news, 'новая', 'новых', 'новых') : list.length + ' в работе'}</span>
+      <button type="button" data-shift="join">+ Ещё человек</button>
       <button type="button" data-shift="close">Закрыть смену</button>
     </div>
     <div class="view"><div class="board-grid">
@@ -1365,13 +1368,17 @@ function markHTML(t) {
    неё имя, общий PIN станции открывает её безымянной. */
 function shiftHTML() {
   const closing = !!S.shift.closing;
+  const joining = !!S.shift.joining;
+  const head = closing ? 'Закрытие смены'
+    : joining ? 'Кто ещё на смене' : 'Смена не открыта';
   return `<div class="bar">
-      <span class="dot"></span><h3>${closing ? 'Закрытие смены' : 'Смена не открыта'}</h3>
+      <span class="dot"></span><h3>${head}</h3>
       <span class="who">Бар</span>
-      ${closing ? '<button type="button" data-shift="cancel">Отмена</button>' : ''}
+      ${closing || joining ? '<button type="button" data-shift="cancel">Отмена</button>' : ''}
     </div>
     <div class="view pad0"><div class="gate">
-      <p>${closing ? 'PIN — закрыть смену' : 'Свой PIN или PIN станции'}</p>
+      <p>${closing ? 'PIN — закрыть смену'
+        : joining ? 'Свой PIN — встать в смену' : 'Свой PIN или PIN станции'}</p>
       <div class="dots">${[0, 1, 2, 3].map(i =>
         `<i class="${i < S.shift.pin.length ? 'on' : ''}"></i>`).join('')}</div>
       <div class="pad">
@@ -1951,7 +1958,10 @@ document.addEventListener('click', e => {
   }
 
   if (d.shift === 'close') { S.shift.closing = true; S.shift.pin = ''; S.shift.why = null; }
-  if (d.shift === 'cancel') { S.shift.closing = false; S.shift.pin = ''; S.shift.why = null; }
+  if (d.shift === 'join') { S.shift.joining = true; S.shift.pin = ''; S.shift.why = null; }
+  if (d.shift === 'cancel') {
+    S.shift.closing = false; S.shift.joining = false; S.shift.pin = ''; S.shift.why = null;
+  }
 
   if (d.skey) {
     const f = S.shift;
@@ -1962,11 +1972,28 @@ document.addEventListener('click', e => {
       const who = BAR_PINS[f.pin] || null;
       const right = who !== null || f.pin === STATION_PIN;
       f.pin = '';
+      // Кто ввёл личный PIN — тот и был на баре. Общий PIN станции никого не
+      // записывает: за ним нет имени, и выдумывать его — врать в отчёте.
+      const remember = () => {
+        if (who && !f.people.includes(who)) f.people.push(who);
+      };
       if (!right) {
         // Чужой PIN смену не закрывает — иначе отчёт по станции превращается
         // в набор огрызков.
         f.why = 'Такой PIN бару не подходит';
+      } else if (f.joining) {
+        // Второй бармен не открывает свою смену: очередь марок на станции
+        // общая, и вторая смена разрезала бы её пополам.
+        if (!who) {
+          f.why = 'Нужен личный PIN — общий никого не запишет';
+        } else {
+          remember();
+          f.joining = false;
+          f.why = null;
+          tip(`${who} на смене`);
+        }
       } else if (f.closing) {
+        remember();
         f.closing = false;
         f.open = false;
         f.why = null;
@@ -1976,7 +2003,9 @@ document.addEventListener('click', e => {
           + plural(f.done, 'марка', 'марки', 'марок'), 3000);
         f.done = 0;
         f.who = null;
+        f.people = [];
       } else {
+        remember();
         f.open = true;
         f.why = null;
         f.who = who;

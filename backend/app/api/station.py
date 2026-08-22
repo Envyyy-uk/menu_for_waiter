@@ -280,6 +280,35 @@ def shift_open(
     return answer
 
 
+@router.post("/shift/join")
+def shift_join(
+    body: ShiftPinIn,
+    request: Request,
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> Response:
+    """Второй человек встаёт в уже открытую смену.
+
+    Смена одна на станцию: планшет один, очередь марок общая, и вторая смена
+    на тот же бар разрезала бы её пополам. Поэтому второй бармен не открывает
+    свою, а входит в эту — и остаётся в списке «кто был на баре».
+
+    PIN только личный: за общим PIN станции нет имени, а список без имён не
+    отвечает ни на один вопрос, ради которого он ведётся.
+    """
+    shift = shifts.by_token(db, request.cookies.get(SHIFT_COOKIE))
+    if shift is None or shift.closed_at is not None:
+        raise HTTPException(status_code=409, detail="смена не открыта")
+
+    who = shifts.station_for_pin(db, venue.id, body.pin)
+    if who is None or who.user is None or who.station != shift.station:
+        return JSONResponse(status_code=401, content={"detail": "Неверный PIN"})
+
+    shifts.join(db, shift, who)
+    db.commit()
+    return JSONResponse({**shifts.payload(shift, db=db), "configured": True, "joined": who.name})
+
+
 @router.post("/shift/close")
 def shift_close(
     body: ShiftCloseIn,
