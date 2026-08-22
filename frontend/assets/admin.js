@@ -1124,17 +1124,37 @@ const Admin = {
 
     wrap.appendChild(el('h2', '', 'Что с чего списывается'));
     wrap.appendChild(el('p', 'hint',
-      '50 мл и бутылка — одна строка меню и совсем разный расход, поэтому '
-      + 'правило привязывается к варианту. Без правила позиция склад не трогает.'));
+      'Это и есть то, что списывается само: правило говорит, сколько уходит '
+      + 'на одну порцию, и дальше склад считает без вас. Заполняется один раз '
+      + '— во время смены сюда не заходят.'));
+
+    // Правило с нулём не списывает ничего. Это половина ответа на вопрос
+    // «почему остаток не двигается», поэтому такие строки идут первыми и
+    // пересчитаны в заголовке.
+    const rules = [...this.data.recipes].sort((a, b) => {
+      const empty = (a.per_unit ? 1 : 0) - (b.per_unit ? 1 : 0);
+      return empty || a.menu_item.localeCompare(b.menu_item, 'ru');
+    });
+    const blank = rules.filter(r => !r.per_unit).length;
+    if (blank) {
+      wrap.appendChild(el('p', 'hint',
+        `Без расхода: ${blank} ${plural(blank, 'правило', 'правила', 'правил')} `
+        + '— по ним пока не списывается ничего. Впишите, сколько уходит на порцию, '
+        + 'в поле справа; они собраны наверху списка.'));
+    }
+
     wrap.appendChild(this.recipeForm());
     wrap.appendChild(this.table(
       ['Позиция меню', 'Вариант', 'Списывается', ''],
-      this.data.recipes.map(r => [
+      rules.map(r => [
         esc(r.menu_item),
         r.options_text ? esc(r.options_text) : '<span class="faint">любой</span>',
-        { num: `${r.per_unit} ${r.unit_name} · ${esc(r.stock_item)}` },
+        { num: r.per_unit
+            ? `${r.per_unit} ${r.unit_name} · ${esc(r.stock_item)}`
+            : `<span class="gap bad">— ${esc(r.stock_item)}</span>` },
         { actions: this.recipeActions(r) }
-      ])
+      ]),
+      rules.map(r => (r.per_unit ? '' : 'off'))
     ));
     return wrap;
   },
