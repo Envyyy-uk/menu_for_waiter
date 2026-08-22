@@ -57,6 +57,16 @@ docker compose up --build     # http://localhost:8000
 адресом ноутбука вместо `localhost`, чтобы устройства в одной сети открыли
 приложение по-настоящему.
 
+**Поставить на боевой сервер** — одна команда на чистой Ubuntu 24.04:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Envyyy-uk/menu_for_waiter/main/deploy/setup.sh -o setup.sh
+bash setup.sh pos.вашезаведение.com
+```
+
+Система, докер, фаервол, HTTPS, случайные пароли, ключи push и почасовой
+бэкап базы — сам. Подробности и что почём: `docs/СЕРВЕР.md`.
+
 ### Без Docker
 
 ```bash
