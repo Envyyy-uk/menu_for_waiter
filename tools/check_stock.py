@@ -94,6 +94,21 @@ def main() -> None:
         page.wait_for_timeout(1200)
         check("правило добавлено", page.locator("tr", has_text="50 мл").count() >= 1)
 
+        # Правил в рабочем меню сотни: у каждой бутылки ещё и по правилу на
+        # каждый микс. Без поиска нужную строку ищут прокруткой минуту.
+        find = page.locator("input[type='search']").last
+        find.fill("Absolut")
+        page.wait_for_timeout(500)
+        rows = page.locator("tr", has_text="Absolut").count()
+        check("поиск оставил свои строки", rows >= 1, str(rows))
+        find.fill("такого нет")
+        page.wait_for_timeout(500)
+        check("и честно говорит, когда не нашлось",
+              "не нашлось" in page.locator(".panel").last.inner_text().lower(),
+              page.locator(".panel").last.inner_text()[-120:])
+        find.fill("")
+        page.wait_for_timeout(500)
+
         # Официант продаёт две порции.
         waiter_ctx = browser.new_context(viewport=PHONE, has_touch=True, is_mobile=True)
         waiter = waiter_ctx.new_page()

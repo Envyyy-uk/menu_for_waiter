@@ -1172,18 +1172,46 @@ const Admin = {
     }
 
     wrap.appendChild(this.recipeForm());
-    wrap.appendChild(this.table(
-      ['Позиция меню', 'Вариант', 'Списывается', ''],
-      rules.map(r => [
-        esc(r.menu_item),
-        r.options_text ? esc(r.options_text) : '<span class="faint">любой</span>',
-        { num: r.per_unit
-            ? `${r.per_unit} ${r.unit_name} · ${esc(r.stock_item)}`
-            : `<span class="gap bad">— ${esc(r.stock_item)}</span>` },
-        { actions: this.recipeActions(r) }
-      ]),
-      rules.map(r => (r.per_unit ? '' : 'off'))
-    ));
+
+    // Правил тут сотни: у каждой бутылки ещё и по правилу на каждый микс.
+    // Листать это до нужной строки — минута на телефоне, а нужна одна.
+    const find = el('input', 'field');
+    find.type = 'search';
+    find.placeholder = 'Найти позицию или продукт';
+    find.value = this.rulesFind || '';
+    const list = el('div', '');
+
+    const draw = () => {
+      const q = (this.rulesFind || '').trim().toLowerCase();
+      const shown = q
+        ? rules.filter(r => (r.menu_item + ' ' + r.stock_item + ' '
+            + (r.options_text || '')).toLowerCase().includes(q))
+        : rules;
+      list.innerHTML = '';
+      if (!shown.length) {
+        list.appendChild(el('p', 'hint', 'Ничего не нашлось'));
+        return;
+      }
+      list.appendChild(this.table(
+        ['Позиция меню', 'Вариант', 'Списывается', ''],
+        shown.map(r => [
+          esc(r.menu_item),
+          r.options_text ? esc(r.options_text) : '<span class="faint">любой</span>',
+          { num: r.per_unit
+              ? `${r.per_unit} ${r.unit_name} · ${esc(r.stock_item)}`
+              : `<span class="gap bad">— ${esc(r.stock_item)}</span>` },
+          { actions: this.recipeActions(r) }
+        ]),
+        shown.map(r => (r.per_unit ? '' : 'off'))
+      ));
+    };
+    // Список перерисовывается на месте, а не через load(): иначе поле теряет
+    // фокус на каждой букве и набрать слово нельзя.
+    find.addEventListener('input', () => { this.rulesFind = find.value; draw(); });
+
+    wrap.appendChild(find);
+    wrap.appendChild(list);
+    draw();
     return wrap;
   },
 
@@ -1249,8 +1277,14 @@ const Admin = {
             b.addEventListener('click', async () => {
               Sheet.hide();
               try {
-                await API.patch(`/api/stock/${item.id}`, { unit: u.key });
-                toast(`${item.name} теперь считается в «${u.name}»`, 'good');
+                const after = await API.patch(`/api/stock/${item.id}`, { unit: u.key });
+                // Расход в правилах записан числом без единицы: «1» из «одна
+                // банка» стало бы «один миллилитр». Об этом надо сказать, а
+                // не молча оставить неверный расход.
+                toast(`${item.name} теперь считается в «${u.name}»`
+                  + (after.cleared
+                      ? `. Расход в ${after.cleared} правилах обнулён — впишите заново`
+                      : ''), 'good', after.cleared ? 7000 : 4000);
                 this.load();
               } catch (e) { toast(e.message, 'bad'); }
             });

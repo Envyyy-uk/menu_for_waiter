@@ -172,16 +172,25 @@ def fill(
     # «Cola» к водке и есть та банка колы, что стоит в меню отдельной строкой.
     by_key = {i.key: i for i in items if i.key}
 
-    def mixers(item: MenuItem) -> int:
+    def mixers(item: MenuItem, existing: list[Recipe]) -> int:
         """Правила на варианты, которые сами лежат на полке.
 
         Без них микс не списывается вовсе: банку колы, взятую к водке, склад
         не видит. Заводить это руками — семь напитков на восемнадцать бутылок,
         сто двадцать шесть правил; никто их не заведёт.
 
+        Считаются и у позиции, правила которой уже есть: миксы могли появиться
+        на сайте позже самой бутылки, и пропускать её целиком значит оставить
+        половину меню без списания навсегда.
+
         Связываем только там, где вариант совпал с позицией меню по ключу:
         «дарк-лиф» и «50 мл» ничем на полке не являются.
         """
+        was = {
+            tuple(sorted((r.options or {}).items()))
+            for r in existing
+            if r.options
+        }
         added = 0
         for group in item.options or []:
             key = str(group.get("key") or "")
@@ -191,44 +200,56 @@ def fill(
                 other = by_key.get(str(choice.get("key") or ""))
                 if other is None or other.id == item.id:
                     continue
+                pair = ((key, str(choice.get("key"))),)
+                if pair in was:
+                    continue
+                shelf = line(other.name, UNIT_PC)
+                # Банка уходит банкой — одна штука. А сколько сока наливают в
+                # микс, знает только бармен: ноль честнее выдуманной цифры и
+                # виден в списке как «без расхода».
                 db.add(
                     Recipe(
                         venue_id=venue.id,
                         menu_item_id=item.id,
-                        stock_item_id=line(other.name, UNIT_PC).id,
+                        stock_item_id=shelf.id,
                         options={key: choice.get("key")},
-                        per_unit=1,
+                        per_unit=1 if shelf.unit == UNIT_PC else 0,
                     )
                 )
                 added += 1
+                was.add(pair)
         return added
 
     for item in items:
         by_volume = pours(item)
+        existing = have_rules.get(item.id, [])
+        # Миксы добираются всегда: и у новой позиции, и у той, что заводили
+        # раньше, когда этих правил ещё не делали.
+        made_rules += mixers(item, existing)
 
-        # У позиции уже есть правило — её заводили руками, не трогаем.
+        # У позиции уже есть правила — её заводили раньше, и заводить второе
+        # на ту же трату нельзя: списалось бы дважды. Своё правило «50 мл из
+        # своей бутылки» важнее заготовки.
         #
         # Кроме одного случая: правило штучное, а позиция наливается. Так
         # заводили раньше, и это тихо неверно — бокал вина списывал целую
         # бутылку. Чиним, пока никто не посчитал остаток: тронуть полку,
         # которую уже пересчитали, куда хуже, чем оставить старое правило.
-        if item.id in have_rules:
-            if not by_volume:
-                continue
-            for rule in have_rules[item.id]:
-                if rule.by_volume or rule.options:
-                    continue
-                shelf = db.get(StockItem, rule.stock_item_id)
-                if shelf is None or Decimal(str(shelf.quantity)) != 0:
-                    continue
-                shelf.unit = UNIT_ML
-                rule.by_volume = True
-                rule.per_unit = bottle_ml(item)
-                fixed += 1
+        if existing:
+            if by_volume:
+                for rule in (r for r in existing if not r.options):
+                    if rule.by_volume:
+                        continue
+                    shelf = db.get(StockItem, rule.stock_item_id)
+                    if shelf is None or Decimal(str(shelf.quantity)) != 0:
+                        continue
+                    shelf.unit = UNIT_ML
+                    rule.by_volume = True
+                    rule.per_unit = bottle_ml(item)
+                    fixed += 1
             continue
 
         parts = list(item.ingredients or []) if item.category in MADE_HERE else []
-        made_rules += mixers(item)
 
         if by_volume:
             stock_item = line(item.name, UNIT_ML)
@@ -414,6 +435,7 @@ def edit(
     venue: Venue = Depends(get_venue),
 ) -> dict:
     item = _item(db, venue, item_id)
+    cleared = 0
     if body.name is not None:
         item.name = body.name.strip()
     if body.unit is not None and body.unit != item.unit:
@@ -433,6 +455,19 @@ def edit(
                 "Единицу можно поменять, только пока движений не было.",
             )
         item.unit = body.unit
+        # Расход в правилах записан числом без единицы. Была штука — станет
+        # миллилитр, и «1» из «одна банка» молча превратится в «один
+        # миллилитр сока». Обнуляем: ноль виден в списке как «без расхода» и
+        # ничего не списывает, а выдуманная цифра списывает неправильно и
+        # молчит.
+        cleared = 0
+        for rule in db.scalars(
+            select(Recipe).where(Recipe.stock_item_id == item.id)
+        ).all():
+            if rule.by_volume or float(rule.per_unit) == 0:
+                continue
+            rule.per_unit = 0
+            cleared += 1
     if body.low_at is not None:
         item.low_at = Decimal(str(body.low_at))
     if body.note is not None:
@@ -442,7 +477,7 @@ def edit(
     db.commit()
     # Порог мог поменяться — экран склада должен показать это сам.
     realtime.publish(realtime.CHANNEL_STOCK, {"type": "stock.changed"})
-    return stock.item_payload(item)
+    return {**stock.item_payload(item), "cleared": cleared}
 
 
 class MoveIn(BaseModel):

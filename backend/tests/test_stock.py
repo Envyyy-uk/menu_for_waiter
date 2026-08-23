@@ -398,7 +398,11 @@ def test_a_bottle_takes_the_whole_bottle(client, db, hall):
 
 
 def test_fill_does_not_touch_what_was_set_by_hand(client, db, hall):
-    """Правило, заведённое руками, важнее заготовки."""
+    """Правило, заведённое руками, важнее заготовки.
+
+    Второго правила на ту же трату заготовка не заводит: с ним пятьдесят
+    миллилитров списались бы дважды — и со своей бутылки, и с заведённой.
+    """
     login(client, "123456")
     bottle = make(client, "Своя бутылка", quantity=500)
     client.post("/api/stock/recipes", json={
@@ -411,8 +415,12 @@ def test_fill_does_not_touch_what_was_set_by_hand(client, db, hall):
 
     rules = [r for r in client.get("/api/stock/recipes").json()
              if r["menu_item"] == "Absolut"]
-    assert len(rules) == 1
-    assert rules[0]["stock_item"] == "Своя бутылка"
+    mine = [r for r in rules if r["stock_item"] == "Своя бутылка"]
+    assert len(mine) == 1                        # своё правило цело
+    # И никакого второго правила на саму водку не появилось.
+    assert not any(r["stock_item"] == "Absolut" for r in rules)
+    # А миксы — другая трата, их заготовка добрать может.
+    assert all(r["options"] for r in rules)
 
 
 # ------------------------------------------------- инвентаризация ---------
@@ -777,3 +785,57 @@ def test_unit_is_locked_once_the_shelf_was_counted(client, db, hall):
     assert r.status_code == 409
     assert "остаток" in r.json()["detail"].lower()
     assert stock_of(client, "Orange Juice")["unit"] == "pc"
+
+
+def test_fill_adds_mixers_to_a_bottle_it_already_knew(client, db, hall):
+    """Микс мог появиться на сайте позже самой бутылки.
+
+    Заготовка пропускала такую позицию целиком — раз правило есть, значит
+    заводили руками. И половина меню оставалась без списания микса навсегда.
+    """
+    from app.models import MenuItem, Recipe, StockItem
+
+    login(client, "123456")
+    item = db.scalars(select(MenuItem).where(MenuItem.key == "absolut")).one()
+    shelf = StockItem(venue_id=item.venue_id, name="Absolut", unit="ml", quantity=0, low_at=0)
+    db.add(shelf)
+    db.flush()
+    # Правило на саму бутылку есть, а на миксы — нет.
+    db.add(Recipe(venue_id=item.venue_id, menu_item_id=item.id, stock_item_id=shelf.id,
+                  options={}, per_unit=700, by_volume=True))
+    db.commit()
+
+    client.post("/api/stock/fill")
+
+    rules = [r for r in client.get("/api/stock/recipes").json()
+             if r["menu_item"] == "Absolut" and r["options"]]
+    assert any("Cola" in r["stock_item"] for r in rules)
+    # И второй раз их не задвоит.
+    before = len(rules)
+    client.post("/api/stock/fill")
+    again = [r for r in client.get("/api/stock/recipes").json()
+             if r["menu_item"] == "Absolut" and r["options"]]
+    assert len(again) == before
+
+
+def test_changing_the_unit_clears_the_amounts(client, db, hall):
+    """«1» из «одна банка» не должна стать «одним миллилитром сока».
+
+    Расход записан числом без единицы, и после смены единицы он значит
+    другое. Ноль виден в списке как «без расхода», а выдуманная цифра
+    списывает неправильно и молчит.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    juice = stock_of(client, "Orange Juice")
+
+    before = [r for r in client.get("/api/stock/recipes").json()
+              if r["stock_item"] == "Orange Juice"]
+    assert any(float(r["per_unit"]) == 1 for r in before)
+
+    after = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml"}).json()
+    assert after["cleared"] >= 1
+
+    now = [r for r in client.get("/api/stock/recipes").json()
+           if r["stock_item"] == "Orange Juice"]
+    assert all(float(r["per_unit"]) == 0 for r in now)
