@@ -399,6 +399,7 @@ def create(
 
 class ItemPatch(BaseModel):
     name: str | None = None
+    unit: str | None = None
     low_at: float | None = None
     note: str | None = None
     active: bool | None = None
@@ -415,6 +416,23 @@ def edit(
     item = _item(db, venue, item_id)
     if body.name is not None:
         item.name = body.name.strip()
+    if body.unit is not None and body.unit != item.unit:
+        # Единицу меняют, когда поняли, как это считают на самом деле: сок
+        # приезжает пачками, а наливают его в стакан — значит миллилитры, а
+        # не «штуки».
+        #
+        # Но только пока по позиции не было движений. «3» в штуках и «3» в
+        # миллилитрах — это разные три, и переписать единицу под чужой цифрой
+        # значит соврать в инвентаризации, не тронув ни одного числа.
+        if body.unit not in UNITS:
+            raise HTTPException(status_code=422, detail="Такой единицы нет")
+        if item.id in stock.touched(db, venue.id):
+            raise HTTPException(
+                status_code=409,
+                detail="По этой позиции уже считали остаток. "
+                "Единицу можно поменять, только пока движений не было.",
+            )
+        item.unit = body.unit
     if body.low_at is not None:
         item.low_at = Decimal(str(body.low_at))
     if body.note is not None:

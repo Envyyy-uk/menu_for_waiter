@@ -673,3 +673,107 @@ def test_fill_does_not_invent_a_shelf_for_a_flavour(client, db, hall):
     names = {i["name"] for i in client.get("/api/stock").json()["items"]}
     assert "MustHave" not in names
     assert "50 мл" not in names
+
+
+# ------------------------------------------- ноль «не считали» и ноль «нет» ---
+def test_a_shelf_nobody_counted_does_not_stop_the_hall(client, db, hall):
+    """Сразу после «Заполнить по меню» зал должен продавать.
+
+    Заготовка ставит всем нулевое количество: сколько на полке, знает только
+    тот, кто туда посмотрел. Если считать этот ноль за «кончилось», вечер
+    встанет целиком — официант не сможет пробить вообще ничего, пока владелец
+    не обойдёт все полки.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    r = client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": menu_id(db, "absolut"), "options": {"size": "ml50"},
+    })
+    assert r.status_code == 201
+    assert client.post(f"/api/checks/{check['id']}/send").status_code == 200
+
+
+def test_but_a_counted_shelf_at_zero_does_stop_it(client, db, hall):
+    """А вот ноль, который посчитали, — это настоящий ноль.
+
+    Разница между «неизвестно» и «кончилось» здесь и проходит: как только по
+    позиции прошло хоть одно движение, склад за неё отвечает.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    absolut = stock_of(client, "Absolut")
+    # Привезли и всё вылили: движения были, остаток ноль.
+    client.post(f"/api/stock/{absolut['id']}/move", json={"delta": 50, "reason": "in"})
+    client.post(f"/api/stock/{absolut['id']}/move",
+                json={"counted": 0, "reason": "count", "note": "вылили"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    r = client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": menu_id(db, "absolut"), "options": {"size": "ml50"},
+    })
+    assert r.status_code == 409
+    assert "не хватает" in r.json()["detail"].lower()
+
+
+def test_a_rule_without_consumption_never_blocks(client, db, hall):
+    """Правило с нулевым расходом не останавливает продажу.
+
+    Так отказываются считать то, что считать не хотят: кофе, чай. Ставить
+    вместо этого «100 шт и забыть» — способ упереться в ноль на сто первой
+    чашке и не понять почему.
+    """
+    from app.models import MenuItem, Recipe, StockItem
+
+    login(client, "123456")
+    item = db.scalars(select(MenuItem).where(MenuItem.key == "cola")).one()
+    shelf = StockItem(venue_id=item.venue_id, name="Кофе", unit="g", quantity=0, low_at=0)
+    db.add(shelf)
+    db.flush()
+    db.add(Recipe(venue_id=item.venue_id, menu_item_id=item.id,
+                  stock_item_id=shelf.id, options={}, per_unit=0))
+    db.commit()
+    # Движение было — значит ноль настоящий. Но расход нулевой, и он не мешает.
+    client.post(f"/api/stock/{shelf.id}/move", json={"delta": 100, "reason": "in"})
+    client.post(f"/api/stock/{shelf.id}/move", json={"counted": 0, "reason": "count"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    assert client.post(f"/api/checks/{check['id']}/items",
+                       json={"menu_item_id": menu_id(db, "cola")}).status_code == 201
+
+
+def test_unit_can_be_fixed_while_nobody_counted(client, db, hall):
+    """Сок приезжает пачками, а наливают его в стакан — значит миллилитры.
+
+    Понять это можно только глазами, и уже после того, как заготовка завела
+    позицию поштучно. Заводить её заново — терять и правила, и название.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    juice = stock_of(client, "Orange Juice")
+    assert juice["unit"] == "pc"
+
+    r = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml"})
+    assert r.status_code == 200
+    assert stock_of(client, "Orange Juice")["unit"] == "ml"
+
+
+def test_unit_is_locked_once_the_shelf_was_counted(client, db, hall):
+    """«3» в штуках и «3» в миллилитрах — это разные три.
+
+    Переписать единицу под чужой цифрой значит соврать в инвентаризации, не
+    тронув ни одного числа.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    juice = stock_of(client, "Orange Juice")
+    client.post(f"/api/stock/{juice['id']}/move", json={"delta": 3, "reason": "in"})
+
+    r = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml"})
+    assert r.status_code == 409
+    assert "остаток" in r.json()["detail"].lower()
+    assert stock_of(client, "Orange Juice")["unit"] == "pc"

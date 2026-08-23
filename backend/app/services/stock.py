@@ -239,11 +239,23 @@ def shortages(db: Session, rows: Iterable[CheckItem]) -> list[dict[str, Any]]:
     Позиция без правила не ограничена ничем: склад знает не про всё, и
     запрещать продавать то, чего он не считает, значит останавливать зал
     из-за пробела в учёте.
+
+    То же и с позицией, которую завели заготовкой и ещё ни разу не считали.
+    Ноль у неё означает «неизвестно», а не «кончилось»: иначе сразу после
+    «Заполнить по меню» зал перестаёт продавать вообще всё, и вечер встаёт
+    из-за того, что владелец не успел обойти полки. Как только по позиции
+    прошло хоть одно движение — приход, продажа, пересчёт, — ноль снова
+    значит ноль.
     """
     out: list[dict[str, Any]] = []
+    seen: set[uuid.UUID] | None = None
     for stock_id, want in needed(db, rows).items():
         item = db.get(StockItem, stock_id)
         if item is None or not item.active:
+            continue
+        if seen is None:
+            seen = touched(db, item.venue_id)
+        if item.id not in seen:
             continue
         have = Decimal(str(item.quantity))
         if want > have:

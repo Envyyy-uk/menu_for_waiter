@@ -1231,6 +1231,37 @@ const Admin = {
     });
     box.appendChild(move);
 
+    // Единицу меняют, когда поняли, как это считают на самом деле: сок
+    // приезжает пачками, а наливают его в стакан. Кнопка есть, пока по
+    // позиции не было движений: «3» в штуках и «3» в миллилитрах — разные
+    // три, и менять единицу под чужой цифрой нельзя.
+    if (item.state === 'new') {
+      const unit = el('button', 'btn', 'Единица');
+      unit.addEventListener('click', () => {
+        Sheet.show(esc(item.name), `Сейчас считается в «${esc(item.unit_name)}»`, body => {
+          body.appendChild(el('p', 'hint',
+            'Миллилитры — если наливают: сок из пачки, вино из бутылки. '
+            + 'Граммы — если взвешивают. Штуки — если берут целиком: банка, '
+            + 'бутылка пива.'));
+          (this.data.stock.units || []).forEach(u => {
+            const b = el('button', 'btn wide big' + (u.key === item.unit ? ' primary' : ''),
+                         esc(u.name));
+            b.addEventListener('click', async () => {
+              Sheet.hide();
+              try {
+                await API.patch(`/api/stock/${item.id}`, { unit: u.key });
+                toast(`${item.name} теперь считается в «${u.name}»`, 'good');
+                this.load();
+              } catch (e) { toast(e.message, 'bad'); }
+            });
+            body.appendChild(b);
+            body.appendChild(el('div', '', '<div style="height:8px"></div>'));
+          });
+        });
+      });
+      box.appendChild(unit);
+    }
+
     const history = el('button', 'btn', 'История');
     history.addEventListener('click', async () => {
       try {
