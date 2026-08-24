@@ -25,6 +25,27 @@ const Sheet = {
     const body = el('div');
     sheet.appendChild(body);
 
+    // Нажатие мимо кнопок закрывает шторку.
+    //
+    // Фона над ней остаётся полоска в пару сантиметров: шторка занимает почти
+    // весь экран, и чтобы попасть в эту полоску, приходилось прокручивать
+    // список обратно вверх. Закрыть должно быть так же легко, как открыть.
+    //
+    // Но только если это нажатие, а не протяжка: длинную шторку листают,
+    // ведя пальцем по пустому месту, и закрывать её на этом нельзя.
+    let from = null;
+    const CONTROLS = 'button, input, select, textarea, a, label';
+    sheet.addEventListener('pointerdown', e => {
+      from = e.target.closest(CONTROLS) ? null : { x: e.clientX, y: e.clientY };
+    });
+    sheet.addEventListener('pointerup', e => {
+      if (from === null) return;
+      const moved = Math.abs(e.clientX - from.x) > 8 || Math.abs(e.clientY - from.y) > 8;
+      from = null;
+      if (!moved) this.hide();
+    });
+    sheet.addEventListener('pointercancel', () => { from = null; });
+
     document.body.append(bg, sheet);
     build(body, sheet);
   },

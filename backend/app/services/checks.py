@@ -153,17 +153,54 @@ def add_item(
     except PriceError as exc:
         raise CheckError(exc.message, status=exc.status, payload=exc.payload) from None
 
+    comment = (note or "").strip() or None
+    want = max(1, min(qty, 99))
+
+    # То же самое, ещё не отправленное, — это не вторая строка, а «плюс один».
+    #
+    # Гость говорит «и мне такое же», официант нажимает ещё раз — и в чеке
+    # появляется «2× Cola», а не два одинаковых огрызка подряд. Сравниваем и
+    # варианты, и комментарий: «без льда» и обычная — разные напитки, и бармен
+    # должен увидеть их порознь.
+    #
+    # Отправленное не трогаем: его уже налили. Заказали снова — это новая
+    # строка внизу чека, и на баре это новая марка.
+    # Запросом, а не через `check.items`: обращение к связи загружает и
+    # запоминает список таким, каким он был **до** добавления строки. Дальше
+    # ручка проверяет по нему остаток на складе — и не видит только что
+    # добавленного. Продажа сверх остатка проходила бы молча.
+    same = next(
+        (
+            row
+            for row in db.scalars(
+                select(CheckItem).where(
+                    CheckItem.check_id == check.id,
+                    CheckItem.status == ITEM_DRAFT,
+                    CheckItem.menu_item_id == item.id,
+                )
+            ).all()
+            if dict(row.options_keys or {}) == chosen and row.note == comment
+        ),
+        None,
+    )
+    if same is not None:
+        same.qty = min(99, same.qty + want)
+        # Цена берётся заново: пока чек был открыт, её могли поправить.
+        same.unit_price_pence = unit
+        db.flush()
+        return same
+
     row = CheckItem(
         check_id=check.id,
         menu_item_id=item.id,
         status=ITEM_DRAFT,
-        qty=max(1, min(qty, 99)),
+        qty=want,
         unit_price_pence=unit,
         name_snapshot=item.name,
         station_snapshot=item.station,
         options_snapshot=names,
         options_keys=chosen,
-        note=(note or "").strip() or None,
+        note=comment,
         added_by_id=user.id,
     )
     db.add(row)

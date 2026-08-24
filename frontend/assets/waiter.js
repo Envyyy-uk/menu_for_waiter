@@ -625,6 +625,17 @@ const App = {
     if (item.status !== 'cancelled') {
       node.addEventListener('click', () => this.lineMenu(item));
     }
+    // Строка, которую только что тронули, показывается сама и подсвечивается
+    // на секунду: после «ещё одну» иначе непонятно, добавилось что-нибудь или
+    // нет, а чек к этому времени уже длиннее экрана.
+    if (this.flash === item.id) {
+      node.classList.add('flash');
+      requestAnimationFrame(() => {
+        node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+      setTimeout(() => node.classList.remove('flash'), 1200);
+      this.flash = null;
+    }
     return node;
   },
 
@@ -768,18 +779,40 @@ const App = {
       // может, и в зале должно быть так же.
       const off = i.state !== 'on';
       const soon = i.state === 'soon';
-      const node = el('button', 'dish' + (off ? ' off' : '') + (soon ? ' soon' : ''));
-      node.type = 'button';
-      node.innerHTML = `
-        <span class="body">
-          <span class="name">${esc(i.name)}</span>
-          ${i.description ? `<span class="desc">${esc(i.description)}</span>` : ''}
-        </span>
-        <span class="price">${money(i.price_pence)}</span>`;
-      node.addEventListener('click', () => {
+      // Что из этого уже в чеке и не отправлено. Гость говорит «и мне такое
+      // же» — официант должен видеть, сколько уже набрано, и добавить ещё
+      // одну, не проходя выбор вариантов заново.
+      const drafts = ((this.check && this.check.items) || []).filter(
+        x => x.menu_item_id === i.id && x.status === 'draft');
+      const already = drafts.reduce((n, x) => n + x.qty, 0);
+
+      const node = el('div', 'dish' + (off ? ' off' : '') + (soon ? ' soon' : '')
+        + (already ? ' picked' : ''));
+      const body = el('button', 'body');
+      body.type = 'button';
+      body.innerHTML = `
+        <span class="name">${esc(i.name)}${already ? ` <span class="in-check">${already}×</span>` : ''}</span>
+        ${i.description ? `<span class="desc">${esc(i.description)}</span>` : ''}`;
+      body.addEventListener('click', () => {
         if (off) return toast(`«${i.name}» — ${soon ? 'скоро, пока не продаём' : 'стоп'}`, 'bad');
         this.pick(i);
       });
+      node.appendChild(body);
+      node.appendChild(el('span', 'price', money(i.price_pence)));
+
+      if (already && !off) {
+        // Повтор последнего набора: те же варианты, тот же комментарий.
+        // Сервер сложит это в ту же строку, а не заведёт вторую такую же.
+        const last = drafts[drafts.length - 1];
+        const more = el('button', 'plus', '+');
+        more.type = 'button';
+        more.title = 'Ещё одну такую же';
+        more.addEventListener('click', e => {
+          e.stopPropagation();
+          this.add(i, last.options_keys || {}, 1, last.note || null);
+        });
+        node.appendChild(more);
+      }
       list.appendChild(node);
     });
   },
@@ -791,13 +824,22 @@ const App = {
     Options.open(item, (chosen, qty) => this.add(item, chosen, qty));
   },
 
-  async add(item, options, qty) {
+  async add(item, options, qty, note) {
     buzz(15);
+    const was = (this.check.items || []).map(x => x.id);
     try {
       this.check = await API.post(`/api/checks/${this.check.id}/items`, {
-        menu_item_id: item.id, qty, options
+        menu_item_id: item.id, qty, options, note: note || null
       });
-      toast(`${item.name} · ${qty}×`, 'good');
+      // Строка, которая изменилась: либо новая внизу, либо та же, где стало
+      // на одну больше. К ней и прокрутится чек — иначе после «ещё одну»
+      // непонятно, добавилось вообще что-нибудь или нет.
+      const mine = (this.check.items || []).filter(
+        x => x.menu_item_id === item.id && x.status === 'draft');
+      const fresh = mine.find(x => !was.includes(x.id)) || mine[mine.length - 1];
+      this.flash = fresh ? fresh.id : null;
+      const total = fresh ? fresh.qty : qty;
+      toast(`${item.name} · ${total}×`, 'good');
       this.paint();
     } catch (e) {
       toast(e.message, 'bad');

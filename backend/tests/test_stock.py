@@ -839,3 +839,30 @@ def test_changing_the_unit_clears_the_amounts(client, db, hall):
     now = [r for r in client.get("/api/stock/recipes").json()
            if r["stock_item"] == "Orange Juice"]
     assert all(float(r["per_unit"]) == 0 for r in now)
+
+
+def test_the_second_identical_one_is_checked_against_the_shelf_too(client, db, hall):
+    """«Ещё одну» складывается в ту же строку — и остаток всё равно считается.
+
+    Строка та же, а на полке стало нужно вдвое больше. Если проверять по
+    списку, каким он был до добавления, продажа сверх остатка пройдёт молча.
+    """
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    absolut = stock_of(client, "Absolut")
+    client.post(f"/api/stock/{absolut['id']}/move", json={"delta": 50, "reason": "in"})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    first = client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": menu_id(db, "absolut"), "options": {"size": "ml50"}})
+    assert first.status_code == 201
+
+    second = client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": menu_id(db, "absolut"), "options": {"size": "ml50"}})
+    assert second.status_code == 409
+    assert "не хватает" in second.json()["detail"].lower()
+
+    # И в чеке осталась одна порция, а не полторы.
+    body = client.get(f"/api/checks/{check['id']}").json()
+    assert sum(i["qty"] for i in body["items"] if i["status"] == "draft") == 1

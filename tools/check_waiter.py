@@ -106,6 +106,54 @@ def main() -> None:
               page.locator(".totals").inner_text())
         check("черновик помечен", page.locator(".line.draft").count() == 2)
 
+        # «И мне такое же»: в меню видно, сколько уже набрано, и есть «ещё
+        # одну» — без прохода по вариантам заново.
+        page.get_by_role("button", name="Меню").click()
+        page.wait_for_timeout(700)
+        page.locator(".search input").fill("")
+        page.wait_for_timeout(400)
+        picked = page.locator(".dish.picked").first
+        check("в меню видно, сколько уже в чеке",
+              "1×" in picked.locator(".in-check").inner_text(),
+              picked.inner_text()[:60])
+        picked.locator(".plus").click()
+        page.wait_for_timeout(900)
+        check("«ещё одну» прибавила к той же строке",
+              "2×" in page.locator(".dish.picked").first.locator(".in-check").inner_text(),
+              page.locator(".dish.picked").first.inner_text()[:60])
+
+        page.get_by_role("button", name="К чеку").click()
+        page.wait_for_timeout(700)
+        check("строк в чеке не прибавилось", page.locator(".line").count() == 2,
+              str(page.locator(".line").count()))
+        check("а количество выросло",
+              page.locator(".line", has_text="2×").count() >= 1,
+              page.locator(".lines").inner_text()[:120])
+
+        # Шторка строки закрывается нажатием мимо кнопок: фона над ней —
+        # полоска, и раньше до неё приходилось прокручивать список обратно.
+        page.locator(".line").first.click()
+        page.wait_for_timeout(600)
+        check("шторка строки открылась", page.locator("#sheet").count() == 1)
+        head = page.locator("#sheet h2")
+        box = head.bounding_box()
+        page.mouse.move(box["x"] + 20, box["y"] + 5)
+        page.mouse.down()
+        page.mouse.move(box["x"] + 20, box["y"] - 60, steps=8)
+        page.mouse.up()
+        page.wait_for_timeout(500)
+        check("протяжка по шторке её не закрывает", page.locator("#sheet").count() == 1)
+        head.click()
+        page.wait_for_timeout(500)
+        check("нажатие мимо кнопок закрывает", page.locator("#sheet").count() == 0)
+
+        # Вернём количество обратно, чтобы дальше считались прежние суммы.
+        page.locator(".line", has_text="2×").first.click()
+        page.wait_for_timeout(600)
+        page.locator("#sheet .stepper button").first.click()
+        page.get_by_role("button", name="Сохранить", exact=True).click()
+        page.wait_for_timeout(900)
+
         # Компания за столом делится — второй чек нужен прямо отсюда.
         page.get_by_role("button", name="+ ещё чек").click()
         page.wait_for_timeout(500)

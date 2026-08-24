@@ -236,3 +236,52 @@ def test_one_table_can_hold_two_checks(client, hall):
     tables = {t["id"]: t for t in client.get("/api/tables").json()}
     numbers = sorted(c["number"] for c in tables[hall["table"]]["checks"])
     assert numbers == sorted([first["number"], second["number"]])
+
+
+# ------------------------------------------------- «и мне такое же» --------
+def test_the_same_thing_again_is_a_plus_one(client, hall):
+    """Гость говорит «и мне такое же» — в чеке «2× Cola», а не две строки.
+
+    Два одинаковых огрызка подряд читаются хуже, чем один с количеством, и
+    считать их гостю приходится глазами.
+    """
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    body = add(client, check["id"], hall["mojito"]).json()
+
+    drafts = [i for i in body["items"] if i["status"] == "draft"]
+    assert len(drafts) == 1
+    assert drafts[0]["qty"] == 2
+
+
+def test_a_comment_keeps_the_lines_apart(client, hall):
+    """«Без льда» и обычный — разные напитки: бармен должен увидеть их порознь."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": hall["mojito"], "qty": 1})
+    body = client.post(f"/api/checks/{check['id']}/items",
+                       json={"menu_item_id": hall["mojito"], "qty": 1,
+                             "note": "без льда"}).json()
+
+    drafts = [i for i in body["items"] if i["status"] == "draft"]
+    assert len(drafts) == 2
+    assert {i["note"] for i in drafts} == {None, "без льда"}
+
+
+def test_what_was_sent_becomes_a_new_line(client, hall):
+    """Отправленное уже налили. Заказали снова — это новая строка внизу.
+
+    Дописать количество в отправленную значит соврать бару: там эта марка
+    уже висит с прежней цифрой.
+    """
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    client.post(f"/api/checks/{check['id']}/send")
+
+    body = add(client, check["id"], hall["mojito"]).json()
+    live = [i for i in body["items"] if i["status"] != "cancelled"]
+    assert len(live) == 2
+    assert sorted(i["qty"] for i in live) == [1, 1]
