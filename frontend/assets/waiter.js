@@ -801,9 +801,22 @@ const App = {
       node.appendChild(el('span', 'price', money(i.price_pence)));
 
       if (already && !off) {
+        // Гость передумал — это происходит чаще, чем «и мне такое же», и
+        // обе кнопки должны стоять рядом. Убрать лишнее, вернувшись в чек и
+        // открыв строку, — три нажатия там, где нужно одно.
+        const last = drafts[drafts.length - 1];
+        const steps = el('div', 'steps');
+
+        const less = el('button', 'plus', '−');
+        less.type = 'button';
+        less.title = 'На одну меньше';
+        less.addEventListener('click', e => {
+          e.stopPropagation();
+          this.bump(i, last, -1);
+        });
+
         // Повтор последнего набора: те же варианты, тот же комментарий.
         // Сервер сложит это в ту же строку, а не заведёт вторую такую же.
-        const last = drafts[drafts.length - 1];
         const more = el('button', 'plus', '+');
         more.type = 'button';
         more.title = 'Ещё одну такую же';
@@ -811,7 +824,9 @@ const App = {
           e.stopPropagation();
           this.add(i, last.options_keys || {}, 1, last.note || null);
         });
-        node.appendChild(more);
+
+        steps.append(less, more);
+        node.appendChild(steps);
       }
       list.appendChild(node);
     });
@@ -822,6 +837,25 @@ const App = {
   pick(item) {
     if (!(item.options || []).length) return this.add(item, {}, 1);
     Options.open(item, (chosen, qty) => this.add(item, chosen, qty));
+  },
+
+  /* На одну меньше прямо из меню. Ноль убирает строку целиком: «минус» на
+     последней порции значит «передумали», а не «оставьте ноль штук». */
+  async bump(item, line, delta) {
+    buzz(15);
+    const qty = Math.max(0, line.qty + delta);
+    try {
+      this.check = await API.patch(
+        `/api/checks/${this.check.id}/items/${line.id}`, { qty });
+      const left = (this.check.items || [])
+        .filter(x => x.menu_item_id === item.id && x.status === 'draft')
+        .reduce((n, x) => n + x.qty, 0);
+      this.flash = qty ? line.id : null;
+      toast(left ? `${item.name} · ${left}×` : `${item.name} убрали`, 'good');
+      this.paint();
+    } catch (e) {
+      toast(e.message, 'bad');
+    }
   },
 
   async add(item, options, qty, note) {

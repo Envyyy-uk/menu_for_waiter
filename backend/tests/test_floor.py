@@ -285,3 +285,20 @@ def test_what_was_sent_becomes_a_new_line(client, hall):
     live = [i for i in body["items"] if i["status"] != "cancelled"]
     assert len(live) == 2
     assert sorted(i["qty"] for i in live) == [1, 1]
+
+
+def test_the_last_one_taken_back_removes_the_line(client, hall):
+    """Передумали до отправки — строка уходит целиком.
+
+    «Минус» на последней порции значит «не будем», а не «оставьте ноль штук»:
+    строка с нулём в чеке — это мусор, который потом читают глазами.
+    """
+    login(client, "1111")
+    check = open_check(client, hall)
+    body = add(client, check["id"], hall["mojito"]).json()
+    line = next(i for i in body["items"] if i["status"] == "draft")
+
+    after = client.patch(
+        f"/api/checks/{check['id']}/items/{line['id']}", json={"qty": 0}).json()
+    assert after["items"] == []
+    assert after["total_pence"] == 0

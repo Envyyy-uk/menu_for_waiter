@@ -599,6 +599,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
   vertical-align: middle;
 }
 .dish.picked { background: color-mix(in srgb, var(--gold) 7%, transparent); }
+/* Минус и плюс стоят парой: гость передумал так же часто, как попросил ещё,
+   и уходить ради этого в чек — три нажатия там, где нужно одно. */
+.dish .steps { flex: none; display: flex; gap: 6px; }
 /* Палец, а не курсор: 44 пикселя — это минимум, ниже которого промахиваются
    мимо, а рядом стоит кнопка, открывающая варианты. */
 .dish .plus {

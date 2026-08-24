@@ -107,7 +107,8 @@ def main() -> None:
         check("черновик помечен", page.locator(".line.draft").count() == 2)
 
         # «И мне такое же»: в меню видно, сколько уже набрано, и есть «ещё
-        # одну» — без прохода по вариантам заново.
+        # одну» — без прохода по вариантам заново. Рядом минус: гость
+        # передумал так же часто, как попросил ещё.
         page.get_by_role("button", name="Меню").click()
         page.wait_for_timeout(700)
         page.locator(".search input").fill("")
@@ -116,7 +117,7 @@ def main() -> None:
         check("в меню видно, сколько уже в чеке",
               "1×" in picked.locator(".in-check").inner_text(),
               picked.inner_text()[:60])
-        picked.locator(".plus").click()
+        picked.locator(".plus", has_text="+").click()
         page.wait_for_timeout(900)
         check("«ещё одну» прибавила к той же строке",
               "2×" in page.locator(".dish.picked").first.locator(".in-check").inner_text(),
@@ -147,12 +148,20 @@ def main() -> None:
         page.wait_for_timeout(500)
         check("нажатие мимо кнопок закрывает", page.locator("#sheet").count() == 0)
 
-        # Вернём количество обратно, чтобы дальше считались прежние суммы.
-        page.locator(".line", has_text="2×").first.click()
-        page.wait_for_timeout(600)
-        page.locator("#sheet .stepper button").first.click()
-        page.get_by_role("button", name="Сохранить", exact=True).click()
+        # Передумали — минус там же, в меню. Уходить ради этого в чек значит
+        # три нажатия там, где нужно одно.
+        page.get_by_role("button", name="Меню").click()
+        page.wait_for_timeout(700)
+        page.locator(".dish.picked").first.locator(".plus", has_text="−").click()
         page.wait_for_timeout(900)
+        check("минус убавил обратно",
+              "1×" in page.locator(".dish.picked").first.locator(".in-check").inner_text(),
+              page.locator(".dish.picked").first.inner_text()[:60])
+        page.get_by_role("button", name="К чеку").click()
+        page.wait_for_timeout(700)
+        check("в чеке снова по одной",
+              page.locator(".line", has_text="2×").count() == 0,
+              page.locator(".lines").inner_text()[:120])
 
         # Компания за столом делится — второй чек нужен прямо отсюда.
         page.get_by_role("button", name="+ ещё чек").click()
