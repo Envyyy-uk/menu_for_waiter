@@ -163,6 +163,8 @@ def main() -> None:
               page.locator(".line", has_text="2×").count() == 0,
               page.locator(".lines").inner_text()[:120])
 
+        # Стол открыли по ошибке — официант закрывает его сам, без менеджера.
+        # Проверяем на втором чеке этого же стола: он пустой.
         # Компания за столом делится — второй чек нужен прямо отсюда.
         page.get_by_role("button", name="+ ещё чек").click()
         page.wait_for_timeout(500)
@@ -174,6 +176,10 @@ def main() -> None:
         page.wait_for_timeout(600)
         check("второй чек открылся пустым", page.locator(".line").count() == 0,
               str(page.locator(".line").count()))
+        # Брать нечего — и кнопка называет то, что случится.
+        check("у пустого чека есть чем закрыть стол",
+              page.get_by_role("button", name="Закрыть стол").count() == 1,
+              " | ".join(b.inner_text() for b in page.locator(".dock button").all()))
         page.get_by_role("button", name="←").click()
         page.wait_for_timeout(700)
         busy = page.locator(f":is(.spot, .tile):has(:is(.n, .num):text-is('{label}'))")

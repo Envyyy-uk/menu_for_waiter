@@ -302,3 +302,34 @@ def test_the_last_one_taken_back_removes_the_line(client, hall):
         f"/api/checks/{check['id']}/items/{line['id']}", json={"qty": 0}).json()
     assert after["items"] == []
     assert after["total_pence"] == 0
+
+
+def test_a_table_opened_by_mistake_closes_without_payment(client, hall):
+    """Стол открыли и ничего не заказали — официант закрывает его сам.
+
+    Брать за это нечего, а стол должен освободиться. Пока кнопки не было, он
+    висел занятым до утра, и официант шёл за менеджером ради нуля.
+    """
+    login(client, "1111")
+    check = open_check(client, hall)
+    mine = lambda: next(t for t in client.get("/api/tables").json()
+                        if t["id"] == check["table_id"])
+    assert mine()["checks"]
+
+    done = client.post(f"/api/checks/{check['id']}/close", json={"payments": []})
+    assert done.status_code == 200
+    assert done.json()["status"] == "closed"
+
+    # Стол снова свободен.
+    assert not mine()["checks"]
+
+
+def test_a_table_with_an_unpaid_order_does_not_close_for_free(client, hall):
+    """А чек с позициями закрывается только оплатой: иначе выручка теряется."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"])
+    client.post(f"/api/checks/{check['id']}/send")
+
+    refused = client.post(f"/api/checks/{check['id']}/close", json={"payments": []})
+    assert refused.status_code in (409, 422)

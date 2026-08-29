@@ -914,10 +914,17 @@ const App = {
         const send = el('button', 'btn big primary', 'Отправить');
         send.addEventListener('click', () => this.send());
         dock.appendChild(send);
-      } else if (this.check.items.length) {
+      } else if (this.check.due_pence) {
         const pay = el('button', 'btn big ok', 'Оплата');
         pay.addEventListener('click', () => Pay.open(this.check));
         dock.appendChild(pay);
+      } else {
+        // Брать нечего: стол открыли по ошибке, или гость передумал и всё
+        // отменили. Кнопки не было вовсе — и стол висел занятым до утра, а
+        // официант шёл за менеджером ради нуля.
+        const shut = el('button', 'btn big', 'Закрыть стол');
+        shut.addEventListener('click', () => Pay.open(this.check));
+        dock.appendChild(shut);
       }
     }
     document.body.appendChild(dock);
