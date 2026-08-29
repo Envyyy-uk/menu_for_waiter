@@ -156,6 +156,22 @@ def main() -> None:
               journal[:200])
         check("новый сотрудник записан", "Новый сотрудник" in journal)
 
+        # --- своя позиция --------------------------------------------------
+        # В баре всегда есть то, чего в гостевом меню не печатают: джин-тоник
+        # проще нажать одной кнопкой, чем набирать джин и тоник по отдельности.
+        page.locator(".tab", has_text="Меню").click()
+        page.wait_for_timeout(1200)
+        form = page.locator(".form", has_text="Своя позиция")
+        check("есть чем завести свою позицию", form.count() == 1)
+        form.locator("input").first.fill("Джин-тоник")
+        form.locator("input").nth(1).fill("9.00")
+        page.get_by_role("button", name="Добавить позицию").click()
+        page.wait_for_timeout(1500)
+        row = page.locator("tr", has_text="Джин-тоник").first
+        check("своя позиция встала в меню", row.count() == 1)
+        check("свою позицию можно убрать",
+              row.get_by_role("button", name="Убрать").count() == 1)
+
         check("ошибок в консоли нет", not errors, "; ".join(errors[:3]))
         browser.close()
 

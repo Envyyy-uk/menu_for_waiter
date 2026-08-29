@@ -70,7 +70,12 @@ def main() -> None:
 
         page.locator(FREE_TABLE).first.click()
         page.wait_for_timeout(400)
-        page.get_by_role("button", name="Открыть стол").click()
+        # Через DOM: шторка прибита к низу окна, и playwright, докручивая до
+        # кнопки, промахивается мимо неё в эмуляции телефона. Человеку в этом
+        # месте кликать не по чему — проверяем не попадание пальцем, а то, что
+        # происходит после нажатия.
+        page.evaluate("""() => [...document.querySelectorAll('#sheet button')]
+            .find(b => b.textContent.includes('Открыть')).click()""")
         page.wait_for_timeout(900)
         page.get_by_text("Margherita Pizza", exact=True).click()
         page.wait_for_timeout(500)

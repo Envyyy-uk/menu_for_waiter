@@ -1,5 +1,7 @@
 """Админка: персонал, столы, меню, отчёт."""
 
+from sqlalchemy import select
+
 from tests.test_floor import add, hall, login, open_check  # noqa: F401
 
 
@@ -171,3 +173,101 @@ def test_nobody_deletes_himself(client, hall):
     login(client, "123456")
     me = client.get("/api/auth/me").json()
     assert client.delete(f"/api/admin/users/{me['id']}").status_code == 409
+
+
+# ------------------------------------------------- своя позиция в меню ------
+def make_own(client, name="Джин-тоник", price=900, category="cocktails"):
+    return client.post(
+        "/api/menu/items",
+        json={"name": name, "price_pence": price, "category": category, "station": "bar"},
+    )
+
+
+def test_own_item_appears_in_the_menu(client, hall):
+    """Джин-тоник проще нажать одной кнопкой, чем набирать джин и тоник."""
+    login(client, "123456")
+    made = make_own(client)
+    assert made.status_code == 201
+    assert made.json()["local"] is True
+
+    login(client, "1111")
+    names = [i["name"] for i in client.get("/api/menu").json()["items"]]
+    assert "Джин-тоник" in names
+
+
+def test_the_site_check_does_not_switch_off_an_own_item(client, hall, db):
+    """Иначе проверка каталога гасила бы джин-тоник каждые пять минут."""
+    from app.models import MenuItem, Venue
+    from app.services import menu_sync
+
+    login(client, "123456")
+    make_own(client)
+
+    venue = db.scalars(select(Venue)).one()
+    # Каталог, в котором джин-тоника нет: пустой не принимается вовсе —
+    # пустой ответ сайта это сбой, а не «всё убрали».
+    menu_sync.apply(db, venue, {
+        "categories": {"spirits": "Крепкое"},
+        "items": [{
+            "key": "absolut", "name": "Absolut", "category": "spirits",
+            "station": "bar", "price_pence": 1300,
+        }],
+    })
+    db.commit()
+
+    own = db.scalars(select(MenuItem).where(MenuItem.key.like("own:%"))).one()
+    assert own.active is True
+
+
+def test_an_own_item_can_be_taken_out(client, hall):
+    """А сайтовую позицию отсюда не убрать: её убирают на сайте."""
+    login(client, "123456")
+    own = make_own(client).json()
+
+    assert client.delete(f"/api/menu/items/{own['id']}").status_code == 200
+    login(client, "1111")
+    assert "Джин-тоник" not in [i["name"] for i in client.get("/api/menu").json()["items"]]
+
+
+def test_a_site_item_is_not_removable_from_the_pos(client, hall):
+    login(client, "123456")
+    site = next(i for i in client.get("/api/menu").json()["items"] if not i["local"])
+    refused = client.delete(f"/api/menu/items/{site['id']}")
+    assert refused.status_code == 409
+
+
+def test_fill_leaves_own_items_alone(client, hall):
+    """«Одна штука джин-тоника» на складе не стоит: у него две полки.
+
+    Правило для своей позиции пишут руками — ради этого её и заводят.
+    """
+    login(client, "123456")
+    make_own(client)
+    client.post("/api/stock/fill")
+
+    names = {i["name"] for i in client.get("/api/stock").json()["items"]}
+    assert "Джин-тоник" not in names
+
+
+def test_the_gaps_report_names_a_mixer_that_writes_off_nothing(client, hall, db):
+    """Микс, за который со склада ничего не уходит, — тихая дыра в учёте.
+
+    Он не ошибается и не жалуется, просто к концу месяца не сходится тоник.
+    """
+    from app.models import MenuItem, Recipe
+
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    assert client.get("/api/stock/gaps").json() == []
+
+    absolut = db.scalars(select(MenuItem).where(MenuItem.key == "absolut")).one()
+    rule = db.scalars(
+        select(Recipe).where(
+            Recipe.menu_item_id == absolut.id, Recipe.options == {"mixer": "cola"}
+        )
+    ).one()
+    db.delete(rule)
+    db.commit()
+
+    gaps = client.get("/api/stock/gaps").json()
+    assert [(g["menu_item"], g["choice"]) for g in gaps] == [("Absolut", "Cola")]

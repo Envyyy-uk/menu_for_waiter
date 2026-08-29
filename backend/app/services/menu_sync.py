@@ -154,8 +154,14 @@ def apply(db: Session, venue: Venue, payload: dict[str, Any], *, actor_id=None) 
 
     # Позиция, пропавшая из каталога, не удаляется: на неё ссылаются закрытые
     # чеки. Она просто перестаёт показываться официанту.
+    #
+    # Свои позиции проверка не трогает вовсе: их в каталоге и не было, и
+    # выключать их как «пропавшие с сайта» значит гасить джин-тоник каждые
+    # пять минут.
     removed = []
     for key, item in existing.items():
+        if item.local:
+            continue
         if key not in seen and item.active:
             item.active = False
             removed.append(item.name)

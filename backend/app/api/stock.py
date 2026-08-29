@@ -221,6 +221,12 @@ def fill(
         return added
 
     for item in items:
+        # Свою позицию заготовка не трогает. Джин-тоник — это две полки сразу,
+        # джин и тоник, и «одна штука джин-тоника» на складе не стоит: правило
+        # для него пишут руками, ради этого его и заводят.
+        if item.local:
+            continue
+
         by_volume = pours(item)
         existing = have_rules.get(item.id, [])
         # Миксы добираются всегда: и у новой позиции, и у той, что заводили
@@ -585,6 +591,62 @@ def _variant_text(item: MenuItem | None, chosen: dict) -> str:
         choice = next((c for c in group["choices"] if c["key"] == value), None)
         parts.append(f"{group.get('label') or key}: {choice['name'] if choice else value}")
     return " · ".join(parts)
+
+
+@router.get("/gaps")
+def gaps(
+    actor: User = Depends(require("stock.view")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> list[dict]:
+    """Что можно выбрать в заказе, но со склада за это ничего не уходит.
+
+    Микс называется в меню, официант его нажимает, гость его выпивает — а на
+    полке всё по-прежнему. Это самая тихая дыра в учёте: она не ошибается и
+    не жалуется, просто к концу месяца не сходится тоник.
+
+    Смотрим только группы с вариантами-продуктами — миксы. Объём разбирается
+    правилом самой позиции, а «дарк-лиф» ничем на полке и не является.
+    """
+    items = db.scalars(
+        select(MenuItem).where(MenuItem.venue_id == venue.id, MenuItem.active.is_(True))
+    ).all()
+    rules: dict = {}
+    for r in db.scalars(select(Recipe).where(Recipe.venue_id == venue.id)).all():
+        rules.setdefault(r.menu_item_id, []).append(r)
+
+    out = []
+    for item in items:
+        mine = rules.get(item.id, [])
+        covered = {
+            tuple(sorted((r.options or {}).items()))
+            for r in mine
+            if r.options and float(r.per_unit) > 0
+        }
+        for group in item.options or []:
+            key = str(group.get("key") or "")
+            if not key or key in SIZE_GROUPS:
+                continue
+            # Группа с одним выбором и без цены — это вкус, а не продукт:
+            # марка табака, лист, чаша. Расход за них не ждут.
+            if not any(
+                c.get("add_pence") or c.get("price_pence") for c in group.get("choices") or []
+            ):
+                continue
+            for choice in group.get("choices") or []:
+                if ((key, str(choice.get("key"))),) in covered:
+                    continue
+                out.append(
+                    {
+                        "menu_item": item.name,
+                        "menu_item_id": str(item.id),
+                        "group": group.get("label") or key,
+                        "group_key": key,
+                        "choice": choice.get("name"),
+                        "choice_key": choice.get("key"),
+                    }
+                )
+    return out
 
 
 @router.get("/recipes")

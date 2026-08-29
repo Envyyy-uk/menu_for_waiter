@@ -866,3 +866,35 @@ def test_the_second_identical_one_is_checked_against_the_shelf_too(client, db, h
     # И в чеке осталась одна порция, а не полторы.
     body = client.get(f"/api/checks/{check['id']}").json()
     assert sum(i["qty"] for i in body["items"] if i["status"] == "draft") == 1
+
+
+def test_an_own_item_writes_off_two_shelves_at_once(client, db, hall):
+    """Джин-тоник — это две полки: джин и тоник.
+
+    Ради этого свою позицию и заводят: одна кнопка вместо двух, и списание
+    сразу с обеих полок, без пересчёта в уме.
+    """
+    login(client, "123456")
+    made = client.post("/api/menu/items", json={
+        "name": "Джин-тоник", "price_pence": 900, "category": "cocktails", "station": "bar",
+    }).json()
+
+    gin = make(client, "Gordon's", unit="ml", quantity=700)
+    tonic = make(client, "Schweppes", unit="pc", quantity=10)
+    for shelf, per in ((gin, 50), (tonic, 1)):
+        client.post("/api/stock/recipes", json={
+            "menu_item_id": made["id"],
+            "stock_item_id": shelf["id"],
+            "options": {},
+            "per_unit": per,
+        })
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items",
+                json={"menu_item_id": made["id"], "qty": 2})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert float(stock_of(client, "Gordon's")["quantity"]) == 600
+    assert float(stock_of(client, "Schweppes")["quantity"]) == 8

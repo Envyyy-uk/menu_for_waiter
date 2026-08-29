@@ -119,6 +119,7 @@ const Admin = {
         this.data.stock = await API.get('/api/stock');
         this.data.recipes = await API.get('/api/stock/recipes');
         this.data.menu = await API.get('/api/menu');
+        this.data.gaps = await API.get('/api/stock/gaps');
       }
       if (this.tab === 'inventory') {
         this.data.inventory = await API.get(
@@ -997,6 +998,7 @@ const Admin = {
       + 'Стоп-лист ставят бар и кухня со своего планшета: кончилось у них.'));
     wrap.appendChild(this.syncBox());
     wrap.appendChild(this.categoryStops());
+    wrap.appendChild(this.ownItemForm());
 
     wrap.appendChild(this.table(
       ['Позиция', 'Категория', 'Станция', 'Цена', 'Состояние', ''],
@@ -1012,6 +1014,67 @@ const Admin = {
       ])
     ));
     return wrap;
+  },
+
+  /* Своя позиция — та, которой на сайте нет.
+
+     В баре всегда есть то, чего в гостевом меню не печатают: джин-тоник,
+     который проще нажать одной кнопкой, чем набирать джин и тоник по
+     отдельности, — и списывать тогда тоже одной кнопкой, сразу с двух полок.
+
+     Проверка каталога такие позиции не трогает: иначе она гасила бы их через
+     пять минут как «пропавшие с сайта». */
+  ownItemForm() {
+    const box = el('div', 'form');
+    box.appendChild(el('h3', '', 'Своя позиция'));
+    box.appendChild(el('p', 'hint',
+      'Кнопка для того, чего на сайте нет: джин-тоник, комбо, что-то «для '
+      + 'своих». В меню официанта она встанет как обычная позиция, а списание '
+      + 'ей задают правилами на складе — сразу с двух полок, если надо. '
+      + 'Заготовка «Заполнить по меню» такие позиции не трогает: правило для '
+      + 'них пишут руками, ради этого их и заводят.'));
+
+    const fields = el('div', 'line-fields');
+    const name = el('input', 'field');
+    name.placeholder = 'Название (Джин-тоник)';
+    const price = el('input', 'field');
+    price.inputMode = 'decimal';
+    price.placeholder = 'Цена, £';
+    const cat = el('select', 'field');
+    (this.data.menu.categories || []).forEach(c => {
+      const o = el('option', '', esc(c.name));
+      o.value = c.key;
+      cat.appendChild(o);
+    });
+    const station = el('select', 'field');
+    [['bar', 'Бар'], ['kitchen', 'Кухня']].forEach(([k, n]) => {
+      const o = el('option', '', n);
+      o.value = k;
+      station.appendChild(o);
+    });
+    fields.append(name, price, cat, station);
+    box.appendChild(fields);
+
+    const add = el('button', 'btn primary', 'Добавить позицию');
+    add.addEventListener('click', async () => {
+      const pence = Math.round(parseFloat((price.value || '0').replace(',', '.')) * 100);
+      if (!name.value.trim()) return toast('Впишите название', 'bad');
+      if (!(pence >= 0)) return toast('Не похоже на цену', 'bad');
+      try {
+        await API.post('/api/menu/items', {
+          name: name.value.trim(),
+          price_pence: pence,
+          category: cat.value,
+          station: station.value,
+        });
+        toast(`${name.value.trim()} в меню. Списание задайте на складе`, 'good', 6000);
+        name.value = '';
+        price.value = '';
+        this.load();
+      } catch (e) { toast(e.message, 'bad'); }
+    });
+    box.appendChild(add);
+    return box;
   },
 
   /* Меню приезжает с сайта само. Здесь видно, когда оно приезжало в
@@ -1117,6 +1180,29 @@ const Admin = {
     });
     box.appendChild(price);
 
+    // Свою позицию можно и убрать — сайтовую нельзя, её убирают на сайте.
+    if (item.local) {
+      const drop = el('button', 'btn danger', 'Убрать');
+      drop.addEventListener('click', () => {
+        Sheet.show(esc(item.name), 'Убрать из меню?', body => {
+          body.appendChild(el('p', 'hint',
+            'Закрытые чеки на неё останутся: отчёт за прошлый месяц должен '
+            + 'знать, что продали. Она просто перестанет показываться.'));
+          const ok = el('button', 'btn wide big danger', 'Убрать');
+          ok.addEventListener('click', async () => {
+            Sheet.hide();
+            try {
+              await API.del(`/api/menu/items/${item.id}`);
+              toast('Убрано из меню', 'good');
+              this.load();
+            } catch (e) { toast(e.message, 'bad'); }
+          });
+          body.appendChild(ok);
+        });
+      });
+      box.appendChild(drop);
+    }
+
     const stop = el('button', 'btn ' + (item.state === 'off' ? '' : 'danger'),
       item.state === 'off' ? 'Вернуть' : 'Стоп');
     stop.addEventListener('click', async () => {
@@ -1188,23 +1274,7 @@ const Admin = {
     // угадывать, почему кнопка пропала, никто не должен.
     {
       const fill = el('button', 'btn', 'Заполнить по меню');
-      fill.addEventListener('click', async () => {
-        try {
-          const made = await API.post('/api/stock/fill');
-          // Ноль — тоже ответ, и его надо объяснить: иначе кнопка выглядит
-          // сломанной, хотя заводить было нечего.
-          // Исправленные важнее заведённых: человек нажал кнопку второй раз
-          // и должен узнать, что у него молча чинили счёт бутылок.
-          const fixed = made.fixed
-            ? ` Исправлено правил: ${made.fixed} — считались штуками там, где наливают.`
-            : '';
-          toast((made.items
-            ? `Заведено позиций: ${made.items}. Количество впишите сами.`
-            : 'Всё уже заведено: у каждой позиции меню есть правило.') + fixed,
-            'good', 6000);
-          this.load();
-        } catch (e) { toast(e.message, 'bad'); }
-      });
+      fill.addEventListener('click', () => this.fillStock());
       wrap.appendChild(fill);
       wrap.appendChild(el('p', 'hint',
         'Заведёт по строке на каждую позицию меню и правило списания: что '
@@ -1248,6 +1318,23 @@ const Admin = {
       'Это и есть то, что списывается само: правило говорит, сколько уходит '
       + 'на одну порцию, и дальше склад считает без вас. Заполняется один раз '
       + '— во время смены сюда не заходят.'));
+
+    // Самая тихая дыра в учёте: микс называется в меню, официант его
+    // нажимает, гость его выпивает — а на полке всё по-прежнему. Она не
+    // ошибается и не жалуется, просто к концу месяца не сходится тоник.
+    const gaps = this.data.gaps || [];
+    if (gaps.length) {
+      const box = el('div', 'alarm');
+      box.innerHTML = `<div class="head">За это со склада ничего не уходит: `
+        + `${gaps.length} ${plural(gaps.length, 'вариант', 'варианта', 'вариантов')}</div>`
+        + `<div class="muted">${gaps.slice(0, 8).map(g =>
+             esc(`${g.menu_item} · ${g.choice}`)).join(', ')}`
+        + `${gaps.length > 8 ? ' и ещё…' : ''}</div>`;
+      const fix = el('button', 'btn', 'Заполнить по меню');
+      fix.addEventListener('click', () => this.fillStock());
+      box.appendChild(fix);
+      wrap.appendChild(box);
+    }
 
     // Правило с нулём не списывает ничего. Это половина ответа на вопрос
     // «почему остаток не двигается», поэтому такие строки идут первыми и
@@ -1306,6 +1393,24 @@ const Admin = {
     wrap.appendChild(list);
     draw();
     return wrap;
+  },
+
+  async fillStock() {
+    try {
+      const made = await API.post('/api/stock/fill');
+      // Ноль — тоже ответ, и его надо объяснить: иначе кнопка выглядит
+      // сломанной, хотя заводить было нечего.
+      // Исправленные важнее заведённых: человек нажал кнопку второй раз и
+      // должен узнать, что у него молча чинили счёт бутылок.
+      const fixed = made.fixed
+        ? ` Исправлено правил: ${made.fixed} — считались штуками там, где наливают.`
+        : '';
+      toast((made.items
+        ? `Заведено позиций: ${made.items}. Количество впишите сами.`
+        : 'Всё уже заведено: у каждой позиции меню есть правило.') + fixed,
+        'good', 6000);
+      this.load();
+    } catch (e) { toast(e.message, 'bad'); }
   },
 
   stockActions(item) {

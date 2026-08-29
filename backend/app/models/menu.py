@@ -52,6 +52,14 @@ class MenuItem(UUIDPk, Timestamped, Base):
     category: Mapped[str | None] = mapped_column(String(80), default=None)
     position: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Своя позиция, заведённая в POS, а не приехавшая с сайта.
+    #
+    # В баре всегда есть то, чего в гостевом меню нет: джин-тоник, который
+    # проще нажать одной кнопкой, чем набирать джин и тоник по отдельности.
+    # Проверка каталога такие позиции не трогает — иначе она выключила бы их
+    # через пять минут как «пропавшие с сайта».
+    local: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
     # Два выключателя, а не один.
     #
     # `state` — стоп-лист заведения: кончилось прямо сейчас, ставит бар или

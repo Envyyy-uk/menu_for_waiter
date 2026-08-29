@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
@@ -15,7 +16,9 @@ from app.db import get_db
 from app.models import (
     ITEM_CANCELLED,
     ITEM_STATES,
+    STATION_BAR,
     STATION_NAMES,
+    STATIONS,
     Check,
     CheckItem,
     MenuItem,
@@ -48,6 +51,9 @@ def item_payload(item: MenuItem) -> dict:
         "options": item.options or [],
         "search_terms": item.search_terms or [],
         "warning": item.warning,
+        # Своя позиция: её завели здесь, а не привезли с сайта. Значит, её
+        # можно и убрать отсюда — а сайтовую нельзя.
+        "local": item.local,
     }
 
 
@@ -126,6 +132,108 @@ def usual(db: DbSession, venue_id, live: set) -> dict:
         if chosen and times >= 2:
             habit[str(item_id)] = chosen
     return {"popular": [str(i) for i in popular], "usual": habit}
+
+
+class OwnItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    price_pence: int = Field(ge=0, le=10_000_00)
+    category: str = Field(min_length=1, max_length=40)
+    station: str = STATION_BAR
+    description: str = ""
+
+
+@router.post("/items", status_code=201)
+def add_own_item(
+    body: OwnItemIn,
+    actor: User = Depends(require("items.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Своя позиция — та, которой на сайте нет.
+
+    В баре всегда есть то, чего в гостевом меню не печатают: джин-тоник,
+    который проще нажать одной кнопкой, чем набирать джин и тоник по
+    отдельности, — и списывать тогда тоже одной кнопкой, сразу с двух полок.
+
+    Ключ с приставкой: он не должен столкнуться с сайтовым, даже если там
+    когда-нибудь появится позиция с тем же именем.
+    """
+    if body.station not in STATIONS:
+        raise HTTPException(status_code=422, detail="Станция — только бар или кухня")
+
+    base = "".join(c if c.isalnum() else "-" for c in body.name.lower()).strip("-")
+    key = f"own:{base or uuid.uuid4().hex[:8]}"
+    if db.scalars(
+        select(MenuItem).where(MenuItem.venue_id == venue.id, MenuItem.key == key)
+    ).first():
+        key = f"{key}-{uuid.uuid4().hex[:4]}"
+
+    last = db.scalars(
+        select(MenuItem.position)
+        .where(MenuItem.venue_id == venue.id)
+        .order_by(MenuItem.position.desc())
+    ).first()
+
+    item = MenuItem(
+        venue_id=venue.id,
+        key=key,
+        name=body.name.strip(),
+        description=body.description.strip(),
+        category=body.category,
+        station=body.station,
+        price_pence=body.price_pence,
+        position=(last or 0) + 1,
+        local=True,
+        active=True,
+    )
+    db.add(item)
+    db.flush()
+    record.write(
+        db,
+        venue_id=venue.id,
+        user_id=actor.id,
+        action="item.own.add",
+        entity=f"item:{item.name}",
+        after={"name": item.name, "price_pence": item.price_pence},
+    )
+    db.commit()
+    realtime.publish(realtime.CHANNEL_ALL, {"type": "menu.changed"})
+    return item_payload(item)
+
+
+@router.delete("/items/{item_id}")
+def drop_own_item(
+    item_id: uuid.UUID,
+    actor: User = Depends(require("items.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Убрать свою позицию.
+
+    Не удаляем: на неё ссылаются закрытые чеки, и отчёт за прошлый месяц
+    должен знать, что продали. Просто перестаёт показываться — так же, как
+    позиция, пропавшая с сайта.
+    """
+    item = db.get(MenuItem, item_id)
+    if item is None or item.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="Позиции нет")
+    if not item.local:
+        raise HTTPException(
+            status_code=409,
+            detail="Эта позиция с сайта — убирают её там, здесь можно только в стоп",
+        )
+    item.active = False
+    record.write(
+        db,
+        venue_id=venue.id,
+        user_id=actor.id,
+        action="item.own.drop",
+        entity=f"item:{item.name}",
+        before={"name": item.name},
+    )
+    db.commit()
+    realtime.publish(realtime.CHANNEL_ALL, {"type": "menu.changed"})
+    return {"status": "ok"}
 
 
 class StateIn(BaseModel):
