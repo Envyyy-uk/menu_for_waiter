@@ -224,6 +224,33 @@ def main() -> None:
         check("оставшийся чек открывается без вопроса", page.locator(".sheet").count() == 0)
         page.get_by_role("button", name="Оплата").count()  # его нечем закрывать: он пуст
 
+        # Приложение с домашнего экрана не перезагрузишь браузером: без этой
+        # кнопки поправка доезжает, только когда официант переставит значок.
+        page.get_by_role("button", name="←").click()
+        page.wait_for_timeout(700)
+        check("в зале есть чем обновиться",
+              page.get_by_role("button", name="Обновить", exact=True).count() == 1)
+        page.get_by_role("button", name="Обновить", exact=True).click()
+        page.wait_for_timeout(2500)
+        check("после обновления зал на месте и вход не спрашивают",
+              page.locator(":is(.spot, .tile)").count() > 0
+              and page.locator("#gate").count() == 0,
+              page.url)
+
+        # В полный зал ищут не по каталогу, а по памяти: половина заказов —
+        # одни и те же позиции, и листать до них весь список неоткуда.
+        page.locator(f":is(.spot, .tile):has(:is(.n, .num):text-is('{label}'))").first.click()
+        page.wait_for_timeout(700)
+        if page.locator(".sheet").count():
+            page.locator(".sheet .btn").first.click()
+            page.wait_for_timeout(700)
+        if page.get_by_role("button", name="Меню").count():
+            page.get_by_role("button", name="Меню").click()
+            page.wait_for_timeout(700)
+        check("часто берут — наверху меню",
+              page.locator(".zone-title", has_text="Часто берут").count() == 1,
+              page.locator(".screen").inner_text()[:120])
+
         check("ошибок в консоли нет", not errors, "; ".join(errors[:3]))
         browser.close()
 

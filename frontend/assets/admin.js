@@ -42,6 +42,7 @@ const Admin = {
     this.me = me;
     document.getElementById('who').textContent = me.name + ' · ' + me.role_name;
     document.getElementById('out').addEventListener('click', () => Auth.logout());
+    document.getElementById('fresh').addEventListener('click', () => PWA.refresh());
 
     // Менеджер и администратор работают в зале так же, как официант: скидку
     // и отмену позиции они дают у стола, а не из подсобки. Вход у них один —

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -9,7 +12,17 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.core.deps import current_user, get_venue, require
 from app.db import get_db
-from app.models import ITEM_STATES, STATION_NAMES, MenuItem, User, Venue
+from app.models import (
+    ITEM_CANCELLED,
+    ITEM_STATES,
+    STATION_NAMES,
+    Check,
+    CheckItem,
+    MenuItem,
+    User,
+    Venue,
+    utcnow,
+)
 from app.models.menu import effective_state
 from app.services import realtime
 from app.services.audit import record
@@ -49,6 +62,7 @@ def menu(
         .where(MenuItem.venue_id == venue.id, MenuItem.active.is_(True))
         .order_by(MenuItem.position)
     ).all()
+    habits = usual(db, venue.id, {i.id for i in items})
     return {
         "currency": venue.currency,
         # Порядок категорий — порядок первого появления позиции: так же, как
@@ -58,7 +72,60 @@ def menu(
             for key in dict.fromkeys(i.category for i in items if i.category)
         ],
         "items": [item_payload(i) for i in items],
+        # Что берут чаще всего и с какими вариантами. В полный зал ищут не по
+        # каталогу, а по памяти: половина заказов — одни и те же десять
+        # позиций, и листать до них весь список неоткуда.
+        **habits,
     }
+
+
+# За сколько дней смотрим привычки заведения. Две недели — это и будни, и
+# выходные, но ещё не прошлый сезон: летом пьют не то же, что зимой.
+HABIT_DAYS = 14
+POPULAR_MAX = 10
+
+
+def usual(db: DbSession, venue_id, live: set) -> dict:
+    """Что берут чаще всего и с какими вариантами.
+
+    Считается по проданному, а не по чьему-то мнению: список сам едет за
+    сезоном и за тем, что в заведении реально заказывают.
+
+    Отменённое не считается: гость передумал — значит, это не привычка.
+    """
+    since = utcnow() - timedelta(days=HABIT_DAYS)
+    rows = db.execute(
+        select(CheckItem.menu_item_id, CheckItem.options_keys, CheckItem.qty)
+        .join(Check, Check.id == CheckItem.check_id)
+        .where(
+            Check.venue_id == venue_id,
+            CheckItem.created_at >= since,
+            CheckItem.status != ITEM_CANCELLED,
+            CheckItem.menu_item_id.is_not(None),
+        )
+    ).all()
+
+    counts: dict = {}
+    variants: dict = {}
+    for item_id, options, qty in rows:
+        if item_id not in live:
+            continue
+        counts[item_id] = counts.get(item_id, 0) + (qty or 1)
+        # Ключ варианта — сам выбор. Списки (миксы) приводим к строке в
+        # исходном порядке: «кола, кола» и «кола, спрайт» — разные привычки.
+        key = json.dumps(options or {}, sort_keys=True, ensure_ascii=False)
+        seen = variants.setdefault(item_id, {})
+        seen[key] = seen.get(key, 0) + (qty or 1)
+
+    popular = sorted(counts, key=lambda i: -counts[i])[:POPULAR_MAX]
+    habit = {}
+    for item_id, seen in variants.items():
+        best, times = max(seen.items(), key=lambda kv: kv[1])
+        chosen = json.loads(best)
+        # Пустой выбор подсказывать нечего, и одного раза мало для «обычно».
+        if chosen and times >= 2:
+            habit[str(item_id)] = chosen
+    return {"popular": [str(i) for i in popular], "usual": habit}
 
 
 class StateIn(BaseModel):

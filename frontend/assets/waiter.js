@@ -264,6 +264,13 @@ const App = {
       row.appendChild(pin);
     }
 
+    // Обновиться, не снося значок с домашнего экрана. Браузерной кнопки
+    // перезагрузки в приложении нет, и поправка иначе доезжает до официанта
+    // только после того, как он догадается переставить приложение.
+    const fresh = el('button', 'btn ghost', 'Обновить');
+    fresh.addEventListener('click', () => PWA.refresh());
+    row.appendChild(fresh);
+
     if (Push.offer()) {
       const ask = el('button', 'btn', 'Включить уведомления');
       ask.addEventListener('click', async () => {
@@ -773,70 +780,94 @@ const App = {
       list.appendChild(el('p', 'faint', 'Ничего не нашлось'));
       return;
     }
-    items.forEach(i => {
-      // Не продаётся — это и «стоп», и «скоро». Второе приезжает с сайта:
-      // раздел, помеченный там «скоро», гость в меню видит, а заказать не
-      // может, и в зале должно быть так же.
-      const off = i.state !== 'on';
-      const soon = i.state === 'soon';
-      // Что из этого уже в чеке и не отправлено. Гость говорит «и мне такое
-      // же» — официант должен видеть, сколько уже набрано, и добавить ещё
-      // одну, не проходя выбор вариантов заново.
-      const drafts = ((this.check && this.check.items) || []).filter(
-        x => x.menu_item_id === i.id && x.status === 'draft');
-      const already = drafts.reduce((n, x) => n + x.qty, 0);
 
-      const node = el('div', 'dish' + (off ? ' off' : '') + (soon ? ' soon' : '')
-        + (already ? ' picked' : ''));
-      const body = el('button', 'body');
-      body.type = 'button';
-      body.innerHTML = `
-        <span class="name">${esc(i.name)}${already ? ` <span class="in-check">${already}×</span>` : ''}</span>
-        ${i.description ? `<span class="desc">${esc(i.description)}</span>` : ''}`;
-      body.addEventListener('click', () => {
-        if (off) return toast(`«${i.name}» — ${soon ? 'скоро, пока не продаём' : 'стоп'}`, 'bad');
-        this.pick(i);
-      });
-      node.appendChild(body);
-      node.appendChild(el('span', 'price', money(i.price_pence)));
+    // Часто берут — наверх, но только когда не ищут и не выбрали раздел: в
+    // полный зал ищут не по каталогу, а по памяти, и половина заказов это одни
+    // и те же десять позиций. А если человек уже что-то ищет — он знает, что
+    // ему нужно, и подсовывать другое некуда.
+    const often = (!text && !this.filter.category)
+      ? (this.menu.popular || [])
+          .map(id => items.find(i => i.id === id))
+          .filter(i => i && i.state === 'on')
+      : [];
+    if (often.length) {
+      list.appendChild(el('div', 'zone-title', 'Часто берут'));
+      often.forEach(i => list.appendChild(this.dish(i)));
+      list.appendChild(el('div', 'zone-title', 'Всё меню'));
+    }
 
-      if (already && !off) {
-        // Гость передумал — это происходит чаще, чем «и мне такое же», и
-        // обе кнопки должны стоять рядом. Убрать лишнее, вернувшись в чек и
-        // открыв строку, — три нажатия там, где нужно одно.
-        const last = drafts[drafts.length - 1];
-        const steps = el('div', 'steps');
+    items.forEach(i => list.appendChild(this.dish(i)));
+  },
 
-        const less = el('button', 'plus', '−');
-        less.type = 'button';
-        less.title = 'На одну меньше';
-        less.addEventListener('click', e => {
-          e.stopPropagation();
-          this.bump(i, last, -1);
-        });
+  /* Строка меню. Одна и та же и в «часто берут», и во всём списке: две
+     разные строки для одной позиции — это два места, где потом расходится
+     поведение. */
+  dish(i) {
+    // Не продаётся — это и «стоп», и «скоро». Второе приезжает с сайта:
+    // раздел, помеченный там «скоро», гость в меню видит, а заказать не
+    // может, и в зале должно быть так же.
+    const off = i.state !== 'on';
+    const soon = i.state === 'soon';
+    // Что из этого уже в чеке и не отправлено. Гость говорит «и мне такое
+    // же» — официант должен видеть, сколько уже набрано, и добавить ещё
+    // одну, не проходя выбор вариантов заново.
+    const drafts = ((this.check && this.check.items) || []).filter(
+      x => x.menu_item_id === i.id && x.status === 'draft');
+    const already = drafts.reduce((n, x) => n + x.qty, 0);
 
-        // Повтор последнего набора: те же варианты, тот же комментарий.
-        // Сервер сложит это в ту же строку, а не заведёт вторую такую же.
-        const more = el('button', 'plus', '+');
-        more.type = 'button';
-        more.title = 'Ещё одну такую же';
-        more.addEventListener('click', e => {
-          e.stopPropagation();
-          this.add(i, last.options_keys || {}, 1, last.note || null);
-        });
-
-        steps.append(less, more);
-        node.appendChild(steps);
-      }
-      list.appendChild(node);
+    const node = el('div', 'dish' + (off ? ' off' : '') + (soon ? ' soon' : '')
+      + (already ? ' picked' : ''));
+    const body = el('button', 'body');
+    body.type = 'button';
+    body.innerHTML = `
+      <span class="name">${esc(i.name)}${already ? ` <span class="in-check">${already}×</span>` : ''}</span>
+      ${i.description ? `<span class="desc">${esc(i.description)}</span>` : ''}`;
+    body.addEventListener('click', () => {
+      if (off) return toast(`«${i.name}» — ${soon ? 'скоро, пока не продаём' : 'стоп'}`, 'bad');
+      this.pick(i);
     });
+    node.appendChild(body);
+    node.appendChild(el('span', 'price', money(i.price_pence)));
+
+    if (already && !off) {
+      // Гость передумал — это происходит чаще, чем «и мне такое же», и
+      // обе кнопки должны стоять рядом. Убрать лишнее, вернувшись в чек и
+      // открыв строку, — три нажатия там, где нужно одно.
+      const last = drafts[drafts.length - 1];
+      const steps = el('div', 'steps');
+
+      const less = el('button', 'plus', '−');
+      less.type = 'button';
+      less.title = 'На одну меньше';
+      less.addEventListener('click', e => {
+        e.stopPropagation();
+        this.bump(i, last, -1);
+      });
+
+      // Повтор последнего набора: те же варианты, тот же комментарий.
+      // Сервер сложит это в ту же строку, а не заведёт вторую такую же.
+      const more = el('button', 'plus', '+');
+      more.type = 'button';
+      more.title = 'Ещё одну такую же';
+      more.addEventListener('click', e => {
+        e.stopPropagation();
+        this.add(i, last.options_keys || {}, 1, last.note || null);
+      });
+
+      steps.append(less, more);
+      node.appendChild(steps);
+    }
+    return node;
   },
 
   /* Позиция без вариантов добавляется одним нажатием — это половина меню,
      и лишний экран на ней стоил бы половины смены. */
   pick(item) {
     if (!(item.options || []).length) return this.add(item, {}, 1);
-    Options.open(item, (chosen, qty) => this.add(item, chosen, qty));
+    // С чем эту позицию берут чаще всего. Выбирать объём и микс заново на
+    // каждой рюмке — половина времени заказа, а ответ почти всегда один.
+    const usual = (this.menu.usual || {})[item.id];
+    Options.open(item, (chosen, qty) => this.add(item, chosen, qty), usual);
   },
 
   /* На одну меньше прямо из меню. Ноль убирает строку целиком: «минус» на

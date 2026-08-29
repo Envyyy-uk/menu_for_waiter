@@ -333,3 +333,71 @@ def test_a_table_with_an_unpaid_order_does_not_close_for_free(client, hall):
 
     refused = client.post(f"/api/checks/{check['id']}/close", json={"payments": []})
     assert refused.status_code in (409, 422)
+
+
+# --------------------------------------------- привычки заведения ----------
+def test_the_menu_names_what_is_taken_often(client, hall):
+    """В полный зал ищут не по каталогу, а по памяти.
+
+    Половина заказов — одни и те же десять позиций, и листать до них весь
+    список неоткуда.
+    """
+    login(client, "1111")
+    check = open_check(client, hall)
+    add(client, check["id"], hall["mojito"], qty=5)
+    add(client, check["id"], hall["pizza"])
+
+    menu = client.get("/api/menu").json()
+    assert menu["popular"][0] == hall["mojito"]
+    assert hall["pizza"] in menu["popular"]
+
+
+def test_cancelled_is_not_a_habit(client, hall):
+    """Гость передумал — значит, это не то, что берут часто."""
+    login(client, "1111")
+    check = open_check(client, hall)
+    body = add(client, check["id"], hall["mojito"], qty=9).json()
+    line = next(i for i in body["items"] if i["status"] == "draft")
+    client.post(f"/api/checks/{check['id']}/items/{line['id']}/cancel",
+                json={"reason": "передумали"})
+    add(client, check["id"], hall["pizza"])
+
+    menu = client.get("/api/menu").json()
+    assert menu["popular"] == [hall["pizza"]]
+
+
+def test_the_usual_variant_is_offered(client, hall, db):
+    """Объём и микс почти всегда одни и те же — предлагаем их одним нажатием."""
+    from sqlalchemy import select
+
+    from app.models import MenuItem
+
+    absolut = str(db.scalars(select(MenuItem).where(MenuItem.key == "absolut")).one().id)
+    login(client, "1111")
+    check = open_check(client, hall)
+    for _ in range(2):
+        client.post(f"/api/checks/{check['id']}/items", json={
+            "menu_item_id": absolut,
+            "options": {"size": "ml50", "mixer": ["cola"]},
+            "note": f"раз{_}",
+        })
+    client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": absolut, "options": {"size": "bottle"}})
+
+    usual = client.get("/api/menu").json()["usual"]
+    assert usual[absolut] == {"size": "ml50", "mixer": ["cola"]}
+
+
+def test_one_order_is_not_a_habit_yet(client, hall, db):
+    """Один раз — это не «как обычно», а случайность."""
+    from sqlalchemy import select
+
+    from app.models import MenuItem
+
+    absolut = str(db.scalars(select(MenuItem).where(MenuItem.key == "absolut")).one().id)
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": absolut, "options": {"size": "ml50"}})
+
+    assert client.get("/api/menu").json()["usual"] == {}

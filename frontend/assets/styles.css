@@ -1151,3 +1151,34 @@ select.field { appearance: none; }
   background: transparent;
   grid-template-columns: 1fr;
 }
+
+/* ------------------------------------------------------- обновление ---- */
+/* Полоса «вышло обновление». Внизу, а не сверху: сверху у зала висит полоса
+   «готово», и перекрывать её сообщением про шрифты нельзя. */
+.update-bar {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: calc(10px + var(--safe-b));
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--gold);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+}
+.update-bar span { flex: 1; font-size: 14px; }
+
+/* «Как обычно» — самая частая связка вариантов. Стоит первой в шторке и
+   заметна: ради неё её и открывают в полный зал. */
+.btn.usual {
+  margin-bottom: 2px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  border-color: var(--gold);
+}

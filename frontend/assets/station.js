@@ -26,6 +26,7 @@ const Board = {
     this.showShift(shift);
     document.getElementById('out').addEventListener('click', () => this.closeShift());
     document.getElementById('join').addEventListener('click', () => this.joinShift());
+    document.getElementById('fresh').addEventListener('click', () => PWA.refresh());
 
     Live.on('ticket.new', d => this.arrived(d))
         .on('ticket.changed', () => this.refresh())

@@ -75,7 +75,23 @@ function freeCount(group, chosen) {
 /* Цену считает сервер. Здесь она показывается, чтобы официант назвал её
    гостю до отправки, но в запрос уходит только выбор. */
 const Options = {
-  open(item, done) {
+  /* Как это обычно берут в заведении — словами, которые видит официант.
+     «50 мл · Cola», а не набор ключей. */
+  usualText(item, chosen) {
+    const bits = [];
+    (item.options || []).forEach(group => {
+      const picked = chosen[group.key];
+      if (!picked) return;
+      const list = Array.isArray(picked) ? picked : [picked];
+      list.forEach(key => {
+        const choice = (group.choices || []).find(c => c.key === key);
+        if (choice) bits.push(choice.name);
+      });
+    });
+    return bits.join(' · ');
+  },
+
+  open(item, done, usual) {
     const chosen = {};
     let qty = 1;
 
@@ -85,6 +101,31 @@ const Options = {
 
       const redraw = () => {
         body.innerHTML = '';
+
+        // «Как обычно» — то, с чем эту позицию берут чаще всего за последние
+        // две недели. В полный зал выбирать объём и микс заново на каждой
+        // рюмке — это половина времени заказа, а ответ почти всегда один и
+        // тот же. Кнопка ставит весь набор разом; выбор рядом никуда не
+        // делся, и его видно.
+        const same = usual && Object.keys(chosen).length
+          && JSON.stringify(chosen) === JSON.stringify(usual);
+        if (usual && !same) {
+          const text = this.usualText(item, usual);
+          if (text) {
+            const quick = el('button', 'btn wide usual', `Как обычно · ${esc(text)}`);
+            quick.addEventListener('click', () => {
+              Object.keys(chosen).forEach(k => delete chosen[k]);
+              Object.entries(usual).forEach(([k, v]) => {
+                chosen[k] = Array.isArray(v) ? v.slice() : v;
+              });
+              buzz();
+              redraw();
+            });
+            body.appendChild(quick);
+            body.appendChild(el('div', '', '<div style="height:14px"></div>'));
+          }
+        }
+
         (item.options || []).forEach(group => {
           // Группа с условием показывается, только когда оно выполнено:
           // марку дарк-лифа не спрашивают у того, кто взял сигарный лист.
