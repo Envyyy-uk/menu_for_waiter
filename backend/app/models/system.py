@@ -49,3 +49,7 @@ class Session(UUIDPk, Timestamped, Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    # Откуда вошли: зал или админка. Один и тот же человек за вечер бывает и
+    # там, и там, и на вопрос «где он сейчас» роль не отвечает — а он и есть
+    # тот вопрос, который задают, когда человека ищут.
+    app: Mapped[str] = mapped_column(String(10), default="hall", server_default="hall")

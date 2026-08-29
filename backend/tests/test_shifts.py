@@ -539,11 +539,23 @@ def test_you_cannot_go_home_with_an_open_check(client, hall, make_user, db):
     assert client.get("/api/station/shift").json()["people"] == ["Игорь", "Слава"]
 
 
-def test_the_timesheet_shows_both_bartenders_apart(client, hall, make_user):
+def test_the_timesheet_shows_both_bartenders_apart(client, hall, make_user, db):
     """В табеле у менеджера — две строки с разными часами, а не одна общая."""
+    from datetime import timedelta
+
+    from app.models import User, WorkShift, utcnow
+
     make_user("Слава", role="bar", pin="2727")
     client.post("/api/station/shift/open", json={"pin": "2222"})
     client.post("/api/station/shift/join", json={"pin": "2727"})
+
+    # Игорь отстоял три часа. Без этого смена нулевая, а нулевые из табеля
+    # убираются: платить за «вошёл и вышел» нечего.
+    igor = db.query(User).filter(User.name == "Игорь").one()
+    row = db.query(WorkShift).filter(WorkShift.user_id == igor.id).one()
+    row.opened_at = utcnow() - timedelta(hours=3)
+    db.commit()
+
     client.post("/api/station/shift/leave", json={"pin": "2222"})
 
     login(client, "123456")
@@ -555,3 +567,4 @@ def test_the_timesheet_shows_both_bartenders_apart(client, hall, make_user):
     assert rows["Слава"]["hours_text"] == "идёт"
     # В итогах пока только отработанное: идущая смена — ещё не часы.
     assert [p["name"] for p in sheet["people"]] == ["Игорь"]
+    assert sheet["people"][0]["minutes"] >= 179

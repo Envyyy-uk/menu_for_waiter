@@ -331,37 +331,118 @@ const Admin = {
     });
     wrap.appendChild(pick);
 
-    if (!d.people.length) {
-      wrap.appendChild(el('p', 'hint', 'За этот срок смен не закрывали.'));
+    if (!d.shifts.length) {
+      wrap.appendChild(el('p', 'hint', 'За этот срок смен не было.'));
       return wrap;
     }
 
-    wrap.appendChild(el('h2', '', 'Часы'));
-    wrap.appendChild(this.table(
-      ['Сотрудник', 'Роль', 'Смен', 'Отработано', 'Выручка'],
-      d.people.map(p => [
-        esc(p.name), esc(p.role_name),
-        { num: p.shifts },
-        { num: esc(p.hours_text) },
-        { num: money(p.revenue_pence) }
-      ])
-    ));
+    // Итоги — только по закрытым: идущая смена ещё не отработана, и строка
+    // «0 мин» рядом с именем читается как «человек не работал».
+    if (d.people.length) {
+      wrap.appendChild(el('h2', '', 'Часы'));
+      wrap.appendChild(this.table(
+        ['Сотрудник', 'Роль', 'Смен', 'Отработано', 'Выручка'],
+        d.people.map(p => [
+          esc(p.name), esc(p.role_name),
+          { num: p.shifts },
+          { num: esc(p.hours_text) },
+          { num: money(p.revenue_pence) }
+        ])
+      ));
+    }
 
+    // А сами смены показываются всегда — в том числе идущие. Иначе смену,
+    // которую забыли закрыть, не видно и закрыть её нечем: список появлялся
+    // только после того, как хоть одну закрыли по-настоящему.
     wrap.appendChild(el('h2', '', 'Смены'));
+    wrap.appendChild(el('p', 'hint',
+      'Пустые смены — вошёл и тут же вышел — в список не попадают: платить за '
+      + 'них нечего, а искать среди них настоящую труднее. Часы можно '
+      + 'поправить, и правка останется помеченной: спорить потом будут именно '
+      + 'об этих строках.'));
     wrap.appendChild(this.table(
       ['Сотрудник', 'Открыл', 'Закрыл', 'Отработано', ''],
       d.shifts.map(s => [
         esc(s.name),
         esc(this.stamp(s.opened_at)),
         s.closed_at ? esc(this.stamp(s.closed_at)) : '<span class="faint">идёт</span>',
-        { num: esc(s.hours_text) },
-        s.auto_closed
-          ? '<span style="color:var(--warn)">закрыта сама</span>'
-          : ''
+        { num: esc(s.hours_text)
+            + (s.edited ? ' <span class="faint">· поправлено</span>' : '') },
+        { actions: this.shiftActions(s) }
       ]),
       d.shifts.map(s => (s.closed_at ? '' : 'off'))
     ));
     return wrap;
+  },
+
+  shiftActions(s) {
+    const box = el('div', 'row-actions');
+    if (s.auto_closed) {
+      box.appendChild(el('span', '', '<span style="color:var(--warn)">закрыта сама</span>'));
+    }
+
+    // Смена идёт, а человек ушёл домой — до утра она превратится в
+    // четырнадцать часов сна. Возвращать его ради PIN не решение.
+    if (!s.closed_at) {
+      const shut = el('button', 'btn', 'Закрыть смену');
+      shut.addEventListener('click', async () => {
+        try {
+          const done = await API.post(`/api/admin/timesheet/close/${s.user_id}`);
+          toast(`${done.name} · смена закрыта · ${done.hours_text}`, 'good');
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      box.appendChild(shut);
+      return box;
+    }
+
+    const fix = el('button', 'btn', 'Часы');
+    fix.addEventListener('click', () => this.editHours(s));
+    box.appendChild(fix);
+    return box;
+  },
+
+  /* Правка часов. Человек вышел на работу раньше, чем открыл смену, или
+     забыл закрыть — и в табеле стоит не то, за что платят. */
+  editHours(s) {
+    Sheet.show(esc(s.name), esc(this.stamp(s.opened_at)), body => {
+      body.appendChild(el('p', 'hint',
+        'Минуты, а не часы: округление в обе стороны — это чужие деньги. '
+        + 'Правка останется помеченной в табеле.'));
+
+      const from = el('input', 'field');
+      from.type = 'datetime-local';
+      from.value = this.forInput(s.opened_at);
+      const to = el('input', 'field');
+      to.type = 'datetime-local';
+      to.value = this.forInput(s.closed_at);
+      body.appendChild(this.field('Вышел на работу', from));
+      body.appendChild(this.field('Ушёл домой', to));
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Сохранить');
+      save.addEventListener('click', async () => {
+        Sheet.hide();
+        try {
+          const done = await API.patch(`/api/admin/timesheet/${s.id}`, {
+            opened_at: new Date(from.value).toISOString(),
+            closed_at: new Date(to.value).toISOString(),
+          });
+          toast(`Часы поправлены · ${done.hours_text}`, 'good');
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(save);
+    });
+  },
+
+  /* `datetime-local` понимает только местное время без зоны. */
+  forInput(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+      + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   },
 
   /* -------------------------------------------------------- персонал ---- */
@@ -383,9 +464,9 @@ const Admin = {
     // людей и менять роли он не может, поэтому формы просто нет.
     if (!Auth.can('users.manage')) {
       wrap.appendChild(this.table(
-        ['Имя', 'Роль', 'PIN', ''],
+        ['Имя', 'Роль', 'Сейчас', 'PIN', ''],
         this.data.users.map(u => [
-          esc(u.name), esc(u.role_name),
+          esc(u.name), esc(u.role_name), this.whereNow(u),
           u.has_pin ? 'задан' : '<span style="color:var(--danger)">нет</span>',
           { actions: this.userActions(u) }
         ]),
@@ -437,10 +518,11 @@ const Admin = {
     wrap.appendChild(form);
 
     wrap.appendChild(this.table(
-      ['Имя', 'Роль', 'PIN', ''],
+      ['Имя', 'Роль', 'Сейчас', 'PIN', ''],
       this.data.users.map(u => [
         esc(u.name),
         esc(u.role_name),
+        this.whereNow(u),
         u.has_pin ? 'задан' : '<span style="color:var(--danger)">нет</span>',
         { actions: this.userActions(u) }
       ]),
@@ -490,6 +572,16 @@ const Admin = {
       });
       body.appendChild(save);
     });
+  },
+
+  /* Где человек прямо сейчас: на смене по табелю и в каком приложении сидит.
+     Это два разных ответа: смена может идти, пока телефон лежит в кармане, —
+     и наоборот, зайти в админку можно, не открывая смену. */
+  whereNow(u) {
+    const bits = [];
+    if (u.on_shift) bits.push('<span style="color:var(--ok)">на смене</span>');
+    (u.where || []).forEach(w => bits.push(`<span class="faint">${esc(w)}</span>`));
+    return bits.length ? bits.join(' · ') : '<span class="faint">—</span>';
   },
 
   userActions(user) {

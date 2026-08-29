@@ -35,6 +35,9 @@ class PinIn(BaseModel):
     # Вход один на всех, а длина PIN зависит от роли: в зале четыре цифры,
     # в админке шесть. Кто именно вошёл, выясняется по самому PIN.
     pin: str = Field(min_length=PIN_LENGTH, max_length=ADMIN_PIN_LENGTH)
+    # Откуда вошли — это знает только сам экран. Роль на вопрос «где человек
+    # сейчас» не отвечает: бармен бывает и в зале, и в админке.
+    app: str = "hall"
 
 
 def _cookie(response: Response, name: str, value: str, seconds: int) -> None:
@@ -94,7 +97,7 @@ def login_pin(
         _cookie(answer, DEVICE_COOKIE, device.device_token, DEVICE_COOKIE_DAYS * 86400)
         return answer
 
-    token = open_session(db, user, device)
+    token = open_session(db, user, device, body.app)
     db.commit()
     answer = JSONResponse(me_payload(user))
     _cookie(answer, SESSION_COOKIE, token, int(session_lifetime(user.role).total_seconds()))

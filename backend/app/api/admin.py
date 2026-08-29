@@ -50,7 +50,11 @@ def _fail(exc: AuthError):
 
 
 # -------------------------------------------------------------- персонал ---
-def user_payload(user: User, worked: bool | None = None) -> dict:
+# Как называется место, где человек сидит сейчас.
+APP_NAMES = {"hall": "в зале", "admin": "в админке", "station": "на станции"}
+
+
+def user_payload(user: User, worked: bool | None = None, where: set | None = None) -> dict:
     out = {
         "id": str(user.id),
         "name": user.name,
@@ -60,6 +64,10 @@ def user_payload(user: User, worked: bool | None = None) -> dict:
         "active": user.active,
         "has_pin": bool(user.pin_hash),
     }
+    if where is not None:
+        # Где человек сейчас. Роль на этот вопрос не отвечает: бармен бывает и
+        # в зале, и в админке, а искать его глазами по заведению — дольше.
+        out["where"] = sorted(APP_NAMES.get(a, a) for a in where)
     if worked is not None:
         # Кто уже работал, того удалить нельзя: отчёт за прошлый месяц должен
         # знать, чья это выручка. Интерфейс по этому полю и решает, какую
@@ -104,7 +112,26 @@ def users(
             select(WorkShift.user_id).where(WorkShift.venue_id == venue.id).distinct()
         ).all()
     }
-    return [user_payload(u, worked=u.id in worked) for u in rows]
+    from app.services.auth import where_now
+
+    live = where_now(db, venue.id)
+    # И кто прямо сейчас на смене по табелю: это другое, чем «вошёл в
+    # приложение», и в списке нужны оба ответа.
+    on_shift = {
+        str(r[0])
+        for r in db.execute(
+            select(WorkShift.user_id).where(
+                WorkShift.venue_id == venue.id, WorkShift.closed_at.is_(None)
+            )
+        ).all()
+    }
+    return [
+        {
+            **user_payload(u, worked=u.id in worked, where=live.get(str(u.id), set())),
+            "on_shift": str(u.id) in on_shift,
+        }
+        for u in rows
+    ]
 
 
 class UserIn(BaseModel):
@@ -959,11 +986,18 @@ def timesheet(
     Хранится год, поэтому и спрашивать можно за год.
     """
     since = utcnow() - timedelta(days=days)
-    rows = db.scalars(
-        select(WorkShift)
-        .where(WorkShift.venue_id == venue.id, WorkShift.opened_at >= since)
-        .order_by(WorkShift.opened_at.desc())
-    ).all()
+    rows = [
+        row
+        for row in db.scalars(
+            select(WorkShift)
+            .where(WorkShift.venue_id == venue.id, WorkShift.opened_at >= since)
+            .order_by(WorkShift.opened_at.desc())
+        ).all()
+        # Пустые смены не показываем — по тому же правилу, по которому их
+        # потом и удаляют. Считать это в двух местах по-разному значит
+        # получить список, который не сходится сам с собой.
+        if not worktime.is_empty(row)
+    ]
 
     people: dict[str, dict] = {}
     for row in rows:
@@ -992,6 +1026,7 @@ def timesheet(
         "shifts": [
             {
                 "id": str(row.id),
+                "user_id": str(row.user_id),
                 "name": row.name_snapshot,
                 "role_name": ROLE_NAMES.get(row.role_snapshot, row.role_snapshot),
                 "opened_at": row.opened_at.isoformat(),
@@ -999,10 +1034,73 @@ def timesheet(
                 "minutes": row.minutes,
                 "hours_text": worktime.hours_text(row.minutes) if row.closed_at else "идёт",
                 "auto_closed": bool((row.report or {}).get("auto_closed")),
+                # Часы правили руками — в табеле это должно быть видно: спорить
+                # потом будут именно об этих строках.
+                "edited": row.edited_at is not None,
                 "report": row.report or {},
             }
             for row in rows
         ],
+    }
+
+
+class HoursIn(BaseModel):
+    opened_at: datetime | None = None
+    closed_at: datetime | None = None
+
+
+@router.patch("/timesheet/{shift_id}")
+def edit_hours(
+    shift_id: uuid.UUID,
+    body: HoursIn,
+    actor: User = Depends(require("timesheet.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Поправить часы в табеле.
+
+    Человек открыл смену на полчаса позже, чем вышел, или забыл закрыть.
+    Спорить об этом потом нечем, если часы нельзя поправить, — а подгонять их
+    удалением и заведением заново значит потерять снимок вечера.
+    """
+    row = db.get(WorkShift, shift_id)
+    if row is None or row.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="Смена не найдена")
+    try:
+        worktime.edit_hours(
+            db, row, actor, opened_at=body.opened_at, closed_at=body.closed_at
+        )
+    except worktime.WorkError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message) from None
+    db.commit()
+    return {"status": "ok", "minutes": row.minutes, "hours_text": worktime.hours_text(row.minutes)}
+
+
+@router.post("/timesheet/close/{user_id}")
+def close_someones_shift(
+    user_id: uuid.UUID,
+    actor: User = Depends(require("timesheet.edit")),
+    db: DbSession = Depends(get_db),
+    venue: Venue = Depends(get_venue),
+) -> dict:
+    """Закрыть смену за того, кто забыл.
+
+    Человек ушёл домой, а смена идёт до утра и превращается в четырнадцать
+    часов сна в табеле. Возвращать его ради PIN — не решение.
+    """
+    person = db.get(User, user_id)
+    if person is None or person.venue_id != venue.id:
+        raise HTTPException(status_code=404, detail="Человек не найден")
+    try:
+        row = worktime.close_for(db, person, actor)
+    except worktime.WorkError as exc:
+        raise HTTPException(status_code=exc.status, detail=exc.message) from None
+    db.commit()
+    return {
+        "status": "ok",
+        "name": person.name,
+        "minutes": row.minutes,
+        "hours_text": worktime.hours_text(row.minutes),
     }
 
 

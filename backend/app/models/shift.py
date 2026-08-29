@@ -108,6 +108,14 @@ class WorkShift(UUIDPk, Timestamped, Base):
     minutes: Mapped[int] = mapped_column(Integer, default=0)
     report: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
+    # Часы поправили руками. Табель — это зарплата, и правка в нём не должна
+    # выглядеть так же, как отработанное время: спорить потом будут именно об
+    # этих строках.
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    edited_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        PgUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+
 
 class ShiftPerson(UUIDPk, Timestamped, Base):
     """Кто был на смене станции.

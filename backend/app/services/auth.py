@@ -129,7 +129,14 @@ def pin_attempts_exhausted(db: DbSession, venue_id, device: Device, ip: str | No
 
 
 # ------------------------------------------------------------------ сессия ---
-def open_session(db: DbSession, user: User, device: Device | None = None) -> str:
+# Откуда вошли. Роль на этот вопрос не отвечает: бармен бывает и в зале, и в
+# админке, и искать его придётся глазами по всему заведению.
+APPS = ("hall", "admin", "station")
+
+
+def open_session(
+    db: DbSession, user: User, device: Device | None = None, app: str = "hall"
+) -> str:
     """Возвращает токен открытым текстом — единственный раз, когда он
     существует вне cookie. В базе лежит только хеш."""
     token = new_token()
@@ -141,9 +148,25 @@ def open_session(db: DbSession, user: User, device: Device | None = None) -> str
             token_hash=token_fingerprint(token),
             expires_at=utcnow() + session_lifetime(user.role),
             last_seen_at=utcnow(),
+            app=app if app in APPS else "hall",
         )
     )
     return token
+
+
+def where_now(db: DbSession, venue_id) -> dict:
+    """Кто где сейчас: {user_id: «зал» / «админка»}.
+
+    По живым сессиям. Человек мог войти и там, и там — тогда показываются оба
+    места: это не ошибка, а как оно и есть.
+    """
+    rows = db.scalars(
+        select(Session).where(Session.venue_id == venue_id, Session.expires_at > utcnow())
+    ).all()
+    out: dict = {}
+    for row in rows:
+        out.setdefault(str(row.user_id), set()).add(row.app)
+    return out
 
 
 def close_session(db: DbSession, token: str) -> None:

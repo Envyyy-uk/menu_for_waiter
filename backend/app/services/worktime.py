@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
@@ -234,6 +234,24 @@ def payload(row: WorkShift | None) -> dict:
     }
 
 
+def is_empty(row: WorkShift) -> bool:
+    """Смена, за которой ничего не стоит.
+
+    Вошёл и тут же вышел: проверил PIN, ошибся экраном, телефон разрядился на
+    входе. Платить за такую нечего, а в списке она стоит наравне с настоящими
+    и мешает найти нужную.
+
+    Ноль минут и закрытый чек — это не пустая смена, а короткая: человек
+    кого-то обслужил, и убрать это значит потерять, чья была выручка.
+    Поправленную руками тоже не считаем пустой: раз её трогали, она кому-то
+    нужна.
+    """
+    if row.closed_at is None or row.minutes > 0 or row.edited_at is not None:
+        return False
+    report = row.report or {}
+    return not (report.get("checks") or report.get("revenue_pence"))
+
+
 def _prune(db: DbSession, venue_id) -> None:
     """Год — и хватит. Дальше это уже не табель, а склад мусора."""
     edge = utcnow() - timedelta(days=KEEP_DAYS)
@@ -246,3 +264,117 @@ def _prune(db: DbSession, venue_id) -> None:
     ).all()
     for row in old:
         db.delete(row)
+
+    # Заодно — пустые. Вошёл и тут же вышел: проверил PIN, ошибся экраном,
+    # телефон разрядился на входе. Платить за такую смену нечего, а в списке
+    # она стоит наравне с настоящими и мешает найти нужную.
+    #
+    # Но только если за ней ничего не стоит. Ноль минут и закрытый чек — это
+    # не пустая смена, а короткая: человек кого-то обслужил, и стереть это
+    # значит потерять, чья была выручка. Поправленную руками тоже не трогаем:
+    # раз её трогали, она кому-то нужна.
+    for row in db.scalars(
+        select(WorkShift).where(
+            WorkShift.venue_id == venue_id,
+            WorkShift.closed_at.is_not(None),
+            WorkShift.minutes <= 0,
+            WorkShift.edited_at.is_(None),
+        )
+    ).all():
+        if is_empty(row):
+            db.delete(row)
+
+
+def edit_hours(
+    db: DbSession,
+    row: WorkShift,
+    by: User,
+    *,
+    opened_at: datetime | None = None,
+    closed_at: datetime | None = None,
+) -> WorkShift:
+    """Поправить часы руками.
+
+    Человек забыл закрыть смену, или открыл её на полчаса позже, чем вышел на
+    работу. Спорить об этом потом нечем, если часы нельзя поправить, — а
+    подгонять их удалением и заведением заново значит потерять и снимок
+    вечера, и след правки.
+
+    Правка помечается: в табеле такая строка не должна выглядеть так же, как
+    отработанное время.
+    """
+    start = opened_at or row.opened_at
+    end = closed_at if closed_at is not None else row.closed_at
+    if end is None:
+        raise WorkError("Смена ещё идёт — сначала закройте её", status=409)
+    if end <= start:
+        raise WorkError("Конец смены раньше начала", status=422)
+
+    minutes = int((end - start).total_seconds() // 60)
+    if minutes > MAX_HOURS * 60:
+        raise WorkError(f"Больше {MAX_HOURS} часов подряд не работает никто", status=422)
+
+    was = {"opened_at": row.opened_at.isoformat(), "minutes": row.minutes}
+    row.opened_at = start
+    row.closed_at = end
+    row.minutes = minutes
+    row.edited_at = utcnow()
+    row.edited_by_id = by.id
+    # Снимок вечера пересчитывать не по чему — цены и чеки те же. Но время в
+    # нём должно сойтись с новыми часами, иначе отчёт спорит сам с собой.
+    report = dict(row.report or {})
+    report.update(
+        {
+            "opened_at": start.isoformat(),
+            "closed_at": end.isoformat(),
+            "minutes": minutes,
+            "hours_text": hours_text(minutes),
+            "edited": True,
+        }
+    )
+    row.report = report
+
+    record.write(
+        db,
+        venue_id=row.venue_id,
+        user_id=by.id,
+        action="work.edit",
+        entity=f"user:{row.user_id}",
+        before=was,
+        after={
+            "name": row.name_snapshot,
+            "opened_at": start.isoformat(),
+            "closed_at": end.isoformat(),
+            "minutes": minutes,
+            "hours": hours_text(minutes),
+        },
+    )
+    return row
+
+
+def close_for(db: DbSession, user: User, by: User) -> WorkShift:
+    """Закрыть чужую смену — за того, кто забыл.
+
+    Забывают всегда: человек уходит домой, а смена идёт до утра и превращается
+    в четырнадцать часов сна в табеле. Заставлять его возвращаться и вводить
+    PIN — не решение, а способ получить враньё в отчёте.
+
+    Открытые чеки здесь не держат: человек уже ушёл, и стол за него закроет
+    менеджер. Но в журнале видно, что смену закрыл не он.
+    """
+    row = current(db, user)
+    if row is None:
+        raise WorkError("Смена не открыта", status=409)
+    _finish(db, row, user, auto=False)
+    row.edited_at = utcnow()
+    row.edited_by_id = by.id
+    record.write(
+        db,
+        venue_id=row.venue_id,
+        user_id=by.id,
+        action="work.close.by",
+        entity=f"user:{user.id}",
+        after={"name": user.name, "minutes": row.minutes, "hours": hours_text(row.minutes)},
+    )
+    _prune(db, row.venue_id)
+    return row

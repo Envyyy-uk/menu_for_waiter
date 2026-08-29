@@ -160,6 +160,44 @@ def main() -> None:
         check("видно и часы, и сами смены",
               "Часы" in panel and "Смены" in panel, panel.replace("\n", " ")[:200])
 
+        # --- где человек сейчас --------------------------------------------
+        # Роль на вопрос «где он» не отвечает: бармен бывает и в зале, и в
+        # админке, а искать глазами по заведению — дольше.
+        admin.locator(".tab", has_text="ерсонал").click()
+        admin.wait_for_timeout(900)
+        # Сам администратор сидит в админке — это и должно быть написано.
+        # Строка ищется по первой ячейке: слово «Владелец» стоит ещё и на
+        # кнопке смены роли в каждой чужой строке.
+        boss = admin.locator("tr:has(td:first-child:text-is('Владелец'))").first.inner_text()
+        check("в персонале видно, где человек", "админк" in boss.lower(),
+              boss.replace("\n", " ")[:120])
+        # А ушедший домой не числится нигде: система не должна врать, что он
+        # ещё здесь.
+        gone = admin.locator("tr", has_text=name).first.inner_text()
+        check("вышедший из системы нигде не числится", "зал" not in gone.lower(),
+              gone.replace("\n", " ")[:120])
+
+        # --- часы правятся руками ------------------------------------------
+        # Человек вышел на работу раньше, чем открыл смену: спорить об этом
+        # потом нечем, если часы нельзя поправить.
+        admin.locator(".tab", has_text="абел").click()
+        admin.wait_for_timeout(900)
+        admin.get_by_role("button", name="Часы", exact=True).first.click()
+        admin.wait_for_timeout(700)
+        check("форма правки часов открылась",
+              admin.locator("#sheet input[type='datetime-local']").count() == 2,
+              str(admin.locator("#sheet input").count()))
+        from_field = admin.locator("#sheet input[type='datetime-local']").first
+        was = from_field.input_value()
+        # Отматываем начало на два часа назад.
+        moved = was[:11] + f"{max(0, int(was[11:13]) - 2):02d}" + was[13:]
+        from_field.fill(moved)
+        admin.get_by_role("button", name="Сохранить").click()
+        admin.wait_for_timeout(1500)
+        panel = admin.locator(".panel").inner_text()
+        check("правка сохранилась и помечена", "поправлено" in panel,
+              panel.replace("\n", " ")[:220])
+
         check("ошибок в консоли нет", not errors, "; ".join(errors[:3]))
         browser.close()
 

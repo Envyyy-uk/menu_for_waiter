@@ -133,7 +133,11 @@ const Auth = {
     this.busy = true;
     const pin = this.pin;
     try {
-      this.me = await API.post('/api/auth/pin', { pin });
+      // Откуда вошли — знает только сам экран, и админке потом нужно уметь
+      // ответить, где человек сейчас: искать его глазами по заведению дольше.
+      const app = location.pathname.startsWith('/admin') ? 'admin'
+        : location.pathname.startsWith('/station') ? 'station' : 'hall';
+      this.me = await API.post('/api/auth/pin', { pin, app });
       this.pin = '';
       // Роль решает, какое приложение открывать. Официант, попавший на
       // планшет бара, должен увидеть свои столы, а не чужие марки.
