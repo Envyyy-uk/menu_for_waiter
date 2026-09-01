@@ -1395,6 +1395,73 @@ const Admin = {
     return wrap;
   },
 
+  changeUnit(item) {
+    Sheet.show(esc(item.name), `Сейчас: ${item.quantity} ${esc(item.unit_name)}`, body => {
+      body.appendChild(el('p', 'hint',
+        'Миллилитры — если наливают: джин из бутылки, сок из пачки. Граммы — '
+        + 'если взвешивают. Штуки — если берут целиком: банка, бутылка пива.'));
+
+      const units = (this.data.stock.units || []).filter(u => u.key !== item.unit);
+      let picked = units.length ? units[0].key : item.unit;
+
+      const row = el('div', 'opts');
+      const paint = () => {
+        row.innerHTML = '';
+        units.forEach(u => {
+          const b = el('button', 'opt' + (u.key === picked ? ' on' : ''), esc(u.name));
+          b.addEventListener('click', () => { picked = u.key; paint(); hint(); });
+          row.appendChild(b);
+        });
+      };
+      body.appendChild(row);
+
+      // Сколько новых единиц в одной старой. Бутылка крепкого — 700, вина —
+      // 750, пачка сока — 1000: цифру всё равно знает только тот, кто держал
+      // её в руках, но начинать с пустого поля незачем.
+      const factor = el('input', 'field');
+      factor.inputMode = 'decimal';
+      factor.value = '700';
+      const note = el('p', 'hint');
+      const hint = () => {
+        const f = parseFloat((factor.value || '0').replace(',', '.')) || 0;
+        // Округление только для показа: считает всё равно сервер, а
+        // «2099.9999999999995» в подсказке пугает больше, чем объясняет.
+        const after = Math.round(Number(item.quantity) * f * 100) / 100;
+        const name = (units.find(u => u.key === picked) || {}).name || '';
+        note.textContent = f > 0
+          ? `Было ${item.quantity} ${item.unit_name} — станет ${after} ${name}.`
+            + ' Расход в правилах пересчитается так же.'
+          : 'Впишите, сколько новых единиц в одной старой.';
+      };
+      factor.addEventListener('input', hint);
+
+      body.appendChild(this.field(
+        `Сколько «${(units.find(u => u.key === picked) || {}).name || ''}» в одной «${item.unit_name}»`,
+        factor));
+      body.appendChild(note);
+      paint();
+      hint();
+      body.appendChild(el('div', '', '<div style="height:12px"></div>'));
+
+      const save = el('button', 'btn wide big primary', 'Пересчитать');
+      save.addEventListener('click', async () => {
+        const f = parseFloat((factor.value || '0').replace(',', '.'));
+        if (!(f > 0)) return toast('Пересчёт должен быть больше нуля', 'bad');
+        Sheet.hide();
+        try {
+          const after = await API.patch(`/api/stock/${item.id}`,
+            { unit: picked, factor: f });
+          toast(`${item.name}: ${after.quantity} ${after.unit_name}`
+            + (after.cleared
+                ? `. Расход в ${after.cleared} правилах пересчитан — проверьте`
+                : ''), 'good', after.cleared ? 8000 : 4000);
+          this.load();
+        } catch (e) { toast(e.message, 'bad'); }
+      });
+      body.appendChild(save);
+    });
+  },
+
   async fillStock() {
     try {
       const made = await API.post('/api/stock/fill');
@@ -1457,42 +1524,15 @@ const Admin = {
     });
     box.appendChild(move);
 
-    // Единицу меняют, когда поняли, как это считают на самом деле: сок
-    // приезжает пачками, а наливают его в стакан. Кнопка есть, пока по
-    // позиции не было движений: «3» в штуках и «3» в миллилитрах — разные
-    // три, и менять единицу под чужой цифрой нельзя.
-    if (item.state === 'new') {
-      const unit = el('button', 'btn', 'Единица');
-      unit.addEventListener('click', () => {
-        Sheet.show(esc(item.name), `Сейчас считается в «${esc(item.unit_name)}»`, body => {
-          body.appendChild(el('p', 'hint',
-            'Миллилитры — если наливают: сок из пачки, вино из бутылки. '
-            + 'Граммы — если взвешивают. Штуки — если берут целиком: банка, '
-            + 'бутылка пива.'));
-          (this.data.stock.units || []).forEach(u => {
-            const b = el('button', 'btn wide big' + (u.key === item.unit ? ' primary' : ''),
-                         esc(u.name));
-            b.addEventListener('click', async () => {
-              Sheet.hide();
-              try {
-                const after = await API.patch(`/api/stock/${item.id}`, { unit: u.key });
-                // Расход в правилах записан числом без единицы: «1» из «одна
-                // банка» стало бы «один миллилитр». Об этом надо сказать, а
-                // не молча оставить неверный расход.
-                toast(`${item.name} теперь считается в «${u.name}»`
-                  + (after.cleared
-                      ? `. Расход в ${after.cleared} правилах обнулён — впишите заново`
-                      : ''), 'good', after.cleared ? 7000 : 4000);
-                this.load();
-              } catch (e) { toast(e.message, 'bad'); }
-            });
-            body.appendChild(b);
-            body.appendChild(el('div', '', '<div style="height:8px"></div>'));
-          });
-        });
-      });
-      box.appendChild(unit);
-    }
+    // Единицу меняют, когда поняли, как это считают на самом деле: джин
+    // завели штуками, а наливают его по 50 мл.
+    //
+    // Просто переписать название единицы нельзя: «3» в штуках и «3» в
+    // миллилитрах — разные три. Поэтому вместе с пересчётом: три бутылки по
+    // 700 — это 2100 миллилитров, и остаток остаётся тем же остатком.
+    const unit = el('button', 'btn', 'Единица');
+    unit.addEventListener('click', () => this.changeUnit(item));
+    box.appendChild(unit);
 
     const history = el('button', 'btn', 'История');
     history.addEventListener('click', async () => {

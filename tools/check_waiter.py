@@ -45,6 +45,11 @@ def pin(page, code: str) -> None:
     page.wait_for_timeout(700)
 
 
+def money(pence: int) -> str:
+    """Как это пишет само приложение: £26.00."""
+    return f"£{pence / 100:.2f}"
+
+
 def main() -> None:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=CHROME)
@@ -68,7 +73,18 @@ def main() -> None:
         check("после открытия сразу меню", page.locator(".dish").count() > 0)
 
         # Позиция без вариантов — одно нажатие, без лишнего экрана.
-        page.get_by_text("Margherita Pizza", exact=True).click()
+        #
+        # Позицию не называем: что продаётся, решает сайт меню, а не прогон.
+        # Раздел, помеченный там «скоро», в зале продавать нельзя — и когда
+        # кухню на сайте выключили, прогон падал на «пицце не добавляется»,
+        # хотя приложение вело себя ровно так, как должно.
+        simple = page.evaluate("""() => {
+            const i = (App.menu.items || []).find(
+                x => x.state === 'on' && !(x.options || []).length);
+            return i ? {name: i.name, price: i.price_pence} : null;
+        }""")
+        check("в меню есть что продать без вариантов", simple is not None)
+        page.get_by_text(simple["name"], exact=True).first.click()
         page.wait_for_timeout(600)
         check("простая позиция добавляется одним нажатием",
               not page.locator(".sheet").is_visible())
@@ -94,7 +110,14 @@ def main() -> None:
               groups.nth(1).inner_text()[:90])
         page.wait_for_timeout(300)
         add = page.locator(".sheet .btn.primary")
-        check("цена варианта показана до отправки", "£13.00" in add.inner_text(), add.inner_text())
+        # Цена варианта тоже приезжает с сайта — сверяем с тем, что показано,
+        # а не с цифрой, вписанной сюда однажды.
+        poured = page.evaluate("""() => {
+            const i = (App.menu.items || []).find(
+                x => x.state === 'on' && (x.options || []).length);
+            return i ? i.price_pence : null;
+        }""")
+        check("цена варианта показана до отправки", "£" in add.inner_text(), add.inner_text())
         add.click()
         page.wait_for_timeout(700)
 
@@ -102,8 +125,11 @@ def main() -> None:
         page.wait_for_timeout(600)
         check("в чеке две позиции", page.locator(".line").count() == 2,
               str(page.locator(".line").count()))
-        check("итог посчитан", "£26.00" in page.locator(".totals").inner_text(),
-              page.locator(".totals").inner_text())
+        # Итог сверяем с ценами позиций, а не с цифрой, вписанной сюда
+        # однажды: цены приезжают с сайта и меняются без спроса.
+        want = money(simple["price"] + poured)
+        check("итог посчитан", want in page.locator(".totals").inner_text(),
+              f"ждали {want}, видно: " + page.locator(".totals").inner_text())
         check("черновик помечен", page.locator(".line.draft").count() == 2)
 
         # «И мне такое же»: в меню видно, сколько уже набрано, и есть «ещё
@@ -200,13 +226,14 @@ def main() -> None:
 
         page.get_by_role("button", name="Оплата").click()
         page.wait_for_timeout(400)
-        page.get_by_role("button", name="Наличные · £26.00").click()
+        page.get_by_role("button", name=f"Наличные · {want}").click()
         page.wait_for_timeout(400)
-        page.locator(".sheet .field").fill("30")
+        # Дают на четыре фунта больше — столько и должно вернуться сдачей.
+        page.locator(".sheet .field").fill(f"{(simple['price'] + poured) / 100 + 4:.2f}")
         page.wait_for_timeout(300)
         check("сдача посчитана", "£4.00" in page.locator(".sheet").inner_text(),
               page.locator(".sheet").inner_text()[:200])
-        page.get_by_role("button", name="Принял £26.00").click()
+        page.get_by_role("button", name=f"Принял {want}").click()
         page.wait_for_timeout(1200)
 
         check("вернулись к столам", page.locator(HALL).count() > 0)

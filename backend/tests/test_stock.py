@@ -770,21 +770,63 @@ def test_unit_can_be_fixed_while_nobody_counted(client, db, hall):
     assert stock_of(client, "Orange Juice")["unit"] == "ml"
 
 
-def test_unit_is_locked_once_the_shelf_was_counted(client, db, hall):
+def test_a_counted_shelf_is_recounted_not_renamed(client, db, hall):
     """«3» в штуках и «3» в миллилитрах — это разные три.
 
-    Переписать единицу под чужой цифрой значит соврать в инвентаризации, не
-    тронув ни одного числа.
+    Раньше на этом единицу просто запирали, и джин, заведённый штуками,
+    оставался штучным навсегда — а наливают его по 50 мл. Теперь единицу
+    меняют вместе с пересчётом: три пачки по 700 — это 2100 миллилитров,
+    и остаток остаётся тем же самым остатком.
     """
     login(client, "123456")
     client.post("/api/stock/fill")
     juice = stock_of(client, "Orange Juice")
     client.post(f"/api/stock/{juice['id']}/move", json={"delta": 3, "reason": "in"})
 
-    r = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml"})
-    assert r.status_code == 409
-    assert "остаток" in r.json()["detail"].lower()
+    r = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml", "factor": 700})
+    assert r.status_code == 200
+
+    now = stock_of(client, "Orange Juice")
+    assert now["unit"] == "ml"
+    assert float(now["quantity"]) == 2100
+
+
+def test_the_recount_is_a_movement_not_a_new_number(client, db, hall):
+    """Иначе на вопрос «куда делись две пачки» ответить будет нечем."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    juice = stock_of(client, "Orange Juice")
+    client.post(f"/api/stock/{juice['id']}/move", json={"delta": 3, "reason": "in"})
+    client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml", "factor": 700})
+
+    last = client.get(f"/api/stock/{juice['id']}/moves").json()[0]
+    assert last["reason"] == "count"
+    assert float(last["delta"]) == 2097
+    assert last["note"] == "смена единицы: 3 шт → 2100 мл"
+
+
+def test_a_recount_without_a_number_is_refused(client, db, hall):
+    """Ноль или минус — это не пересчёт, а потерянный остаток."""
+    login(client, "123456")
+    client.post("/api/stock/fill")
+    juice = stock_of(client, "Orange Juice")
+
+    r = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml", "factor": 0})
+    assert r.status_code == 422
     assert stock_of(client, "Orange Juice")["unit"] == "pc"
+
+
+def test_the_threshold_is_recounted_too(client, db, hall):
+    """«Мало, когда меньше двух» в миллилитрах значит другое.
+
+    Оставить порог как есть — значит показывать «мало» на полной полке
+    каждый день, пока на это не перестанут смотреть.
+    """
+    login(client, "123456")
+    made = make(client, "Gordon's", unit="pc", quantity=3, low=2)
+
+    client.patch(f"/api/stock/{made['id']}", json={"unit": "ml", "factor": 700})
+    assert float(stock_of(client, "Gordon's")["low_at"]) == 1400
 
 
 def test_fill_adds_mixers_to_a_bottle_it_already_knew(client, db, hall):
@@ -818,12 +860,13 @@ def test_fill_adds_mixers_to_a_bottle_it_already_knew(client, db, hall):
     assert len(again) == before
 
 
-def test_changing_the_unit_clears_the_amounts(client, db, hall):
-    """«1» из «одна банка» не должна стать «одним миллилитром сока».
+def test_changing_the_unit_recounts_the_amounts(client, db, hall):
+    """«1» из «одна пачка» не должна стать «одним миллилитром сока».
 
     Расход записан числом без единицы, и после смены единицы он значит
-    другое. Ноль виден в списке как «без расхода», а выдуманная цифра
-    списывает неправильно и молчит.
+    другое. Умножаем на тот же множитель: одна пачка и есть семьсот
+    миллилитров. Цифра может выйти не той, какую хотели, — но она упрётся
+    в остаток вслух, а не промолчит, как ноль.
     """
     login(client, "123456")
     client.post("/api/stock/fill")
@@ -833,12 +876,64 @@ def test_changing_the_unit_clears_the_amounts(client, db, hall):
               if r["stock_item"] == "Orange Juice"]
     assert any(float(r["per_unit"]) == 1 for r in before)
 
-    after = client.patch(f"/api/stock/{juice['id']}", json={"unit": "ml"}).json()
+    after = client.patch(
+        f"/api/stock/{juice['id']}", json={"unit": "ml", "factor": 700}
+    ).json()
     assert after["cleared"] >= 1
 
     now = [r for r in client.get("/api/stock/recipes").json()
            if r["stock_item"] == "Orange Juice"]
-    assert all(float(r["per_unit"]) == 0 for r in now)
+    assert all(float(r["per_unit"]) == 700 for r in now)
+
+
+def test_a_hand_written_amount_survives_the_recount(client, db, hall):
+    """Правило «50 мл джина» вписывают руками — и оно не должно обнулиться."""
+    login(client, "123456")
+    made = client.post("/api/menu/items", json={
+        "name": "Джин-тоник", "price_pence": 900, "category": "cocktails", "station": "bar",
+    }).json()
+    gin = make(client, "Gordon's", unit="pc", quantity=2)
+    rule = client.post("/api/stock/recipes", json={
+        "menu_item_id": made["id"], "stock_item_id": gin["id"],
+        "options": {}, "per_unit": 1,
+    }).json()
+
+    client.patch(f"/api/stock/{gin['id']}", json={"unit": "ml", "factor": 700})
+
+    now = next(r for r in client.get("/api/stock/recipes").json()
+               if r["id"] == rule["id"])
+    assert float(now["per_unit"]) == 700
+
+
+def test_a_bottle_turned_into_millilitres_stops_pouring_whole_bottles(client, db, hall):
+    """Тот же бокал вина, только с другой стороны.
+
+    Джин завели штуками, правило — «одна штука за порцию». После пересчёта
+    это «700», и порция в 50 мл унесла бы всю бутылку. Перевод в миллилитры
+    и есть заявление «отсюда наливают»: объём берётся из выбора.
+    """
+    from app.models import MenuItem, Recipe, StockItem
+
+    login(client, "123456")
+    item = db.scalars(select(MenuItem).where(MenuItem.key == "absolut")).one()
+    shelf = StockItem(venue_id=item.venue_id, name="Absolut", unit="pc",
+                      quantity=2, low_at=0)
+    db.add(shelf)
+    db.flush()
+    db.add(Recipe(venue_id=item.venue_id, menu_item_id=item.id,
+                  stock_item_id=shelf.id, options={}, per_unit=1))
+    db.commit()
+
+    client.patch(f"/api/stock/{shelf.id}", json={"unit": "ml", "factor": 700})
+
+    login(client, "1111")
+    check = open_check(client, hall)
+    client.post(f"/api/checks/{check['id']}/items", json={
+        "menu_item_id": str(item.id), "options": {"size": "ml50"}})
+    client.post(f"/api/checks/{check['id']}/send")
+
+    login(client, "123456")
+    assert float(stock_of(client, "Absolut")["quantity"]) == 1350
 
 
 def test_the_second_identical_one_is_checked_against_the_shelf_too(client, db, hall):

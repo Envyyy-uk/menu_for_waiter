@@ -174,6 +174,39 @@ def main() -> None:
         page.locator(".veil, .sheet-bg").first.click()
         page.wait_for_timeout(400)
 
+        # Джин завели штуками, а наливают его по 50 мл. Единицу меняют
+        # вместе с пересчётом: остаток должен остаться тем же остатком.
+        gin = f"Gordon-{random.randrange(100, 999)}"
+        page.get_by_placeholder("Название (Absolut, лимоны…)").fill(gin)
+        page.locator(".form select").first.select_option("pc")
+        page.get_by_placeholder("Сколько сейчас").fill("3")
+        page.get_by_role("button", name="Завести позицию").click()
+        page.wait_for_timeout(1200)
+        check("позиция заведена штуками", "шт" in row_of(page, gin).inner_text(),
+              row_of(page, gin).inner_text())
+
+        row_of(page, gin).get_by_role("button", name="Единица").click()
+        page.wait_for_timeout(600)
+        sheet = page.locator(".sheet")
+        sheet.locator(".opt", has_text="мл").first.click()
+        page.wait_for_timeout(200)
+        check("подсказка считает вслух, во что превратится остаток",
+              "2100" in sheet.inner_text(), sheet.inner_text()[:200])
+        page.get_by_role("button", name="Пересчитать").click()
+        page.wait_for_timeout(1400)
+        check("три штуки стали 2100 миллилитрами",
+              "2100" in row_of(page, gin).inner_text()
+              and "мл" in row_of(page, gin).inner_text(),
+              row_of(page, gin).inner_text())
+
+        row_of(page, gin).get_by_role("button", name="История").click()
+        page.wait_for_timeout(800)
+        text = page.locator(".sheet").inner_text()
+        check("и пересчёт записан движением, а не подменой числа",
+              "смена единицы" in text, text[:200])
+        page.locator(".veil, .sheet-bg").first.click()
+        page.wait_for_timeout(400)
+
         # Менеджеру склад не показывают вовсе.
         page.get_by_role("button", name="Выйти").click()
         page.wait_for_timeout(900)

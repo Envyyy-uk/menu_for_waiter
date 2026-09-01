@@ -39,6 +39,40 @@ from app.models import (
 from app.services import push, realtime
 
 
+# Что стоит на полке бутылкой и наливается. Считается миллилитрами, даже
+# если в меню продаётся только целиком: бутылка водки остаётся бутылкой
+# водки, а «1 шт» перестанет сходиться в тот день, когда рядом появится
+# 50 мл — и не скажет об этом, просто начнёт списывать бутылку за порцию.
+POURED = ("spirits", "wine")
+
+# Сколько миллилитров в бутылке по умолчанию. Цифру потом правят руками —
+# важно, чтобы правило вообще было, а не чтобы оно было точным с первой
+# секунды. У вина бутылка своя, 0,75.
+BOTTLE_ML = 700
+WINE_BOTTLE_ML = 750
+
+
+def bottle_ml(item: MenuItem) -> int:
+    return WINE_BOTTLE_ML if item.category == "wine" else BOTTLE_ML
+
+
+def pours(item: MenuItem) -> bool:
+    """Наливается ли это с полки.
+
+    Не по тому, есть ли в меню «50 мл»: у Grey Goose в меню одна только
+    бутылка, но на полке это та же бутылка водки. Считать её штукой значит
+    поймать ошибку в тот день, когда в меню добавят порцию, — и не заметить,
+    потому что списываться начнёт бутылка за каждые 50 мл.
+    """
+    if item.category in POURED:
+        return True
+    return any(
+        str(choice.get("key", "")).startswith("ml")
+        for group in (item.options or [])
+        for choice in (group.get("choices") or [])
+    )
+
+
 class StockError(Exception):
     def __init__(self, message: str, status: int = 400):
         super().__init__(message)
@@ -273,13 +307,14 @@ def shortages(db: Session, rows: Iterable[CheckItem]) -> list[dict[str, Any]]:
 def shortage_text(rows: list[dict[str, Any]]) -> str:
     """«Absolut: нужно 150 мл, на складе 100 мл» — так это читают."""
     return "Не хватает на складе. " + "; ".join(
-        f"{r['name']}: нужно {_num(r['need'])} {r['unit_name']}, "
-        f"есть {_num(r['have'])} {r['unit_name']}"
+        f"{r['name']}: нужно {num(r['need'])} {r['unit_name']}, "
+        f"есть {num(r['have'])} {r['unit_name']}"
         for r in rows
     )
 
 
-def _num(value: float) -> str:
+def num(value: float) -> str:
+    """«700», а не «700.0»: это читает человек, а не машина."""
     return str(int(value)) if float(value).is_integer() else str(value)
 
 

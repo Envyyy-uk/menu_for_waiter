@@ -36,7 +36,7 @@ from app.models import (
     Venue,
 )
 from app.services import realtime, stock
-from app.services.stock import SIZE_GROUPS
+from app.services.stock import SIZE_GROUPS, bottle_ml, pours
 from app.services.audit import record
 
 router = APIRouter(prefix="/api/stock", tags=["склад"])
@@ -80,19 +80,6 @@ def listing(
 #
 # Разбираем только то, что собирают руками: коктейли и кухню.
 MADE_HERE = ("cocktails", "pizza", "traditional", "desserts", "platters")
-
-# Что стоит на полке бутылкой и наливается. Считается миллилитрами, даже
-# если в меню продаётся только целиком: бутылка водки остаётся бутылкой
-# водки, а «1 шт» перестанет сходиться в тот день, когда рядом появится
-# 50 мл — и не скажет об этом, просто начнёт списывать бутылку за порцию.
-POURED = ("spirits", "wine")
-
-# Сколько миллилитров в бутылке по умолчанию. Цифру потом правят руками —
-# важно, чтобы правило вообще было, а не чтобы оно было точным с первой
-# секунды. У вина бутылка своя, 0,75.
-BOTTLE_ML = 700
-WINE_BOTTLE_ML = 750
-
 
 @router.post("/fill", status_code=201)
 def fill(
@@ -148,25 +135,6 @@ def fill(
             have_names[name] = row
             made_items += 1
         return row
-
-    def bottle_ml(item: MenuItem) -> int:
-        return WINE_BOTTLE_ML if item.category == "wine" else BOTTLE_ML
-
-    def pours(item: MenuItem) -> bool:
-        """Наливается ли это с полки.
-
-        Не по тому, есть ли в меню «50 мл»: у Grey Goose в меню одна только
-        бутылка, но на полке это та же бутылка водки. Считать её штукой
-        значит поймать ошибку в тот день, когда в меню добавят порцию, —
-        и не заметить, потому что списываться начнёт бутылка за каждые 50 мл.
-        """
-        if item.category in POURED:
-            return True
-        return any(
-            str(choice.get("key", "")).startswith("ml")
-            for group in (item.options or [])
-            for choice in (group.get("choices") or [])
-        )
 
     # Вариант, названный так же, как позиция меню, — это она и есть. Микс
     # «Cola» к водке и есть та банка колы, что стоит в меню отдельной строкой.
@@ -427,6 +395,8 @@ def create(
 class ItemPatch(BaseModel):
     name: str | None = None
     unit: str | None = None
+    # Сколько новых единиц в одной старой: бутылка — это 700 миллилитров.
+    factor: float | None = None
     low_at: float | None = None
     note: str | None = None
     active: bool | None = None
@@ -445,35 +415,72 @@ def edit(
     if body.name is not None:
         item.name = body.name.strip()
     if body.unit is not None and body.unit != item.unit:
-        # Единицу меняют, когда поняли, как это считают на самом деле: сок
-        # приезжает пачками, а наливают его в стакан — значит миллилитры, а
-        # не «штуки».
+        # Единицу меняют, когда поняли, как это считают на самом деле: джин
+        # завели штуками, а наливают его по 50 мл — значит миллилитры.
         #
-        # Но только пока по позиции не было движений. «3» в штуках и «3» в
-        # миллилитрах — это разные три, и переписать единицу под чужой цифрой
-        # значит соврать в инвентаризации, не тронув ни одного числа.
+        # Просто переписать название единицы нельзя: «3» в штуках и «3» в
+        # миллилитрах — это разные три, и подмена соврала бы в инвентаризации,
+        # не тронув ни одного числа. Поэтому меняем вместе с пересчётом:
+        # сколько новых единиц в одной старой. Три бутылки по 700 — это 2100
+        # миллилитров, и остаток остаётся тем же самым остатком.
         if body.unit not in UNITS:
             raise HTTPException(status_code=422, detail="Такой единицы нет")
-        if item.id in stock.touched(db, venue.id):
-            raise HTTPException(
-                status_code=409,
-                detail="По этой позиции уже считали остаток. "
-                "Единицу можно поменять, только пока движений не было.",
-            )
+
+        was_unit = item.unit
+        # Не «or 1»: ноль — это не «не указали», а потерянный остаток, и
+        # молча превратить его в единицу значит переписать единицу под чужой
+        # цифрой — ровно то, от чего пересчёт и защищает.
+        factor = 1.0 if body.factor is None else float(body.factor)
+        if factor <= 0:
+            raise HTTPException(status_code=422, detail="Пересчёт должен быть больше нуля")
+
         item.unit = body.unit
-        # Расход в правилах записан числом без единицы. Была штука — станет
-        # миллилитр, и «1» из «одна банка» молча превратится в «один
-        # миллилитр сока». Обнуляем: ноль виден в списке как «без расхода» и
-        # ничего не списывает, а выдуманная цифра списывает неправильно и
-        # молчит.
-        cleared = 0
+        if factor != 1:
+            # Остаток пересчитывается движением, а не подменой числа: иначе на
+            # вопрос «куда делись две бутылки» ответить будет нечем.
+            before = Decimal(str(item.quantity))
+            after = before * Decimal(str(factor))
+            if after != before:
+                stock.move(
+                    db, item, after - before, MOVE_COUNT, user=actor,
+                    note=f"смена единицы: {stock.num(float(before))} "
+                         f"{UNIT_NAMES.get(was_unit, was_unit)} → "
+                         f"{stock.num(float(after))} {UNIT_NAMES.get(item.unit, item.unit)}",
+                )
+            item.low_at = Decimal(str(item.low_at)) * Decimal(str(factor))
+
+        # Расход в правилах записан числом без единицы, и после пересчёта он
+        # значит другое. Умножаем на тот же множитель: «одна бутылка» и есть
+        # семьсот миллилитров. Цифра может выйти не той, какую хотели, — но
+        # она хотя бы верна арифметически и упрётся в остаток вслух, а не
+        # промолчит, как ноль.
         for rule in db.scalars(
             select(Recipe).where(Recipe.stock_item_id == item.id)
         ).all():
             if rule.by_volume or float(rule.per_unit) == 0:
                 continue
-            rule.per_unit = 0
+            rule.per_unit = Decimal(str(rule.per_unit)) * Decimal(str(factor))
             cleared += 1
+
+            # Перевод в миллилитры — это и есть заявление «отсюда наливают».
+            # Пересчитанного числа мало: правило «700» без объёма спишет
+            # бутылку и за порцию в 50 мл — та самая ошибка, из-за которой
+            # бокал вина уносил всю бутылку. Читаем объём из выбора.
+            if item.unit != UNIT_ML or rule.options:
+                continue
+            dish = db.get(MenuItem, rule.menu_item_id)
+            if dish is not None and pours(dish):
+                rule.by_volume = True
+
+        record.write(
+            db,
+            venue_id=venue.id,
+            user_id=actor.id,
+            action="stock.unit",
+            entity=f"stock:{item.name}",
+            before={"unit": was_unit},
+            after={"unit": item.unit, "factor": factor, "rules": cleared},
+        )
     if body.low_at is not None:
         item.low_at = Decimal(str(body.low_at))
     if body.note is not None:
